@@ -68,6 +68,20 @@ renders them. Getting this one pattern right makes the Nth integration mechanica
 > state, error handling, testing) are still being designed — see
 > `docs/superpowers/specs/` once the design doc is written.
 
+## Code conventions
+
+**This is a learning project — explain as you go.**
+
+- At the **top of every file**, add a *concise* comment stating the file's role —
+  one line unless more is genuinely needed for clarity.
+- At the **top of each significant block of code** (a function, a non-obvious
+  algorithm, a tricky wiring point), add a *concise* explanation of what it does
+  and why — again, one line by default.
+- Keep comments short and high-signal. Explain *role and intent*, not syntax.
+  Don't narrate the obvious (`// loop over tiles`); do explain the non-obvious
+  (`// reconcile: place tiles that exist in config but aren't yet in the layout`).
+
 ## Status
 
-Brainstorming / design phase. No code yet.
+Implementing **sub-project 1 (layout shell + settings)** — see
+`docs/superpowers/plans/2026-06-16-layout-shell.md`.
