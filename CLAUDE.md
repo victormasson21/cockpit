@@ -81,6 +81,15 @@ renders them. Getting this one pattern right makes the Nth integration mechanica
   Don't narrate the obvious (`// loop over tiles`); do explain the non-obvious
   (`// reconcile: place tiles that exist in config but aren't yet in the layout`).
 
+**Build the simplest thing that works — keep the codebase small.**
+
+- Always make the *smallest* change that satisfies the requirement, as long as it
+  doesn't compromise code quality.
+- Especially for styling/layout: build the plainest version that functions. Don't
+  polish visuals up front — we iterate to make things pretty and fluid *later*.
+- Prefer fewer files, fewer dependencies, fewer abstractions until one is needed.
+  A small, manageable codebase beats a feature-rich one we can't hold in our heads.
+
 ## Status
 
 Implementing **sub-project 1 (layout shell + settings)** — see

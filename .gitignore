@@ -17,6 +17,9 @@ node_modules/
 dist/
 src-tauri/target/
 
+# Machine-local Claude Code settings
+.claude/settings.local.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
