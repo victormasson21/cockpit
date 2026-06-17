@@ -54,13 +54,16 @@ export function Layout({ view }: { view: string }) {
     const panelIds = event.api.panels
       .map((p) => (p.params as { tileId?: string } | undefined)?.tileId)
       .filter((id): id is string => Boolean(id));
-    const { unplacedTiles } = reconcile(cockpit.tiles, panelIds);
+    const { unplacedTiles, orphanPanelIds } = reconcile(cockpit.tiles, panelIds);
     for (const t of unplacedTiles) {
       event.api.addPanel({ id: t.id, component: "tile", title: t.type, params: { tileId: t.id } });
     }
     // Subscribe AFTER the addPanel loop on purpose: dockview's AsapEvent drops the change events those adds
     // queued (snapshot taken at subscription time), so building the initial layout doesn't trigger a spurious save.
     event.api.onDidLayoutChange(() => setView(view, event.api.toJSON()));
+    // Discard panels whose tile no longer exists (design step 4). Panel id === tileId, so getPanel finds them.
+    // Closing after the subscribe persists the cleaned-up layout instead of leaving a dead "Unknown tile" panel.
+    for (const id of orphanPanelIds) event.api.getPanel(id)?.api.close();
   };
 
   // theme prop (not a wrapper className) is how dockview 6.x applies its theme; fill the parent so the workspace is visible.
