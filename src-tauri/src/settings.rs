@@ -10,6 +10,7 @@ pub struct TileInstance {
     pub config: serde_json::Value,
 }
 
+// User-facing display preferences (theme + which view opens on launch).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Preferences {
     pub theme: String,
@@ -61,6 +62,8 @@ mod tests {
         assert_eq!(c.version, 1);
         assert_eq!(c.tiles.len(), 2);
         assert_eq!(c.tiles[0].tile_type, "clock");
+        assert_eq!(c.tiles[1].config, serde_json::json!({ "text": "" }));
+        assert_eq!(c.preferences.theme, "system");
         assert_eq!(c.preferences.default_view, "main");
     }
 }
