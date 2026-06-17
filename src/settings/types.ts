@@ -5,6 +5,7 @@ export interface TileInstance<Config = unknown> {
   config: Config;
 }
 
+// Narrower than the Rust side (plain String): TS encodes the valid domain the backend doesn't enforce.
 export interface Preferences {
   theme: "system" | "light" | "dark";
   defaultView: "main" | "calm";

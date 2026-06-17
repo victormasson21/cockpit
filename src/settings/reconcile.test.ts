@@ -29,4 +29,9 @@ describe("reconcile", () => {
     expect(r.orphanPanelIds).toEqual([]);
     expect(r.placedIds).toEqual([]);
   });
+
+  it("dedups repeated placed panel ids", () => {
+    const r = reconcile(tiles, ["clock-1", "clock-1"]);
+    expect(r.placedIds).toEqual(["clock-1"]);
+  });
 });
