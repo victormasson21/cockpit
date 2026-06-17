@@ -40,6 +40,8 @@ export function Layout({ view }: { view: string }) {
   const { cockpit, layout, setView } = useSettings();
 
   // onReady — restore saved geometry, add any configured-but-unplaced tiles as panels, then persist future layout changes.
+  // Note: captures cockpit.tiles at mount and runs once. Safe because App remounts Layout per view (key={view}) and tiles
+  // don't change at runtime yet; a future "add tile while mounted" feature would need to re-run this or add panels reactively.
   const onReady = (event: DockviewReadyEvent) => {
     const serialized = layout.views[view];
     if (serialized) {
@@ -56,6 +58,8 @@ export function Layout({ view }: { view: string }) {
     for (const t of unplacedTiles) {
       event.api.addPanel({ id: t.id, component: "tile", title: t.type, params: { tileId: t.id } });
     }
+    // Subscribe AFTER the addPanel loop on purpose: dockview's AsapEvent drops the change events those adds
+    // queued (snapshot taken at subscription time), so building the initial layout doesn't trigger a spurious save.
     event.api.onDidLayoutChange(() => setView(view, event.api.toJSON()));
   };
 
