@@ -22,6 +22,7 @@ export interface TileDefinition<Config = unknown> {
 const registry = new Map<string, TileDefinition<any>>();
 
 // Register a tile kind so instances of it can be rendered.
+// Last-write-wins is deliberate: Vite HMR re-runs registration on hot reload, so a duplicate-throw would crash dev.
 export function registerTile<Config>(def: TileDefinition<Config>): void {
   registry.set(def.type, def);
 }
@@ -37,6 +38,8 @@ export function clearRegistry(): void {
 }
 
 // Build a fresh tile instance with the kind's default config.
+// structuredClone so instances never share the definition's mutable default object.
+// Unknown type falls back to {} (not a throw) so a stale cockpit.json entry round-trips to a placeholder instead of crashing.
 export function newInstance(type: string, id: string): TileInstance {
   const def = registry.get(type);
   return { id, type, config: def ? structuredClone(def.defaultConfig) : {} };
