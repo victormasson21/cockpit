@@ -4,6 +4,7 @@ import type { TileProps } from "../registry";
 import { useSettings } from "../../settings/store";
 import { LinksList } from "./LinksList";
 import { NewWorktreeForm } from "./NewWorktreeForm";
+import { TerminalPane } from "../../worktrees/TerminalPane";
 
 // This instance's config: which worktree to display.
 interface WorktreeConfig { worktreeId?: string }
@@ -52,7 +53,12 @@ export function WorktreeTile({ config, updateConfig }: TileProps<WorktreeConfig>
           <div style={{ padding: "4px 6px", fontSize: 12, opacity: 0.7 }}>
             {active.branch} · {active.worktreePath}
           </div>
-          {/* terminals slot in here in Task 8 */}
+          {/* Re-keyed by active.id: switching the dropdown remounts these panes (detach old, attach new) without killing the processes (they live in Rust). */}
+          <div key={active.id} style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+            <TerminalPane title="git" worktreeId={active.id} role="git" cwd={active.worktreePath} />
+            <TerminalPane title="host" worktreeId={active.id} role="host" cwd={active.worktreePath} autostartCmd={active.host.startCmd} />
+            <TerminalPane title="claude" worktreeId={active.id} role="claude" cwd={active.worktreePath} autostartCmd="claude" />
+          </div>
           <LinksList worktreeId={active.id} links={active.links} />
         </div>
       )}
