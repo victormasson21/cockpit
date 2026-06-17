@@ -26,10 +26,12 @@ const components = {
         id={instance.id}
         config={instance.config}
         updateConfig={(next) =>
-          setCockpit({
+          // Functional update: read FRESH cockpit at apply time so this tile-config write doesn't
+          // clobber a sibling write made in the same tick (e.g. addWorktree during worktree create).
+          setCockpit((cockpit) => ({
             ...cockpit,
             tiles: cockpit.tiles.map((t) => (t.id === instance.id ? { ...t, config: next } : t)),
-          })
+          }))
         }
       />
     );

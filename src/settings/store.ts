@@ -8,7 +8,9 @@ interface SettingsState {
   layout: LayoutConfig;
   loaded: boolean;
   init: (s: Settings) => void;
-  setCockpit: (c: CockpitConfig) => void;
+  // Accepts a value or an updater fn; the fn form reads FRESH state at apply time so two
+  // setCockpit calls in one tick compose instead of the second clobbering the first with a stale snapshot.
+  setCockpit: (c: CockpitConfig | ((prev: CockpitConfig) => CockpitConfig)) => void;
   setView: (view: string, serialized: unknown) => void;
   addWorktree: (wt: Worktree) => void;
   updateWorktree: (id: string, patch: Partial<Worktree>) => void;
@@ -30,24 +32,22 @@ export const useSettings = create<SettingsState>((set, get) => ({
   layout: { version: 1, views: {} },
   loaded: false,
   init: (s) => set({ cockpit: s.cockpit, layout: s.layout, loaded: true }),
-  setCockpit: (cockpit) => { set({ cockpit }); scheduleSave(get); },
+  setCockpit: (next) => {
+    set((st) => ({ cockpit: typeof next === "function" ? next(st.cockpit) : next }));
+    scheduleSave(get);
+  },
   setView: (view, serialized) => {
     set((st) => ({ layout: { ...st.layout, views: { ...st.layout.views, [view]: serialized } } }));
     scheduleSave(get);
   },
-  addWorktree: (wt) => {
-    const { cockpit, setCockpit } = get();
-    setCockpit({ ...cockpit, worktrees: [...cockpit.worktrees, wt] });
-  },
-  updateWorktree: (id, patch) => {
-    const { cockpit, setCockpit } = get();
-    setCockpit({
-      ...cockpit,
-      worktrees: cockpit.worktrees.map((w) => (w.id === id ? { ...w, ...patch } : w)),
-    });
-  },
-  removeWorktree: (id) => {
-    const { cockpit, setCockpit } = get();
-    setCockpit({ ...cockpit, worktrees: cockpit.worktrees.filter((w) => w.id !== id) });
-  },
+  // Functional updaters: each reads the current cockpit at apply time, so they never clobber a
+  // concurrent tile-config write (e.g. addWorktree immediately followed by updateConfig on create).
+  addWorktree: (wt) => get().setCockpit((c) => ({ ...c, worktrees: [...c.worktrees, wt] })),
+  updateWorktree: (id, patch) =>
+    get().setCockpit((c) => ({
+      ...c,
+      worktrees: c.worktrees.map((w) => (w.id === id ? { ...w, ...patch } : w)),
+    })),
+  removeWorktree: (id) =>
+    get().setCockpit((c) => ({ ...c, worktrees: c.worktrees.filter((w) => w.id !== id) })),
 }));
