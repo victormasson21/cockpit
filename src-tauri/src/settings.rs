@@ -89,6 +89,7 @@ pub fn load_cockpit(dir: &Path) -> CockpitConfig {
 }
 
 // Load disposable layout geometry; missing or corrupt -> defaults (no backup; it's regenerated at runtime).
+// (to_string_pretty below in save paths can't fail for these String/u32/Value structs, hence the unwraps.)
 pub fn load_layout(dir: &Path) -> LayoutConfig {
     let path = dir.join("layout.json");
     match fs::read_to_string(&path) {
@@ -147,5 +148,13 @@ mod tests {
         let cfg = load_cockpit(dir.path());
         assert_eq!(cfg, CockpitConfig::default());
         assert!(dir.path().join("cockpit.json.bak").exists());
+    }
+
+    // layout.json is disposable: corruption silently falls back to defaults (no backup).
+    #[test]
+    fn load_layout_corrupt_returns_default() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("layout.json"), "{ not json").unwrap();
+        assert_eq!(load_layout(dir.path()), LayoutConfig::default());
     }
 }
