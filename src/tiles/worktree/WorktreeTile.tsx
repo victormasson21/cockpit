@@ -5,6 +5,7 @@ import { useSettings } from "../../settings/store";
 import { LinksList } from "./LinksList";
 import { NewWorktreeForm } from "./NewWorktreeForm";
 import { TerminalPane } from "../../worktrees/TerminalPane";
+import { makePtyId } from "../../worktrees/ptyId";
 
 // This instance's config: which worktree to display.
 interface WorktreeConfig { worktreeId?: string }
@@ -19,9 +20,11 @@ export function WorktreeTile({ config, updateConfig }: TileProps<WorktreeConfig>
   // remove: kill the worktree's 3 PTYs, drop the model, clear the selection (spec §C remove_worktree).
   const removeActive = async () => {
     if (!active) return;
-    for (const role of ROLES) await invoke("pty_kill", { ptyId: `${active.id}:${role}` });
-    removeWorktree(active.id);
+    for (const role of ROLES) await invoke("pty_kill", { ptyId: makePtyId(active.id, role) });
+    // Order matters: updateConfig writes from a render-time cockpit snapshot, while removeWorktree
+    // reads fresh state via get(). Clearing the selection first, then removing last, keeps both writes.
     updateConfig({ worktreeId: undefined });
+    removeWorktree(active.id);
   };
 
   return (

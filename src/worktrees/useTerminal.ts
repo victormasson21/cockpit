@@ -5,6 +5,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import "@xterm/xterm/css/xterm.css";
+import { makePtyId } from "./ptyId";
 
 export interface UseTerminalArgs {
   worktreeId: string;
@@ -16,12 +17,14 @@ export interface UseTerminalArgs {
 // Mount an xterm into a div and keep it attached to the (worktree, role) PTY for the component's lifetime.
 export function useTerminal({ worktreeId, role, cwd, autostartCmd }: UseTerminalArgs) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const ptyIdRef = useRef<string>(`${worktreeId}:${role}`);
+  const ptyIdRef = useRef<string>(makePtyId(worktreeId, role));
+  const termRef = useRef<Terminal | null>(null);
 
   useEffect(() => {
-    const ptyId = `${worktreeId}:${role}`;
+    const ptyId = makePtyId(worktreeId, role);
     ptyIdRef.current = ptyId;
     const term = new Terminal({ convertEol: false, fontSize: 12 });
+    termRef.current = term;
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(containerRef.current!);
@@ -56,6 +59,7 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd }: UseTerminal
     // detach (do NOT kill): switching worktrees leaves the process running in the background.
     return () => {
       disposed = true;
+      termRef.current = null;
       unlisten?.();
       onData.dispose();
       onResize.dispose();
@@ -64,12 +68,15 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd }: UseTerminal
     };
   }, [worktreeId, role, cwd, autostartCmd]);
 
-  // restart: kill then re-ensure for a wedged process.
+  // restart: kill then re-ensure (re-runs autostart) at the terminal's CURRENT size for a wedged process.
   const restart = () => {
     const ptyId = ptyIdRef.current;
-    invoke("pty_kill", { ptyId }).then(() =>
-      invoke("pty_ensure", { worktreeId, role, cwd, autostartCmd, cols: 80, rows: 24 })
-    );
+    const term = termRef.current;
+    const cols = term?.cols ?? 80;
+    const rows = term?.rows ?? 24;
+    invoke("pty_kill", { ptyId })
+      .then(() => invoke("pty_ensure", { worktreeId, role, cwd, autostartCmd, cols, rows }))
+      .catch((e) => term?.write(`\r\n[restart failed: ${String(e)}]\r\n`));
   };
 
   return { containerRef, restart };

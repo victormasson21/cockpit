@@ -118,6 +118,7 @@ renders them. Getting this one pattern right makes the Nth integration mechanica
   an "add tile" UI lands.
 - **Scaffold renamed:** crate, `productName`, and window title are now `cockpit`
   (bundle id `com.cockpit.app` unchanged).
+- Missing/deleted worktree path is not pre-checked: each terminal pane shows an in-pane `[failed to start]` error and the header **remove** action is available (the dedicated "path not found" banner from the design spec §G is deferred).
 
 ## Status
 
