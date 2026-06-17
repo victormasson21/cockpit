@@ -466,7 +466,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "cockpit-scaffold"
+name = "cockpit"
 version = "0.1.0"
 dependencies = [
  "serde",

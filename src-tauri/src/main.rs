@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    cockpit_scaffold_lib::run()
+    cockpit_lib::run()
 }
