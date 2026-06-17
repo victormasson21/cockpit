@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { TileProps } from "../registry";
 import { useSettings } from "../../settings/store";
 import { LinksList } from "./LinksList";
+import { NewWorktreeForm } from "./NewWorktreeForm";
 
 // This instance's config: which worktree to display.
 interface WorktreeConfig { worktreeId?: string }
@@ -41,6 +42,8 @@ export function WorktreeTile({ config, updateConfig }: TileProps<WorktreeConfig>
           </>
         )}
       </div>
+
+      <NewWorktreeForm onCreated={(id) => updateConfig({ worktreeId: id })} />
 
       {!active ? (
         <div style={{ padding: 12, opacity: 0.6 }}>No worktree selected.</div>
