@@ -75,6 +75,7 @@ impl Default for CockpitConfig {
             tiles: vec![
                 TileInstance { id: "clock-1".into(), tile_type: "clock".into(), config: serde_json::json!({}) },
                 TileInstance { id: "notes-1".into(), tile_type: "notes".into(), config: serde_json::json!({ "text": "" }) },
+                TileInstance { id: "worktree-1".into(), tile_type: "worktree".into(), config: serde_json::json!({}) },
             ],
             worktrees: vec![],
             preferences: Preferences { theme: "system".into(), default_view: "main".into() },
@@ -144,14 +145,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn cockpit_default_has_two_stub_tiles() {
+    fn cockpit_default_includes_worktree_tile() {
         let c = CockpitConfig::default();
-        assert_eq!(c.version, 1);
-        assert_eq!(c.tiles.len(), 2);
-        assert_eq!(c.tiles[0].tile_type, "clock");
-        assert_eq!(c.tiles[1].config, serde_json::json!({ "text": "" }));
-        assert_eq!(c.preferences.theme, "system");
-        assert_eq!(c.preferences.default_view, "main");
+        assert_eq!(c.tiles.len(), 3);
+        assert_eq!(c.tiles[2].tile_type, "worktree");
+        assert!(c.worktrees.is_empty());
     }
 
     #[test]

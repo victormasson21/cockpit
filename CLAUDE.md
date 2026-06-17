@@ -97,11 +97,27 @@ renders them. Getting this one pattern right makes the Nth integration mechanica
   class). Zustand for the live store. Vitest (frontend) + `cargo test` (Rust).
 - **Settings live in** `~/Library/Application Support/com.cockpit.app/`:
   `cockpit.json` (portable user config) + `layout.json` (disposable geometry).
-- **IPC surface** is two commands: `load_settings`, `save_settings`.
-- **Known follow-ups (cosmetic, not blocking):** the crate / `productName` /
-  window title are still `cockpit-scaffold` (bundle id `com.cockpit.app` is
-  correct); `newInstance` in the tile registry is a forward-looking seam, unused
-  until an "add tile" UI lands.
+- **IPC surface** includes `load_settings`, `save_settings` (sub-project 1) plus
+  the worktree commands added in sub-project 2: `create_worktree`,
+  `pty_ensure`, `pty_attach`, `pty_write`, `pty_resize`, `pty_kill`.
+- **PTY provider** (`src-tauri/src/pty.rs`): registry keyed by `worktreeId:role`;
+  output events emitted as `pty://{id}`; ~64 KB scrollback (circular, keeps
+  newest); spawns a login shell; `host` and `claude` roles autostart their
+  commands on first attach.
+- **Git provider** (`src-tauri/src/worktree.rs`): runs real `git worktree add`
+  for existing or new branches; managed root is `~/CockpitWorktrees/<repo>/<name>`;
+  remove drops the model and kills PTYs but does **not** delete the directory on
+  disk (preserves in-progress work).
+- **Worktree composite tile** lives in `src/tiles/worktree/`: dropdown of recent
+  worktrees, collapsible create-form, 3 xterm.js terminals (host / git / claude),
+  editable links, status toggle. The `worktrees` array in `cockpit.json` is the
+  persistent model; `worktree-1` is now in the default config so the tile appears
+  on first launch.
+- **URL opener** uses `openUrl` from `@tauri-apps/plugin-opener`.
+- **`newInstance`** in the tile registry is a forward-looking seam, unused until
+  an "add tile" UI lands.
+- **Scaffold renamed:** crate, `productName`, and window title are now `cockpit`
+  (bundle id `com.cockpit.app` unchanged).
 
 ## Status
 
@@ -109,7 +125,12 @@ renders them. Getting this one pattern right makes the Nth integration mechanica
 All tests green; GUI confirmed rendering. Plan:
 `docs/superpowers/plans/2026-06-16-layout-shell.md`.
 
-**Next:** sub-project 2 — the **worktree engine** (manual first): right-column
-worktree model (repo/branch/worktree + local host), 3 auto-running terminals
-(this is where the PTY/terminal work lands), status, recent-worktrees dropdown.
+✅ **Sub-project 2 (worktree engine, manual) — complete.**
+PTY provider, git provider, worktree composite tile, and default first-launch
+instance all in place. 12 Rust tests + 14 JS tests green; Rust + Vite builds
+clean. GUI acceptance pending human sign-off.
+
+**Next:** sub-project 3 — **smart new-worktree**: Claude deduction agent; start
+with plain-prompt input, add source types (Linear → GitHub → Slack) one at a
+time; always deduce → preview/confirm → create, never silent.
 See `docs/superpowers/specs/2026-06-16-cockpit-product-spec.md`.

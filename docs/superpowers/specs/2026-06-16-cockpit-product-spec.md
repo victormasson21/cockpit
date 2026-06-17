@@ -110,10 +110,9 @@ This vision is ~5 subsystems. Build order, each shippable/usable on its own:
 1. ✅ **Layout shell + settings** — dockview workspace, tile registry,
    move/expand/tab tiles, calm-view toggle, two-file JSON settings store.
    *Done & merged* — see `layout-shell-design.md` + `../plans/2026-06-16-layout-shell.md`.
-   **← next sub-project starts here:**
-2. **Worktree engine (manual)** — right column: model (repo/branch/worktree +
+2. ✅ **Worktree engine (manual)** — right column: model (repo/branch/worktree +
    local host), 3 auto-running terminals, status, recent-worktrees dropdown.
-   No AI yet — user picks repo/branch.
+   No AI yet — user picks repo/branch. *Done.*
 3. **Smart new-worktree** — the Claude deduction agent; start with plain-prompt
    input, add source types (Linear → GitHub → Slack) one at a time. Always
    **deduce → preview/confirm → create**, never silent.
