@@ -13,6 +13,36 @@ pub struct TileInstance {
     pub config: serde_json::Value,
 }
 
+// Local dev server for a worktree: command to start it + the address it serves on.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct HostConfig {
+    #[serde(rename = "startCmd")]
+    pub start_cmd: String,
+    pub address: String,
+}
+
+// A user-editable useful link attached to a worktree (ticket / design / preview).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct WorktreeLink {
+    pub label: String,
+    pub url: String,
+}
+
+// A worktree: a name + git location (repo/branch/worktree) + local host + links + status.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Worktree {
+    pub id: String,
+    pub name: String,
+    #[serde(rename = "repoPath")]
+    pub repo_path: String,
+    pub branch: String,
+    #[serde(rename = "worktreePath")]
+    pub worktree_path: String,
+    pub host: HostConfig,
+    pub links: Vec<WorktreeLink>,
+    pub status: String,
+}
+
 // User-facing display preferences (theme + which view opens on launch).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Preferences {
@@ -26,6 +56,8 @@ pub struct Preferences {
 pub struct CockpitConfig {
     pub version: u32,
     pub tiles: Vec<TileInstance>,
+    #[serde(default)]
+    pub worktrees: Vec<Worktree>,
     pub preferences: Preferences,
 }
 
@@ -44,6 +76,7 @@ impl Default for CockpitConfig {
                 TileInstance { id: "clock-1".into(), tile_type: "clock".into(), config: serde_json::json!({}) },
                 TileInstance { id: "notes-1".into(), tile_type: "notes".into(), config: serde_json::json!({ "text": "" }) },
             ],
+            worktrees: vec![],
             preferences: Preferences { theme: "system".into(), default_view: "main".into() },
         }
     }
@@ -156,5 +189,13 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("layout.json"), "{ not json").unwrap();
         assert_eq!(load_layout(dir.path()), LayoutConfig::default());
+    }
+
+    // Old files without a `worktrees` field must still deserialise cleanly (backward-compat).
+    #[test]
+    fn cockpit_without_worktrees_field_still_loads() {
+        let json = r#"{"version":1,"tiles":[],"preferences":{"theme":"system","defaultView":"main"}}"#;
+        let cfg: CockpitConfig = serde_json::from_str(json).unwrap();
+        assert!(cfg.worktrees.is_empty());
     }
 }

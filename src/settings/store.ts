@@ -1,6 +1,6 @@
 // store.ts — single in-session source of truth for settings; flushes changes to disk (debounced).
 import { create } from "zustand";
-import type { CockpitConfig, LayoutConfig, Settings } from "./types";
+import type { CockpitConfig, LayoutConfig, Settings, Worktree } from "./types";
 import { saveSettings } from "./api";
 
 interface SettingsState {
@@ -10,6 +10,9 @@ interface SettingsState {
   init: (s: Settings) => void;
   setCockpit: (c: CockpitConfig) => void;
   setView: (view: string, serialized: unknown) => void;
+  addWorktree: (wt: Worktree) => void;
+  updateWorktree: (id: string, patch: Partial<Worktree>) => void;
+  removeWorktree: (id: string) => void;
 }
 
 // Debounce disk writes so drags/keystrokes don't thrash the filesystem.
@@ -23,7 +26,7 @@ function scheduleSave(get: () => SettingsState) {
 }
 
 export const useSettings = create<SettingsState>((set, get) => ({
-  cockpit: { version: 1, tiles: [], preferences: { theme: "system", defaultView: "main" } },
+  cockpit: { version: 1, tiles: [], worktrees: [], preferences: { theme: "system", defaultView: "main" } },
   layout: { version: 1, views: {} },
   loaded: false,
   init: (s) => set({ cockpit: s.cockpit, layout: s.layout, loaded: true }),
@@ -31,5 +34,20 @@ export const useSettings = create<SettingsState>((set, get) => ({
   setView: (view, serialized) => {
     set((st) => ({ layout: { ...st.layout, views: { ...st.layout.views, [view]: serialized } } }));
     scheduleSave(get);
+  },
+  addWorktree: (wt) => {
+    const { cockpit, setCockpit } = get();
+    setCockpit({ ...cockpit, worktrees: [...cockpit.worktrees, wt] });
+  },
+  updateWorktree: (id, patch) => {
+    const { cockpit, setCockpit } = get();
+    setCockpit({
+      ...cockpit,
+      worktrees: cockpit.worktrees.map((w) => (w.id === id ? { ...w, ...patch } : w)),
+    });
+  },
+  removeWorktree: (id) => {
+    const { cockpit, setCockpit } = get();
+    setCockpit({ ...cockpit, worktrees: cockpit.worktrees.filter((w) => w.id !== id) });
   },
 }));

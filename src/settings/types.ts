@@ -11,9 +11,24 @@ export interface Preferences {
   defaultView: "main" | "calm";
 }
 
+export interface HostConfig { startCmd: string; address: string }
+export interface WorktreeLink { label: string; url: string }
+export type WorktreeStatus = "ongoing" | "completed";
+export interface Worktree {
+  id: string;
+  name: string;
+  repoPath: string;
+  branch: string;
+  worktreePath: string;
+  host: HostConfig;
+  links: WorktreeLink[];
+  status: WorktreeStatus;
+}
+
 export interface CockpitConfig {
   version: number;
   tiles: TileInstance[];
+  worktrees: Worktree[];
   preferences: Preferences;
 }
 
