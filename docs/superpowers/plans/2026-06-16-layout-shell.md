@@ -1,5 +1,14 @@
 # Layout Shell & Settings Implementation Plan
 
+> ✅ **COMPLETED & MERGED to `main`.** All 13 tasks (0–12) implemented via
+> subagent-driven development with per-task spec + quality review. Final state:
+> 9 frontend (Vitest) tests + 5 Rust tests green, `tsc`/`build` clean, GUI
+> confirmed rendering. As-built deltas from this plan: dockview is **6.6.1**
+> (themed via `theme={themeLight}` prop, not a `className`); React is **19**, not
+> 18; Stage 0's terminal-spike was descoped to sub-project 2 (terminals don't
+> belong here). The unchecked `- [ ]` boxes below are the original plan, kept for
+> historical reference — they are all done.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build the Cockpit app shell — a Tauri v2 + React three-zone dockable layout whose tiles and geometry are fully described by two JSON files that survive quit/relaunch.

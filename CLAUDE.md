@@ -90,7 +90,26 @@ renders them. Getting this one pattern right makes the Nth integration mechanica
 - Prefer fewer files, fewer dependencies, fewer abstractions until one is needed.
   A small, manageable codebase beats a feature-rich one we can't hold in our heads.
 
+## As-built notes
+
+- **Stack confirmed in code:** Tauri v2 + React **19** + TS (Vite), Rust core.
+  dockview is **6.6.1** (themed via the `theme={themeLight}` prop, not a CSS
+  class). Zustand for the live store. Vitest (frontend) + `cargo test` (Rust).
+- **Settings live in** `~/Library/Application Support/com.cockpit.app/`:
+  `cockpit.json` (portable user config) + `layout.json` (disposable geometry).
+- **IPC surface** is two commands: `load_settings`, `save_settings`.
+- **Known follow-ups (cosmetic, not blocking):** the crate / `productName` /
+  window title are still `cockpit-scaffold` (bundle id `com.cockpit.app` is
+  correct); `newInstance` in the tile registry is a forward-looking seam, unused
+  until an "add tile" UI lands.
+
 ## Status
 
-Implementing **sub-project 1 (layout shell + settings)** — see
+✅ **Sub-project 1 (layout shell + settings) — complete & merged to `main`.**
+All tests green; GUI confirmed rendering. Plan:
 `docs/superpowers/plans/2026-06-16-layout-shell.md`.
+
+**Next:** sub-project 2 — the **worktree engine** (manual first): right-column
+worktree model (repo/branch/worktree + local host), 3 auto-running terminals
+(this is where the PTY/terminal work lands), status, recent-worktrees dropdown.
+See `docs/superpowers/specs/2026-06-16-cockpit-product-spec.md`.

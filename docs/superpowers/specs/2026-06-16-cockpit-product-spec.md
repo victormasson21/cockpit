@@ -101,15 +101,16 @@ Eventually per-column and per-tile settings.
 
 ---
 
-## Proposed decomposition (to confirm)
+## Decomposition (confirmed) + status
 
 This vision is ~5 subsystems. Build order, each shippable/usable on its own:
 
-0. **Core spike** — Tauri + React skeleton; one real terminal (PTY round-trip).
-   De-risks the hardest tech before committing to UI.
-1. **Layout shell + settings** — 3 resizable columns, tile registry,
-   move/add/expand tiles, tabs, calm-view toggle, single JSON settings store.
-   Everything else plugs into this.
+0. ✅ **Core spike** — Tauri + React skeleton + IPC round-trip. *Done* (the
+   terminal/PTY part deferred to sub-project 2, where terminals actually live).
+1. ✅ **Layout shell + settings** — dockview workspace, tile registry,
+   move/expand/tab tiles, calm-view toggle, two-file JSON settings store.
+   *Done & merged* — see `layout-shell-design.md` + `../plans/2026-06-16-layout-shell.md`.
+   **← next sub-project starts here:**
 2. **Worktree engine (manual)** — right column: model (repo/branch/worktree +
    local host), 3 auto-running terminals, status, recent-worktrees dropdown.
    No AI yet — user picks repo/branch.
@@ -122,13 +123,14 @@ This vision is ~5 subsystems. Build order, each shippable/usable on its own:
 5. **More panels + polish** — Slack, centre overrides (diff/second worktree),
    hotkeys, notifications.
 
-## Cross-cutting decisions (open — see chat)
+## Cross-cutting decisions
 
-1. **Layout engine** — likely a dockable-panel lib (e.g. dockview) vs hand-rolled.
-2. **Settings format** — single JSON; possibly split user-meaningful settings
-   from high-churn layout geometry.
-3. **Worktree deduction coupling** — the agent depends on integrations/auth to
+1. ✅ **Layout engine** — resolved: **dockview** (v6.6.1; themed via the `theme`
+   prop, not a wrapper class).
+2. ✅ **Settings format** — resolved: two JSON files — `cockpit.json` (portable
+   user config) + `layout.json` (disposable geometry).
+3. **Worktree deduction coupling** (open) — the agent depends on integrations/auth to
    read Linear/GitHub/Slack context; needs a confirm-before-create step.
-4. **Auth is heterogeneous** — Slack/Linear = OAuth; GitHub = reuse `gh`;
+4. **Auth is heterogeneous** (open) — Slack/Linear = OAuth; GitHub = reuse `gh`;
    CircleCI = API token; Anthropic = reuse Claude Code auth. The page is a
    status dashboard over different mechanisms, not one uniform OAuth wall.

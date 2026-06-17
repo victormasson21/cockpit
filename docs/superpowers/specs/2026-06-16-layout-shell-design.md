@@ -1,5 +1,9 @@
 # Cockpit — Layout Shell & Settings (sub-project 1) — Design
 
+> ✅ **Implemented & merged to `main`.** Built as designed. Notable as-built
+> details: dockview **6.6.1** (theme via `theme` prop), React **19**. See
+> `../plans/2026-06-16-layout-shell.md` for the executed plan.
+>
 > First buildable sub-project. The foundation every later feature docks into.
 > Product vision: `2026-06-16-cockpit-product-spec.md`. Stack: `../../../CLAUDE.md`.
 
