@@ -3,6 +3,7 @@ import { useState } from "react";
 import { createWorktree, type BranchSpec } from "../../worktrees/api";
 import { makeWorktree } from "../../worktrees/model";
 import { useSettings } from "../../settings/store";
+import { KnownReposEditor } from "./KnownReposEditor";
 
 export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string) => void }) {
   const { addWorktree } = useSettings();
@@ -44,6 +45,8 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
 
   return (
     <div style={{ padding: 8, borderBottom: "1px solid #eee", fontSize: 12, display: "grid", gap: 4 }}>
+      <KnownReposEditor />
+      <hr style={{ width: "100%", border: "none", borderTop: "1px solid #eee", margin: "4px 0" }} />
       <input placeholder="name" value={name} onChange={(e) => setName(e.target.value)} />
       <input placeholder="repo path (/Users/…/repo)" value={repoPath} onChange={(e) => setRepoPath(e.target.value)} />
       <div style={{ display: "flex", gap: 6 }}>
