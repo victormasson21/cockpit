@@ -13,6 +13,13 @@ pub struct DeducedWorktree {
     pub start_cmd: String,
     pub address: String,
     pub reason: String,
+    // Source-context fields: populated only on the ticket path; default so the plain path's JSON still deserializes.
+    #[serde(rename = "ticketUrl", default)]
+    pub ticket_url: String,
+    #[serde(rename = "ticketTitle", default)]
+    pub ticket_title: String,
+    #[serde(rename = "sourceResolved", default)]
+    pub source_resolved: bool,
 }
 
 // Char-safe truncation so a long README snippet stays small without splitting a multibyte char.
@@ -62,6 +69,68 @@ pub fn package_manager_from_lockfiles(has_pnpm: bool, has_yarn: bool, has_bun: b
 pub fn tauri_dev_url(conf_json: &str) -> Option<String> {
     let v: serde_json::Value = serde_json::from_str(conf_json).ok()?;
     v.get("build")?.get("devUrl")?.as_str().map(|s| s.to_string())
+}
+
+// True if token is exactly a canonical Linear id: [A-Z][A-Z0-9]*-[0-9]+ (whole token, no trailing slug).
+fn is_ticket_id(token: &str) -> bool {
+    match token.split_once('-') {
+        Some((team, num)) => {
+            let mut tc = team.chars();
+            tc.next().is_some_and(|c| c.is_ascii_uppercase())
+                && team.chars().skip(1).all(|c| c.is_ascii_uppercase() || c.is_ascii_digit())
+                && !num.is_empty()
+                && num.chars().all(|c| c.is_ascii_digit())
+        }
+        None => false,
+    }
+}
+
+// Pull a leading id off the front of a URL slug segment (e.g. "ABC-42-fix-login" -> "ABC-42").
+fn leading_ticket_id(s: &str) -> Option<String> {
+    let dash = s.find('-')?;
+    let team = &s[..dash];
+    let mut tc = team.chars();
+    if !tc.next()?.is_ascii_uppercase() || !team.chars().skip(1).all(|c| c.is_ascii_uppercase() || c.is_ascii_digit()) {
+        return None;
+    }
+    let num: String = s[dash + 1..].chars().take_while(|c| c.is_ascii_digit()).collect();
+    if num.is_empty() { None } else { Some(format!("{team}-{num}")) }
+}
+
+// Detect a Linear ticket ref in the prompt: a linear.app issue URL first, else a bare canonical id token. None for plain prompts.
+pub fn detect_linear_ref(prompt: &str) -> Option<String> {
+    // URL form: take the segment after "/issue/" and parse the id off its front.
+    if let Some(base) = prompt.find("linear.app/") {
+        if let Some(rel) = prompt[base..].find("/issue/") {
+            let after = &prompt[base + rel + "/issue/".len()..];
+            if let Some(id) = leading_ticket_id(after) {
+                return Some(id);
+            }
+        }
+    }
+    // Bare id: scan tokens delimited by anything that isn't alphanumeric or '-'.
+    prompt
+        .split(|c: char| !(c.is_ascii_alphanumeric() || c == '-'))
+        .find(|t| is_ticket_id(t))
+        .map(|t| t.to_string())
+}
+
+// Guarantee the ticket id is present: unchanged if value already contains it (case-insensitive), else "{id}-{value}".
+pub fn ensure_ref_prefix(value: &str, id: &str) -> String {
+    if value.to_lowercase().contains(&id.to_lowercase()) {
+        value.to_string()
+    } else {
+        format!("{id}-{value}")
+    }
+}
+
+// Compose the ticket-path user prompt: the plain composition plus an instruction to fetch the ticket and include its id.
+pub fn compose_user_ticket(prompt: &str, id: &str, digests: &[serde_json::Value]) -> String {
+    format!(
+        "{}\n\nA Linear ticket ({id}) was referenced; fetch it via the Linear MCP and use its title/description \
+to choose the name and branch (include {id} in both), and set ticketUrl/ticketTitle/sourceResolved accordingly.",
+        compose_user(prompt, digests)
+    )
 }
 
 // Guard against the model inventing a repo: repo_path must be one of the provided paths (spec §B.4: never silent).
@@ -269,6 +338,7 @@ mod tests {
         let d = DeducedWorktree {
             repo_path: "/a".into(), name: "n".into(), branch: "b".into(), base: "main".into(),
             start_cmd: "c".into(), address: "x".into(), reason: "r".into(),
+            ticket_url: "".into(), ticket_title: "".into(), source_resolved: false,
         };
         assert!(validate_repo(d.clone(), &["/a".into(), "/b".into()]).is_ok());
         assert!(validate_repo(d, &["/b".into()]).is_err());
@@ -295,5 +365,45 @@ mod tests {
         assert_eq!(strip_origin_prefix("origin/master"), "master");
         assert_eq!(strip_origin_prefix("origin/main"), "main");
         assert_eq!(strip_origin_prefix("develop"), "develop"); // no prefix: unchanged
+    }
+
+    #[test]
+    fn detect_linear_ref_matches_id_url_and_rejects_noise() {
+        assert_eq!(detect_linear_ref("fix ENG-1234 please"), Some("ENG-1234".into())); // bare id in text
+        assert_eq!(detect_linear_ref("ENG-1234, backend only"), Some("ENG-1234".into())); // mixed input
+        assert_eq!(detect_linear_ref("see https://linear.app/acme/issue/ABC-42-fix-login now"),
+                   Some("ABC-42".into())); // url form, id parsed out of the slug
+        assert_eq!(detect_linear_ref("eng-1234"), None); // lowercase is not canonical
+        assert_eq!(detect_linear_ref("fix the login bug"), None); // plain prompt
+        assert_eq!(detect_linear_ref("v2-3 release"), None); // lowercase team -> not a ref
+    }
+
+    #[test]
+    fn ensure_ref_prefix_adds_id_only_when_absent() {
+        assert_eq!(ensure_ref_prefix("fix-login", "eng-1234"), "eng-1234-fix-login"); // absent -> prepended
+        assert_eq!(ensure_ref_prefix("eng-1234-fix-login", "eng-1234"), "eng-1234-fix-login"); // present -> unchanged
+        assert_eq!(ensure_ref_prefix("ENG-1234 fix login", "eng-1234"), "ENG-1234 fix login"); // case-insensitive match
+    }
+
+    #[test]
+    fn compose_user_ticket_names_id_prompt_and_digests() {
+        let digests = vec![serde_json::json!({"basename": "cockpit"})];
+        let out = compose_user_ticket("do the thing", "ENG-1234", &digests);
+        assert!(out.contains("do the thing"));
+        assert!(out.contains("ENG-1234"));
+        assert!(out.contains("cockpit"));
+    }
+
+    #[test]
+    fn parse_envelope_reads_ticket_fields_and_defaults_them() {
+        let with = r#"{"is_error":false,"result":"","structured_output":{"repoPath":"/r","name":"n","branch":"b","base":"main","startCmd":"c","address":"a","reason":"r","ticketUrl":"https://linear.app/x","ticketTitle":"Fix login","sourceResolved":true}}"#;
+        let d = parse_envelope(with).unwrap();
+        assert_eq!(d.ticket_url, "https://linear.app/x");
+        assert!(d.source_resolved);
+        // Plain-path envelope (no ticket fields) still parses, with defaults.
+        let without = r#"{"is_error":false,"result":"","structured_output":{"repoPath":"/r","name":"n","branch":"b","base":"main","startCmd":"c","address":"a","reason":"r"}}"#;
+        let d2 = parse_envelope(without).unwrap();
+        assert_eq!(d2.ticket_url, "");
+        assert!(!d2.source_resolved);
     }
 }
