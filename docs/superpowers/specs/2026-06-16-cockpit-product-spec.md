@@ -115,7 +115,12 @@ This vision is ~5 subsystems. Build order, each shippable/usable on its own:
    No AI yet — user picks repo/branch. *Done.*
 3. ✅ **Smart new-worktree (plain-prompt) — complete.** `deduce_worktree` IPC, `KnownReposEditor`,
    prompt → deduce → pre-fill → banner flow; deduce never creates. GUI acceptance pending human
-   sign-off. **Source-type iterations next:** Linear → GitHub → Slack (each adds a new input type
+   sign-off. Follow-on landed on the same branch: base branch derived from git
+   (`git symbolic-ref --short refs/remotes/origin/HEAD`, so `master`-default repos deduce
+   correctly); per-repo saved host defaults stored as `{ path, host? }` objects in `knownRepos`
+   (deserializer accepts legacy bare-string entries); form applies saved host after deduce (banner
+   notes it) and offers a "save host as default for this repo" action.
+   **Source-type iterations next:** Linear → GitHub → Slack (each adds a new input type
    to the same deduce → preview/confirm → create flow).
 4. **Auth manager + first integration tile** — auth status page; a read-only,
    token-auth tile first (CircleCI or PR reviews) to prove the provider+panel

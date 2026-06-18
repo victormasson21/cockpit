@@ -100,6 +100,7 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
       {mode === "new" && <input placeholder="base branch" value={base} onChange={(e) => setBase(e.target.value)} />}
       <input placeholder="start command" value={startCmd} onChange={(e) => setStartCmd(e.target.value)} />
       <input placeholder="host address" value={address} onChange={(e) => setAddress(e.target.value)} />
+      {/* save the current host as this repo's default so next deduce pre-fills it */}
       {repoPath && (
         <button disabled={!startCmd || !address} onClick={() => setRepoHost(repoPath, { startCmd, address })}>
           save host as default for this repo
