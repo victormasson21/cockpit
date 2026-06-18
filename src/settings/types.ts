@@ -29,6 +29,7 @@ export interface CockpitConfig {
   version: number;
   tiles: TileInstance[];
   worktrees: Worktree[];
+  knownRepos: string[];
   preferences: Preferences;
 }
 

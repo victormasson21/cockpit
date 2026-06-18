@@ -15,6 +15,8 @@ interface SettingsState {
   addWorktree: (wt: Worktree) => void;
   updateWorktree: (id: string, patch: Partial<Worktree>) => void;
   removeWorktree: (id: string) => void;
+  addKnownRepo: (path: string) => void;
+  removeKnownRepo: (path: string) => void;
 }
 
 // Debounce disk writes so drags/keystrokes don't thrash the filesystem.
@@ -28,7 +30,7 @@ function scheduleSave(get: () => SettingsState) {
 }
 
 export const useSettings = create<SettingsState>((set, get) => ({
-  cockpit: { version: 1, tiles: [], worktrees: [], preferences: { theme: "system", defaultView: "main" } },
+  cockpit: { version: 1, tiles: [], worktrees: [], knownRepos: [], preferences: { theme: "system", defaultView: "main" } },
   layout: { version: 1, views: {} },
   loaded: false,
   init: (s) => set({ cockpit: s.cockpit, layout: s.layout, loaded: true }),
@@ -50,4 +52,9 @@ export const useSettings = create<SettingsState>((set, get) => ({
     })),
   removeWorktree: (id) =>
     get().setCockpit((c) => ({ ...c, worktrees: c.worktrees.filter((w) => w.id !== id) })),
+  // Known repos the deduce agent may pick from; add is idempotent (no duplicate paths).
+  addKnownRepo: (path) =>
+    get().setCockpit((c) => (c.knownRepos.includes(path) ? c : { ...c, knownRepos: [...c.knownRepos, path] })),
+  removeKnownRepo: (path) =>
+    get().setCockpit((c) => ({ ...c, knownRepos: c.knownRepos.filter((p) => p !== path) })),
 }));

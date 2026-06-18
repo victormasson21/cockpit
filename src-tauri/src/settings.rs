@@ -58,6 +58,8 @@ pub struct CockpitConfig {
     pub tiles: Vec<TileInstance>,
     #[serde(default)]
     pub worktrees: Vec<Worktree>,
+    #[serde(default, rename = "knownRepos")]
+    pub known_repos: Vec<String>,
     pub preferences: Preferences,
 }
 
@@ -78,6 +80,7 @@ impl Default for CockpitConfig {
                 TileInstance { id: "worktree-1".into(), tile_type: "worktree".into(), config: serde_json::json!({}) },
             ],
             worktrees: vec![],
+            known_repos: vec![],
             preferences: Preferences { theme: "system".into(), default_view: "main".into() },
         }
     }
@@ -195,5 +198,12 @@ mod tests {
         let json = r#"{"version":1,"tiles":[],"preferences":{"theme":"system","defaultView":"main"}}"#;
         let cfg: CockpitConfig = serde_json::from_str(json).unwrap();
         assert!(cfg.worktrees.is_empty());
+    }
+
+    #[test]
+    fn cockpit_without_known_repos_field_still_loads() {
+        let json = r#"{"version":1,"tiles":[],"worktrees":[],"preferences":{"theme":"system","defaultView":"main"}}"#;
+        let cfg: CockpitConfig = serde_json::from_str(json).unwrap();
+        assert!(cfg.known_repos.is_empty());
     }
 }

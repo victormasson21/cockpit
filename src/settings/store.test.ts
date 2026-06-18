@@ -10,6 +10,7 @@ const baseCockpit: CockpitConfig = {
   version: 1,
   tiles: [{ id: "worktree-1", type: "worktree", config: {} }],
   worktrees: [],
+  knownRepos: [],
   preferences: { theme: "system", defaultView: "main" },
 };
 
