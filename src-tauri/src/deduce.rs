@@ -53,6 +53,17 @@ pub fn parse_envelope(stdout: &str) -> Result<DeducedWorktree, String> {
         .map_err(|e| format!("deduction output didn't match schema: {e}"))
 }
 
+// Map the present lockfile to its package manager so the agent uses the right run command (npm is the default).
+pub fn package_manager_from_lockfiles(has_pnpm: bool, has_yarn: bool, has_bun: bool) -> &'static str {
+    if has_pnpm { "pnpm" } else if has_yarn { "yarn" } else if has_bun { "bun" } else { "npm" }
+}
+
+// Extract build.devUrl from a tauri.conf.json string — the real dev address for a Tauri app (vite's default is wrong for Tauri).
+pub fn tauri_dev_url(conf_json: &str) -> Option<String> {
+    let v: serde_json::Value = serde_json::from_str(conf_json).ok()?;
+    v.get("build")?.get("devUrl")?.as_str().map(|s| s.to_string())
+}
+
 // Guard against the model inventing a repo: repo_path must be one of the provided paths (spec §B.4: never silent).
 pub fn validate_repo(d: DeducedWorktree, repo_paths: &[String]) -> Result<DeducedWorktree, String> {
     if repo_paths.iter().any(|p| p == &d.repo_path) {
@@ -73,14 +84,17 @@ const SYSTEM_PROMPT: &str = "You deduce git worktree parameters from a task prom
 Choose repoPath from the provided repo digests ONLY (copy one of their paths exactly). \
 Propose a short clear name, a new branch name, the base branch to cut from, and the dev-server \
 start command and address inferred from that repo's package.json scripts / README. Give a one-line \
-reason. Output only the structured object.";
+reason. Output only the structured object. \
+Use the repo's packageManager for run commands (e.g. `npm run dev`, not another package manager). \
+If isTauri is true, the start command is `<packageManager> run tauri dev` and the address is the provided devUrl; \
+otherwise infer the dev script and its address from scripts/README.";
 
 // Inline JSON Schema enforcing the DeducedWorktree shape (claude --json-schema wants the schema inline).
 const DEDUCE_SCHEMA: &str = r#"{"type":"object","properties":{"repoPath":{"type":"string"},"name":{"type":"string"},"branch":{"type":"string"},"base":{"type":"string"},"startCmd":{"type":"string"},"address":{"type":"string"},"reason":{"type":"string"}},"required":["repoPath","name","branch","base","startCmd","address","reason"],"additionalProperties":false}"#;
 
 const DEDUCE_TIMEOUT: Duration = Duration::from_secs(120); // CLI calls observed at 15-43s; generous ceiling.
 
-// Build a compact JSON digest of one repo (basename + package.json fields + README snippet) for the agent to match against.
+// Build a compact JSON digest of one repo (basename + package.json fields + README snippet + package manager + Tauri signals) for the agent to match against.
 fn read_repo_digest(repo_path: &str) -> serde_json::Value {
     let dir = Path::new(repo_path);
     let basename = dir.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
@@ -89,6 +103,23 @@ fn read_repo_digest(repo_path: &str) -> serde_json::Value {
     let readme = std::fs::read_to_string(dir.join("README.md"))
         .or_else(|_| std::fs::read_to_string(dir.join("readme.md")))
         .unwrap_or_default();
+    // Detect package manager from lockfiles so the agent uses the right run command.
+    let pm = package_manager_from_lockfiles(
+        dir.join("pnpm-lock.yaml").exists(),
+        dir.join("yarn.lock").exists(),
+        dir.join("bun.lockb").exists(),
+    );
+    // Detect Tauri: read tauri.conf.json and extract devUrl if present.
+    let tauri_conf_path = dir.join("src-tauri").join("tauri.conf.json");
+    let is_tauri = tauri_conf_path.exists();
+    let dev_url = if is_tauri {
+        std::fs::read_to_string(&tauri_conf_path)
+            .ok()
+            .and_then(|s| tauri_dev_url(&s))
+            .unwrap_or_default()
+    } else {
+        String::new()
+    };
     serde_json::json!({
         "path": repo_path,
         "basename": basename,
@@ -96,6 +127,9 @@ fn read_repo_digest(repo_path: &str) -> serde_json::Value {
         "description": description,
         "scripts": scripts,
         "readme": truncate(&readme, 800),
+        "packageManager": pm,
+        "isTauri": is_tauri,
+        "devUrl": dev_url,
     })
 }
 
@@ -211,5 +245,21 @@ mod tests {
         };
         assert!(validate_repo(d.clone(), &["/a".into(), "/b".into()]).is_ok());
         assert!(validate_repo(d, &["/b".into()]).is_err());
+    }
+
+    #[test]
+    fn package_manager_defaults_to_npm_and_detects_others() {
+        assert_eq!(package_manager_from_lockfiles(false, false, false), "npm");
+        assert_eq!(package_manager_from_lockfiles(true, false, false), "pnpm");
+        assert_eq!(package_manager_from_lockfiles(false, true, false), "yarn");
+        assert_eq!(package_manager_from_lockfiles(false, false, true), "bun");
+    }
+
+    #[test]
+    fn tauri_dev_url_extracts_build_dev_url() {
+        let conf = r#"{"build":{"devUrl":"http://localhost:1420","beforeDevCommand":"npm run dev"}}"#;
+        assert_eq!(tauri_dev_url(conf).as_deref(), Some("http://localhost:1420"));
+        assert_eq!(tauri_dev_url(r#"{"build":{}}"#), None);
+        assert_eq!(tauri_dev_url("not json"), None);
     }
 }
