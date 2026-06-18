@@ -111,9 +111,10 @@ Pipeline:
    expiry), and a neutral cwd. Reuses Claude Code auth; no API key. Not `--bare`
    (we want the user's normal auth).
 4. **Parse + validate** — extract the structured object from the CLI's JSON
-   envelope into `DeducedWorktree`; **clamp `repoPath` to the provided list**
-   (never trust the model to invent a path — if it returns one not in the list,
-   reject or snap to the closest known path).
+   envelope into `DeducedWorktree`; **validate `repoPath` is one of the provided
+   paths** (never trust the model to invent a path). If it isn't an exact match,
+   reject the deduction as an error (surfaced inline) rather than silently
+   snapping to a different repo — consistent with "never silent".
 
 ### `DeducedWorktree` (the `--json-schema` contract)
 
@@ -186,7 +187,7 @@ form.** The user can always fall back to manual entry.
 | Timeout | "deduction timed out"; manual entry still works |
 | Malformed / schema-invalid JSON | "couldn't parse deduction"; manual entry still works |
 | No known repos configured | "Deduce" disabled with a hint to add a repo |
-| Agent returns a path not in the list | Clamp to the list (or error if none match) — never fabricate a repo |
+| Agent returns a path not in the list | Reject as an error inline; never fabricate or snap to a different repo |
 | Unreadable repo in the list | Degrade that repo to a basename-only digest; don't fail the call |
 
 ## E. Testing
