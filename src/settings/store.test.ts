@@ -39,3 +39,34 @@ describe("settings store — writes compose without clobber", () => {
     expect(after.tiles[0].config).toEqual({ worktreeId: "wt-1" });
   });
 });
+
+describe("knownRepos actions", () => {
+  beforeEach(() => {
+    useSettings.setState({ cockpit: structuredClone(baseCockpit), layout: { version: 1, views: {} }, loaded: true });
+  });
+
+  it("addKnownRepo appends a new path to knownRepos", () => {
+    const s = useSettings.getState();
+    s.addKnownRepo("/path/to/repo");
+    const after = useSettings.getState().cockpit;
+    expect(after.knownRepos).toEqual(["/path/to/repo"]);
+  });
+
+  it("addKnownRepo is idempotent: adding the same path twice yields a single entry", () => {
+    const s = useSettings.getState();
+    s.addKnownRepo("/path/to/repo");
+    s.addKnownRepo("/path/to/repo");
+    const after = useSettings.getState().cockpit;
+    expect(after.knownRepos).toHaveLength(1);
+    expect(after.knownRepos).toEqual(["/path/to/repo"]);
+  });
+
+  it("removeKnownRepo removes the given path", () => {
+    const s = useSettings.getState();
+    s.addKnownRepo("/path/to/repo");
+    s.addKnownRepo("/another/repo");
+    s.removeKnownRepo("/path/to/repo");
+    const after = useSettings.getState().cockpit;
+    expect(after.knownRepos).toEqual(["/another/repo"]);
+  });
+});
