@@ -37,7 +37,7 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
       const saved = cockpit.knownRepos.find((r) => r.path === d.repoPath)?.host;
       setStartCmd(saved?.startCmd ?? d.startCmd);
       setAddress(saved?.address ?? d.address);
-      setBanner({ prompt, repoPath: d.repoPath, reason: d.reason, hostFromSaved: !!saved });
+      setBanner({ prompt, repoPath: d.repoPath, reason: d.reason, hostFromSaved: !!(saved?.startCmd && saved?.address) });
     } catch (e) {
       setDeduceError(String(e));
     } finally {

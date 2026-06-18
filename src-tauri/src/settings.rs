@@ -248,4 +248,18 @@ mod tests {
         assert_eq!(cfg.known_repos[1].path, "/b");
         assert_eq!(cfg.known_repos[1].host.as_ref().unwrap().address, "http://localhost:2000");
     }
+
+    #[test]
+    fn known_repo_with_host_round_trips() {
+        let repo = KnownRepo {
+            path: "/r".into(),
+            host: Some(HostConfig { start_cmd: "pnpm start".into(), address: "http://localhost:2000".into() }),
+        };
+        let json = serde_json::to_string(&repo).unwrap();
+        let back: KnownRepo = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, repo);
+        // host is omitted entirely when None (skip_serializing_if)
+        let bare = KnownRepo { path: "/b".into(), host: None };
+        assert!(!serde_json::to_string(&bare).unwrap().contains("host"));
+    }
 }
