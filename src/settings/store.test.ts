@@ -52,12 +52,13 @@ describe("knownRepos actions", () => {
   it("addKnownRepo is idempotent by path", () => {
     useSettings.getState().addKnownRepo("/a");
     useSettings.getState().addKnownRepo("/a");
-    expect(useSettings.getState().cockpit.knownRepos).toHaveLength(1);
+    expect(useSettings.getState().cockpit.knownRepos).toEqual([{ path: "/a" }]);
   });
-  it("removeKnownRepo drops the entry by path", () => {
+  it("removeKnownRepo drops only the matching entry", () => {
     useSettings.getState().addKnownRepo("/a");
+    useSettings.getState().addKnownRepo("/b");
     useSettings.getState().removeKnownRepo("/a");
-    expect(useSettings.getState().cockpit.knownRepos).toEqual([]);
+    expect(useSettings.getState().cockpit.knownRepos).toEqual([{ path: "/b" }]);
   });
   it("setRepoHost sets the host on the matching entry", () => {
     useSettings.getState().addKnownRepo("/a");
