@@ -41,7 +41,7 @@ pub fn compose_user(prompt: &str, digests: &[serde_json::Value]) -> String {
 pub fn parse_envelope(stdout: &str) -> Result<DeducedWorktree, String> {
     let v: serde_json::Value = serde_json::from_str(stdout.trim())
         .map_err(|e| format!("couldn't parse deduction output: {e}"))?;
-    if v.get("is_error").and_then(|b| b.as_bool()).unwrap_or(true) {
+    if v.get("is_error").and_then(|b| b.as_bool()).unwrap_or(false) {
         let msg = v.get("result").and_then(|r| r.as_str()).filter(|s| !s.is_empty()).unwrap_or("unknown error");
         return Err(format!("deduction failed: {msg}"));
     }
@@ -60,6 +60,95 @@ pub fn validate_repo(d: DeducedWorktree, repo_paths: &[String]) -> Result<Deduce
     } else {
         Err(format!("agent chose a repo not in the known list: {}", d.repo_path))
     }
+}
+
+use std::io::Read;
+use std::path::Path;
+use std::process::{Command, Stdio};
+use std::time::Duration;
+use wait_timeout::ChildExt;
+
+// System prompt: keeps the agent a pure text->JSON deducer (no tools, single structured answer).
+const SYSTEM_PROMPT: &str = "You deduce git worktree parameters from a task prompt. \
+Choose repoPath from the provided repo digests ONLY (copy one of their paths exactly). \
+Propose a short clear name, a new branch name, the base branch to cut from, and the dev-server \
+start command and address inferred from that repo's package.json scripts / README. Give a one-line \
+reason. Output only the structured object.";
+
+// Inline JSON Schema enforcing the DeducedWorktree shape (claude --json-schema wants the schema inline).
+const DEDUCE_SCHEMA: &str = r#"{"type":"object","properties":{"repoPath":{"type":"string"},"name":{"type":"string"},"branch":{"type":"string"},"base":{"type":"string"},"startCmd":{"type":"string"},"address":{"type":"string"},"reason":{"type":"string"}},"required":["repoPath","name","branch","base","startCmd","address","reason"],"additionalProperties":false}"#;
+
+const DEDUCE_TIMEOUT: Duration = Duration::from_secs(120); // CLI calls observed at 15-43s; generous ceiling.
+
+// Build a compact JSON digest of one repo (basename + package.json fields + README snippet) for the agent to match against.
+fn read_repo_digest(repo_path: &str) -> serde_json::Value {
+    let dir = Path::new(repo_path);
+    let basename = dir.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+    let pkg = std::fs::read_to_string(dir.join("package.json")).unwrap_or_default();
+    let (package_name, description, scripts) = package_fields(&pkg);
+    let readme = std::fs::read_to_string(dir.join("README.md"))
+        .or_else(|_| std::fs::read_to_string(dir.join("readme.md")))
+        .unwrap_or_default();
+    serde_json::json!({
+        "path": repo_path,
+        "basename": basename,
+        "packageName": package_name,
+        "description": description,
+        "scripts": scripts,
+        "readme": truncate(&readme, 800),
+    })
+}
+
+// Shell out to the claude CLI in headless JSON mode (reuses Claude Code auth), with a hard timeout.
+fn run_claude(user_prompt: &str) -> Result<String, String> {
+    let mut child = Command::new("claude")
+        .args([
+            "-p", user_prompt,
+            "--system-prompt", SYSTEM_PROMPT,
+            "--output-format", "json",
+            "--json-schema", DEDUCE_SCHEMA,
+            "--model", "claude-haiku-4-5",
+        ])
+        .current_dir(std::env::temp_dir()) // neutral cwd: don't auto-load the project's CLAUDE.md
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("claude CLI not found: {e}"))?;
+
+    match child.wait_timeout(DEDUCE_TIMEOUT).map_err(|e| e.to_string())? {
+        None => {
+            let _ = child.kill();
+            Err("deduction timed out".into())
+        }
+        Some(status) => {
+            // Output is a few KB (well under the pipe buffer), so reading after wait can't deadlock.
+            let mut out = String::new();
+            if let Some(mut so) = child.stdout.take() {
+                let _ = so.read_to_string(&mut out);
+            }
+            if !status.success() && out.trim().is_empty() {
+                let mut err = String::new();
+                if let Some(mut se) = child.stderr.take() {
+                    let _ = se.read_to_string(&mut err);
+                }
+                return Err(format!("claude exited with an error: {}", err.trim()));
+            }
+            Ok(out)
+        }
+    }
+}
+
+// Deduce worktree params from a prompt + the known-repos list; reads digests, calls the agent, validates the pick.
+#[tauri::command]
+pub fn deduce_worktree(prompt: String, repo_paths: Vec<String>) -> Result<DeducedWorktree, String> {
+    if repo_paths.is_empty() {
+        return Err("no known repos configured".into());
+    }
+    let digests: Vec<serde_json::Value> = repo_paths.iter().map(|p| read_repo_digest(p)).collect();
+    let user = compose_user(&prompt, &digests);
+    let stdout = run_claude(&user)?;
+    let deduced = parse_envelope(&stdout)?;
+    validate_repo(deduced, &repo_paths)
 }
 
 #[cfg(test)]

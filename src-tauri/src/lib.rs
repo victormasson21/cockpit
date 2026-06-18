@@ -17,7 +17,8 @@ pub fn run() {
             pty::pty_write,
             pty::pty_resize,
             pty::pty_kill,
-            worktree::create_worktree
+            worktree::create_worktree,
+            deduce::deduce_worktree
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
