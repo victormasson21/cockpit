@@ -19,6 +19,9 @@ export interface DeducedWorktree {
   startCmd: string;
   address: string;
   reason: string;
+  ticketUrl?: string;
+  ticketTitle?: string;
+  sourceResolved?: boolean;
 }
 
 // Deduce worktree params from a prompt + the known-repos list; rejects with an inline-displayable error string.

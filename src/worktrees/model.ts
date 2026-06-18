@@ -1,5 +1,6 @@
-// model.ts — pure helpers for worktree domain data (creation defaults + immutable link editing). No IO.
+// model.ts — pure helpers for worktree domain data (creation defaults + immutable link editing + deduction link). No IO.
 import type { Worktree, WorktreeLink } from "../settings/types";
+import type { DeducedWorktree } from "./api";
 
 // Build a worktree model from resolved fields, applying defaults (ongoing, no links).
 export function makeWorktree(
@@ -21,4 +22,10 @@ export function updateLink(links: WorktreeLink[], i: number, patch: Partial<Work
 // Remove the link at index i (returns a new array).
 export function removeLink(links: WorktreeLink[], i: number): WorktreeLink[] {
   return links.filter((_, idx) => idx !== i);
+}
+
+// Build the worktree link to attach from a deduction, or null when no ticket was resolved.
+export function ticketLinkFrom(d: DeducedWorktree): WorktreeLink | null {
+  if (!d.ticketUrl) return null;
+  return { label: d.ticketTitle || d.ticketUrl, url: d.ticketUrl };
 }

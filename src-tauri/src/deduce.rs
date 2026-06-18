@@ -13,6 +13,13 @@ pub struct DeducedWorktree {
     pub start_cmd: String,
     pub address: String,
     pub reason: String,
+    // Source-context fields: populated only on the ticket path; default so the plain path's JSON still deserializes.
+    #[serde(rename = "ticketUrl", default)]
+    pub ticket_url: String,
+    #[serde(rename = "ticketTitle", default)]
+    pub ticket_title: String,
+    #[serde(rename = "sourceResolved", default)]
+    pub source_resolved: bool,
 }
 
 // Char-safe truncation so a long README snippet stays small without splitting a multibyte char.
@@ -64,6 +71,68 @@ pub fn tauri_dev_url(conf_json: &str) -> Option<String> {
     v.get("build")?.get("devUrl")?.as_str().map(|s| s.to_string())
 }
 
+// True if token is exactly a canonical Linear id: [A-Z][A-Z0-9]*-[0-9]+ (whole token, no trailing slug).
+fn is_ticket_id(token: &str) -> bool {
+    match token.split_once('-') {
+        Some((team, num)) => {
+            let mut tc = team.chars();
+            tc.next().is_some_and(|c| c.is_ascii_uppercase())
+                && team.chars().skip(1).all(|c| c.is_ascii_uppercase() || c.is_ascii_digit())
+                && !num.is_empty()
+                && num.chars().all(|c| c.is_ascii_digit())
+        }
+        None => false,
+    }
+}
+
+// Pull a leading id off the front of a URL slug segment (e.g. "ABC-42-fix-login" -> "ABC-42").
+fn leading_ticket_id(s: &str) -> Option<String> {
+    let dash = s.find('-')?;
+    let team = &s[..dash];
+    let mut tc = team.chars();
+    if !tc.next()?.is_ascii_uppercase() || !team.chars().skip(1).all(|c| c.is_ascii_uppercase() || c.is_ascii_digit()) {
+        return None;
+    }
+    let num: String = s[dash + 1..].chars().take_while(|c| c.is_ascii_digit()).collect();
+    if num.is_empty() { None } else { Some(format!("{team}-{num}")) }
+}
+
+// Detect a Linear ticket ref in the prompt: a linear.app issue URL first, else a bare canonical id token. None for plain prompts.
+pub fn detect_linear_ref(prompt: &str) -> Option<String> {
+    // URL form: take the segment after "/issue/" and parse the id off its front.
+    if let Some(base) = prompt.find("linear.app/") {
+        if let Some(rel) = prompt[base..].find("/issue/") {
+            let after = &prompt[base + rel + "/issue/".len()..];
+            if let Some(id) = leading_ticket_id(after) {
+                return Some(id);
+            }
+        }
+    }
+    // Bare id: scan tokens delimited by anything that isn't alphanumeric or '-'.
+    prompt
+        .split(|c: char| !(c.is_ascii_alphanumeric() || c == '-'))
+        .find(|t| is_ticket_id(t))
+        .map(|t| t.to_string())
+}
+
+// Guarantee the ticket id is present: unchanged if value already contains it (case-insensitive), else "{id}-{value}".
+pub fn ensure_ref_prefix(value: &str, id: &str) -> String {
+    if value.to_lowercase().contains(&id.to_lowercase()) {
+        value.to_string()
+    } else {
+        format!("{id}-{value}")
+    }
+}
+
+// Compose the ticket-path user prompt: the plain composition plus an instruction to fetch the ticket and include its id.
+pub fn compose_user_ticket(prompt: &str, id: &str, digests: &[serde_json::Value]) -> String {
+    format!(
+        "{}\n\nA Linear ticket ({id}) was referenced; fetch it via the Linear MCP and use its title/description \
+to choose the name and branch (include {id} in both), and set ticketUrl/ticketTitle/sourceResolved accordingly.",
+        compose_user(prompt, digests)
+    )
+}
+
 // Guard against the model inventing a repo: repo_path must be one of the provided paths (spec §B.4: never silent).
 pub fn validate_repo(d: DeducedWorktree, repo_paths: &[String]) -> Result<DeducedWorktree, String> {
     if repo_paths.iter().any(|p| p == &d.repo_path) {
@@ -96,6 +165,21 @@ otherwise infer the dev script and its address from scripts/README.";
 
 // Inline JSON Schema enforcing the DeducedWorktree shape (claude --json-schema wants the schema inline).
 const DEDUCE_SCHEMA: &str = r#"{"type":"object","properties":{"repoPath":{"type":"string"},"name":{"type":"string"},"branch":{"type":"string"},"base":{"type":"string"},"startCmd":{"type":"string"},"address":{"type":"string"},"reason":{"type":"string"}},"required":["repoPath","name","branch","base","startCmd","address","reason"],"additionalProperties":false}"#;
+
+// Ticket-path system prompt: same deduction, but the agent may fetch the referenced Linear ticket via MCP and must report whether it did.
+const SYSTEM_PROMPT_TICKET: &str = "You deduce git worktree parameters from a task prompt that references a Linear ticket. \
+Fetch the referenced ticket via the Linear MCP and use its title/description to choose a short name and a new branch \
+(include the ticket id in BOTH). Choose repoPath from the provided repo digests ONLY (copy one exactly). Also propose the \
+base branch and the dev-server start command/address from that repo's scripts/README, with a one-line reason. \
+Set ticketUrl and ticketTitle from the fetched ticket and sourceResolved=true. If you CANNOT fetch the ticket, set \
+sourceResolved=false and leave ticketUrl/ticketTitle empty. Output only the structured object.";
+
+// Ticket-path schema: the plain fields plus the source-context fields, all required.
+const DEDUCE_SCHEMA_TICKET: &str = r#"{"type":"object","properties":{"repoPath":{"type":"string"},"name":{"type":"string"},"branch":{"type":"string"},"base":{"type":"string"},"startCmd":{"type":"string"},"address":{"type":"string"},"reason":{"type":"string"},"ticketUrl":{"type":"string"},"ticketTitle":{"type":"string"},"sourceResolved":{"type":"boolean"}},"required":["repoPath","name","branch","base","startCmd","address","reason","ticketUrl","ticketTitle","sourceResolved"],"additionalProperties":false}"#;
+
+// Pinned in Task 1's smoke test (Verified CLI facts). Starting guesses below.
+const LINEAR_ALLOWED_TOOLS: &str = "mcp__linear";
+const LINEAR_MODEL: &str = "claude-haiku-4-5";
 
 const DEDUCE_TIMEOUT: Duration = Duration::from_secs(120); // CLI calls observed at 15-43s; generous ceiling.
 
@@ -155,16 +239,32 @@ fn default_branch(repo_path: &str) -> Option<String> {
     }
 }
 
+// One headless claude invocation's knobs; lets the plain and ticket paths share the spawn/timeout logic.
+struct ClaudeCall<'a> {
+    user_prompt: &'a str,
+    system_prompt: &'a str,
+    schema: &'a str,
+    model: &'a str,
+    allowed_tools: Option<&'a str>, // Some(..) only on the ticket path, to enable the Linear MCP
+}
+
 // Shell out to the claude CLI in headless JSON mode (reuses Claude Code auth), with a hard timeout.
-fn run_claude(user_prompt: &str) -> Result<String, String> {
+fn run_claude(call: ClaudeCall) -> Result<String, String> {
+    let mut args: Vec<&str> = vec![
+        "-p", call.user_prompt,
+        "--system-prompt", call.system_prompt,
+        "--output-format", "json",
+        "--json-schema", call.schema,
+        "--model", call.model,
+    ];
+    // Ticket path only: allow the Linear MCP tools so the agent can fetch the ticket non-interactively.
+    if let Some(tools) = call.allowed_tools {
+        args.push("--allowedTools");
+        args.push(tools);
+    }
+
     let mut child = Command::new("claude")
-        .args([
-            "-p", user_prompt,
-            "--system-prompt", SYSTEM_PROMPT,
-            "--output-format", "json",
-            "--json-schema", DEDUCE_SCHEMA,
-            "--model", "claude-haiku-4-5",
-        ])
+        .args(&args)
         .current_dir(std::env::temp_dir()) // neutral cwd: don't auto-load the project's CLAUDE.md
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -201,13 +301,38 @@ pub fn deduce_worktree(prompt: String, repo_paths: Vec<String>) -> Result<Deduce
         return Err("no known repos configured".into());
     }
     let digests: Vec<serde_json::Value> = repo_paths.iter().map(|p| read_repo_digest(p)).collect();
-    let user = compose_user(&prompt, &digests);
-    let stdout = run_claude(&user)?;
-    let deduced = parse_envelope(&stdout)?;
-    let mut deduced = validate_repo(deduced, &repo_paths)?;
+    let detected = detect_linear_ref(&prompt);
+
+    // Ticket path: MCP-enabled call so the agent fetches the ticket. Plain path: byte-identical to before (no tools).
+    let stdout = match &detected {
+        Some(id) => run_claude(ClaudeCall {
+            user_prompt: &compose_user_ticket(&prompt, id, &digests),
+            system_prompt: SYSTEM_PROMPT_TICKET,
+            schema: DEDUCE_SCHEMA_TICKET,
+            model: LINEAR_MODEL,
+            allowed_tools: Some(LINEAR_ALLOWED_TOOLS),
+        })?,
+        None => run_claude(ClaudeCall {
+            user_prompt: &compose_user(&prompt, &digests),
+            system_prompt: SYSTEM_PROMPT,
+            schema: DEDUCE_SCHEMA,
+            model: "claude-haiku-4-5",
+            allowed_tools: None,
+        })?,
+    };
+
+    let mut deduced = validate_repo(parse_envelope(&stdout)?, &repo_paths)?;
     // Base branch is deterministic from git; don't trust the agent's main/master guess.
     if let Some(b) = default_branch(&deduced.repo_path) {
         deduced.base = b;
+    }
+    // Ticket guardrails: never fabricate on an unresolved ticket; guarantee the id is in name + branch.
+    if let Some(id) = &detected {
+        if !deduced.source_resolved {
+            return Err(format!("couldn't resolve Linear ticket {id} (is the Linear MCP connected?)"));
+        }
+        deduced.branch = ensure_ref_prefix(&deduced.branch, &id.to_lowercase());
+        deduced.name = ensure_ref_prefix(&deduced.name, id);
     }
     Ok(deduced)
 }
@@ -269,6 +394,7 @@ mod tests {
         let d = DeducedWorktree {
             repo_path: "/a".into(), name: "n".into(), branch: "b".into(), base: "main".into(),
             start_cmd: "c".into(), address: "x".into(), reason: "r".into(),
+            ticket_url: "".into(), ticket_title: "".into(), source_resolved: false,
         };
         assert!(validate_repo(d.clone(), &["/a".into(), "/b".into()]).is_ok());
         assert!(validate_repo(d, &["/b".into()]).is_err());
@@ -295,5 +421,45 @@ mod tests {
         assert_eq!(strip_origin_prefix("origin/master"), "master");
         assert_eq!(strip_origin_prefix("origin/main"), "main");
         assert_eq!(strip_origin_prefix("develop"), "develop"); // no prefix: unchanged
+    }
+
+    #[test]
+    fn detect_linear_ref_matches_id_url_and_rejects_noise() {
+        assert_eq!(detect_linear_ref("fix ENG-1234 please"), Some("ENG-1234".into())); // bare id in text
+        assert_eq!(detect_linear_ref("ENG-1234, backend only"), Some("ENG-1234".into())); // mixed input
+        assert_eq!(detect_linear_ref("see https://linear.app/acme/issue/ABC-42-fix-login now"),
+                   Some("ABC-42".into())); // url form, id parsed out of the slug
+        assert_eq!(detect_linear_ref("eng-1234"), None); // lowercase is not canonical
+        assert_eq!(detect_linear_ref("fix the login bug"), None); // plain prompt
+        assert_eq!(detect_linear_ref("v2-3 release"), None); // lowercase team -> not a ref
+    }
+
+    #[test]
+    fn ensure_ref_prefix_adds_id_only_when_absent() {
+        assert_eq!(ensure_ref_prefix("fix-login", "eng-1234"), "eng-1234-fix-login"); // absent -> prepended
+        assert_eq!(ensure_ref_prefix("eng-1234-fix-login", "eng-1234"), "eng-1234-fix-login"); // present -> unchanged
+        assert_eq!(ensure_ref_prefix("ENG-1234 fix login", "eng-1234"), "ENG-1234 fix login"); // case-insensitive match
+    }
+
+    #[test]
+    fn compose_user_ticket_names_id_prompt_and_digests() {
+        let digests = vec![serde_json::json!({"basename": "cockpit"})];
+        let out = compose_user_ticket("do the thing", "ENG-1234", &digests);
+        assert!(out.contains("do the thing"));
+        assert!(out.contains("ENG-1234"));
+        assert!(out.contains("cockpit"));
+    }
+
+    #[test]
+    fn parse_envelope_reads_ticket_fields_and_defaults_them() {
+        let with = r#"{"is_error":false,"result":"","structured_output":{"repoPath":"/r","name":"n","branch":"b","base":"main","startCmd":"c","address":"a","reason":"r","ticketUrl":"https://linear.app/x","ticketTitle":"Fix login","sourceResolved":true}}"#;
+        let d = parse_envelope(with).unwrap();
+        assert_eq!(d.ticket_url, "https://linear.app/x");
+        assert!(d.source_resolved);
+        // Plain-path envelope (no ticket fields) still parses, with defaults.
+        let without = r#"{"is_error":false,"result":"","structured_output":{"repoPath":"/r","name":"n","branch":"b","base":"main","startCmd":"c","address":"a","reason":"r"}}"#;
+        let d2 = parse_envelope(without).unwrap();
+        assert_eq!(d2.ticket_url, "");
+        assert!(!d2.source_resolved);
     }
 }
