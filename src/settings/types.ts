@@ -12,6 +12,7 @@ export interface Preferences {
 }
 
 export interface HostConfig { startCmd: string; address: string }
+export interface KnownRepo { path: string; host?: HostConfig }
 export interface WorktreeLink { label: string; url: string }
 export type WorktreeStatus = "ongoing" | "completed";
 export interface Worktree {
@@ -29,7 +30,7 @@ export interface CockpitConfig {
   version: number;
   tiles: TileInstance[];
   worktrees: Worktree[];
-  knownRepos: string[];
+  knownRepos: KnownRepo[];
   preferences: Preferences;
 }
 

@@ -1,6 +1,6 @@
 // store.ts — single in-session source of truth for settings; flushes changes to disk (debounced).
 import { create } from "zustand";
-import type { CockpitConfig, LayoutConfig, Settings, Worktree } from "./types";
+import type { CockpitConfig, HostConfig, LayoutConfig, Settings, Worktree } from "./types";
 import { saveSettings } from "./api";
 
 interface SettingsState {
@@ -17,6 +17,7 @@ interface SettingsState {
   removeWorktree: (id: string) => void;
   addKnownRepo: (path: string) => void;
   removeKnownRepo: (path: string) => void;
+  setRepoHost: (path: string, host: HostConfig) => void;
 }
 
 // Debounce disk writes so drags/keystrokes don't thrash the filesystem.
@@ -52,9 +53,16 @@ export const useSettings = create<SettingsState>((set, get) => ({
     })),
   removeWorktree: (id) =>
     get().setCockpit((c) => ({ ...c, worktrees: c.worktrees.filter((w) => w.id !== id) })),
-  // Known repos the deduce agent may pick from; add is idempotent (no duplicate paths).
+  // Known repos the deduce agent may pick from; each carries an optional saved host default. add dedupes by path.
   addKnownRepo: (path) =>
-    get().setCockpit((c) => (c.knownRepos.includes(path) ? c : { ...c, knownRepos: [...c.knownRepos, path] })),
+    get().setCockpit((c) =>
+      c.knownRepos.some((r) => r.path === path) ? c : { ...c, knownRepos: [...c.knownRepos, { path }] },
+    ),
   removeKnownRepo: (path) =>
-    get().setCockpit((c) => ({ ...c, knownRepos: c.knownRepos.filter((p) => p !== path) })),
+    get().setCockpit((c) => ({ ...c, knownRepos: c.knownRepos.filter((r) => r.path !== path) })),
+  setRepoHost: (path, host) =>
+    get().setCockpit((c) => ({
+      ...c,
+      knownRepos: c.knownRepos.map((r) => (r.path === path ? { ...r, host } : r)),
+    })),
 }));

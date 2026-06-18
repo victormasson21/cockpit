@@ -45,28 +45,26 @@ describe("knownRepos actions", () => {
     useSettings.setState({ cockpit: structuredClone(baseCockpit), layout: { version: 1, views: {} }, loaded: true });
   });
 
-  it("addKnownRepo appends a new path to knownRepos", () => {
-    const s = useSettings.getState();
-    s.addKnownRepo("/path/to/repo");
-    const after = useSettings.getState().cockpit;
-    expect(after.knownRepos).toEqual(["/path/to/repo"]);
+  it("addKnownRepo appends a { path } object", () => {
+    useSettings.getState().addKnownRepo("/a");
+    expect(useSettings.getState().cockpit.knownRepos).toEqual([{ path: "/a" }]);
   });
-
-  it("addKnownRepo is idempotent: adding the same path twice yields a single entry", () => {
-    const s = useSettings.getState();
-    s.addKnownRepo("/path/to/repo");
-    s.addKnownRepo("/path/to/repo");
-    const after = useSettings.getState().cockpit;
-    expect(after.knownRepos).toHaveLength(1);
-    expect(after.knownRepos).toEqual(["/path/to/repo"]);
+  it("addKnownRepo is idempotent by path", () => {
+    useSettings.getState().addKnownRepo("/a");
+    useSettings.getState().addKnownRepo("/a");
+    expect(useSettings.getState().cockpit.knownRepos).toHaveLength(1);
   });
-
-  it("removeKnownRepo removes the given path", () => {
-    const s = useSettings.getState();
-    s.addKnownRepo("/path/to/repo");
-    s.addKnownRepo("/another/repo");
-    s.removeKnownRepo("/path/to/repo");
-    const after = useSettings.getState().cockpit;
-    expect(after.knownRepos).toEqual(["/another/repo"]);
+  it("removeKnownRepo drops the entry by path", () => {
+    useSettings.getState().addKnownRepo("/a");
+    useSettings.getState().removeKnownRepo("/a");
+    expect(useSettings.getState().cockpit.knownRepos).toEqual([]);
+  });
+  it("setRepoHost sets the host on the matching entry", () => {
+    useSettings.getState().addKnownRepo("/a");
+    useSettings.getState().setRepoHost("/a", { startCmd: "pnpm start", address: "http://localhost:2000" });
+    expect(useSettings.getState().cockpit.knownRepos[0].host).toEqual({
+      startCmd: "pnpm start",
+      address: "http://localhost:2000",
+    });
   });
 });

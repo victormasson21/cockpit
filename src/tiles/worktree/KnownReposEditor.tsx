@@ -1,4 +1,4 @@
-// KnownReposEditor.tsx — tiny add/remove list of known repo paths the deduce agent may pick from.
+// KnownReposEditor.tsx — add/remove list of known repo entries (path + optional saved host) the deduce agent may pick from.
 import { useState } from "react";
 import { useSettings } from "../../settings/store";
 
@@ -19,10 +19,11 @@ export function KnownReposEditor() {
     <div style={{ fontSize: 12, display: "grid", gap: 4 }}>
       <strong>Known repos</strong>
       {repos.length === 0 && <div style={{ opacity: 0.6 }}>Add a repo path so deduction can pick one.</div>}
-      {repos.map((p) => (
-        <div key={p} style={{ display: "flex", gap: 4, alignItems: "center" }}>
-          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p}</span>
-          <button onClick={() => removeKnownRepo(p)}>✕</button>
+      {repos.map((r) => (
+        <div key={r.path} style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.path}</span>
+          {r.host && <span style={{ opacity: 0.6 }}>· {r.host.address}</span>}
+          <button onClick={() => removeKnownRepo(r.path)}>✕</button>
         </div>
       ))}
       <div style={{ display: "flex", gap: 4 }}>

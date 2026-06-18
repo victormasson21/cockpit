@@ -21,6 +21,37 @@ pub struct HostConfig {
     pub address: String,
 }
 
+// A repo the deduce agent may target, plus optional user-saved host default (start cmd + address) for fields git/the agent can't reliably supply.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct KnownRepo {
+    pub path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub host: Option<HostConfig>,
+}
+
+// Accept both a bare string (legacy / hand-edited config) and the full object form so old cockpit.json files still load.
+impl<'de> Deserialize<'de> for KnownRepo {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Repr {
+            Path(String),
+            Full {
+                path: String,
+                #[serde(default)]
+                host: Option<HostConfig>,
+            },
+        }
+        Ok(match Repr::deserialize(d)? {
+            Repr::Path(path) => KnownRepo { path, host: None },
+            Repr::Full { path, host } => KnownRepo { path, host },
+        })
+    }
+}
+
 // A user-editable useful link attached to a worktree (ticket / design / preview).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct WorktreeLink {
@@ -59,7 +90,7 @@ pub struct CockpitConfig {
     #[serde(default)]
     pub worktrees: Vec<Worktree>,
     #[serde(default, rename = "knownRepos")]
-    pub known_repos: Vec<String>,
+    pub known_repos: Vec<KnownRepo>,
     pub preferences: Preferences,
 }
 
@@ -205,5 +236,16 @@ mod tests {
         let json = r#"{"version":1,"tiles":[],"worktrees":[],"preferences":{"theme":"system","defaultView":"main"}}"#;
         let cfg: CockpitConfig = serde_json::from_str(json).unwrap();
         assert!(cfg.known_repos.is_empty());
+    }
+
+    #[test]
+    fn known_repos_accepts_string_or_object_entries() {
+        let json = r#"{"version":1,"tiles":[],"worktrees":[],"knownRepos":["/a",{"path":"/b","host":{"startCmd":"pnpm start","address":"http://localhost:2000"}}],"preferences":{"theme":"system","defaultView":"main"}}"#;
+        let cfg: CockpitConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(cfg.known_repos.len(), 2);
+        assert_eq!(cfg.known_repos[0].path, "/a");
+        assert_eq!(cfg.known_repos[0].host, None);
+        assert_eq!(cfg.known_repos[1].path, "/b");
+        assert_eq!(cfg.known_repos[1].host.as_ref().unwrap().address, "http://localhost:2000");
     }
 }

@@ -27,7 +27,7 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
     setDeduceError(null);
     setDeducing(true);
     try {
-      const d = await deduceWorktree(prompt, cockpit.knownRepos);
+      const d = await deduceWorktree(prompt, cockpit.knownRepos.map((r) => r.path));
       setName(d.name);
       setRepoPath(d.repoPath);
       setMode("new");
