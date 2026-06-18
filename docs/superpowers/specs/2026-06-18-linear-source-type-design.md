@@ -115,7 +115,7 @@ detect_linear_ref(prompt):
 - **Two schemas, two system prompts.** The plain ones are untouched (no
   regression). The ticket variants add the three fields below and instruct the
   agent to fetch the ticket via the Linear MCP, use its title/description for the
-  name/branch, and return its canonical URL.
+  name/branch (**including the ticket id in both**), and return its canonical URL.
 - **`--allowedTools` value, `--permission-mode`, and model** for the ticket path
   are the implementation-time unknowns in §F — pin them with a smoke test before
   wiring the UI.
@@ -123,6 +123,19 @@ detect_linear_ref(prompt):
   **`sourceResolved` guardrail**: if a ref was detected but `source_resolved` is
   false, return `Err("couldn't resolve Linear ticket <id> …")` — never the
   fabricated params.
+- **Guarantee the ticket id is in the name + branch (deterministic).** The agent
+  is *instructed* to include the id, but "always" is enforced in Rust, not hoped
+  for — applied right after base-from-git, just like base is. A pure helper
+
+  ```rust
+  // Returns value unchanged if it already contains id (case-insensitive), else "{id}-{value}".
+  pub fn ensure_ref_prefix(value: &str, id: &str) -> String
+  ```
+
+  is applied to `branch` (with the id lowercased, e.g. `eng-1234-fix-login`) and
+  to `name` (id as-is). This keeps "agent proposes the descriptive part" while
+  making the id's presence a guarantee. It's a no-op when the agent already
+  included the id (the common case), so it never double-prefixes.
 
 ### `DeducedWorktree` additions
 
@@ -180,8 +193,10 @@ Mirrors SP1/SP2/SP3: unit-test the pure/risky logic; manual for the GUI + live
 MCP call.
 
 - **Rust (pure):** `detect_linear_ref` (id / URL / none / embedded-in-text /
-  lowercase-reject); extended-envelope parse incl. the new fields + their
-  defaults on the plain path; the `sourceResolved=false → Err` guardrail.
+  lowercase-reject); `ensure_ref_prefix` (already-present → unchanged, no
+  double-prefix; absent → prepended; case-insensitive match); extended-envelope
+  parse incl. the new fields + their defaults on the plain path; the
+  `sourceResolved=false → Err` guardrail.
 - **Rust (manual, paid):** a live MCP-enabled `claude -p` smoke test that resolves
   the §F unknowns and confirms a real ticket is fetched and the URL returned.
 - **TS:** ticket-link staging into `makeWorktree` (and the `DeducedWorktree`→form
@@ -249,6 +264,8 @@ the only source). What this iteration commits to:
 - A Linear ref (`ENG-1234` or a `linear.app` URL) typed into the prompt is
   detected; the deduce call fetches the ticket via the Linear MCP and deduces
   name/branch from its content, with repo/base/host behaviour unchanged.
+- The deduced worktree **name and branch always contain the ticket id**
+  (agent-proposed, Rust-enforced), e.g. `eng-1234-fix-login`.
 - The resolved ticket link is auto-added to the worktree's `links` on Create; the
   banner shows the resolved ticket.
 - A detected-but-unresolved ticket (`sourceResolved=false`) surfaces inline and
