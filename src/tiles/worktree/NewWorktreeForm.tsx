@@ -1,7 +1,8 @@
 // NewWorktreeForm.tsx — collapsible manual form: runs git worktree add, stores the model, selects it. Collapsible = sub-project-3 inference seam.
 import { useState } from "react";
 import { createWorktree, deduceWorktree, type BranchSpec } from "../../worktrees/api";
-import { makeWorktree } from "../../worktrees/model";
+import { makeWorktree, ticketLinkFrom } from "../../worktrees/model";
+import type { WorktreeLink } from "../../settings/types";
 import { useSettings } from "../../settings/store";
 import { KnownReposEditor } from "./KnownReposEditor";
 
@@ -20,7 +21,8 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
   const [prompt, setPrompt] = useState("");
   const [deducing, setDeducing] = useState(false);
   const [deduceError, setDeduceError] = useState<string | null>(null);
-  const [banner, setBanner] = useState<{ prompt: string; repoPath: string; reason: string; hostFromSaved: boolean } | null>(null);
+  const [ticketLink, setTicketLink] = useState<WorktreeLink | null>(null);
+  const [banner, setBanner] = useState<{ prompt: string; repoPath: string; reason: string; hostFromSaved: boolean; ticket: WorktreeLink | null } | null>(null);
 
   // deduce: ask the agent for params, pre-fill the editable fields, and record the banner. Never creates anything.
   const runDeduce = async () => {
@@ -37,7 +39,9 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
       const saved = cockpit.knownRepos.find((r) => r.path === d.repoPath)?.host;
       setStartCmd(saved?.startCmd ?? d.startCmd);
       setAddress(saved?.address ?? d.address);
-      setBanner({ prompt, repoPath: d.repoPath, reason: d.reason, hostFromSaved: !!(saved?.startCmd && saved?.address) });
+      const tl = ticketLinkFrom(d);
+      setTicketLink(tl);
+      setBanner({ prompt, repoPath: d.repoPath, reason: d.reason, hostFromSaved: !!(saved?.startCmd && saved?.address), ticket: tl });
     } catch (e) {
       setDeduceError(String(e));
     } finally {
@@ -56,6 +60,7 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
       addWorktree(makeWorktree({
         id, name, repoPath, branch, worktreePath,
         host: { startCmd, address },
+        links: ticketLink ? [ticketLink] : [],
       }));
       onCreated(id);
       setOpen(false);
@@ -87,6 +92,7 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
           deduced from "{banner.prompt}" → <strong>{banner.repoPath}</strong><br />
           {banner.reason} — review the fields below and Create.
           {banner.hostFromSaved && <><br />host loaded from this repo's saved default.</>}
+          {banner.ticket && <><br />🎫 {banner.ticket.label} — link will be added.</>}
         </div>
       )}
       <hr style={{ width: "100%", border: "none", borderTop: "1px solid #eee", margin: "4px 0" }} />
