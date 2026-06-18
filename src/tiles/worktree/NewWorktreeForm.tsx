@@ -6,7 +6,7 @@ import { useSettings } from "../../settings/store";
 import { KnownReposEditor } from "./KnownReposEditor";
 
 export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string) => void }) {
-  const { addWorktree, cockpit } = useSettings();
+  const { addWorktree, cockpit, setRepoHost } = useSettings();
   const [open, setOpen] = useState(true); // expanded by default while fields are empty
   const [name, setName] = useState("");
   const [repoPath, setRepoPath] = useState("");
@@ -20,7 +20,7 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
   const [prompt, setPrompt] = useState("");
   const [deducing, setDeducing] = useState(false);
   const [deduceError, setDeduceError] = useState<string | null>(null);
-  const [banner, setBanner] = useState<{ prompt: string; repoPath: string; reason: string } | null>(null);
+  const [banner, setBanner] = useState<{ prompt: string; repoPath: string; reason: string; hostFromSaved: boolean } | null>(null);
 
   // deduce: ask the agent for params, pre-fill the editable fields, and record the banner. Never creates anything.
   const runDeduce = async () => {
@@ -33,9 +33,11 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
       setMode("new");
       setBranch(d.branch);
       setBase(d.base);
-      setStartCmd(d.startCmd);
-      setAddress(d.address);
-      setBanner({ prompt, repoPath: d.repoPath, reason: d.reason });
+      // A repo's saved host default wins over the agent's guess (port/start cmd aren't reliably inferable).
+      const saved = cockpit.knownRepos.find((r) => r.path === d.repoPath)?.host;
+      setStartCmd(saved?.startCmd ?? d.startCmd);
+      setAddress(saved?.address ?? d.address);
+      setBanner({ prompt, repoPath: d.repoPath, reason: d.reason, hostFromSaved: !!saved });
     } catch (e) {
       setDeduceError(String(e));
     } finally {
@@ -84,6 +86,7 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
         <div style={{ background: "#eef6ff", border: "1px solid #cfe2ff", borderRadius: 4, padding: 6 }}>
           deduced from "{banner.prompt}" → <strong>{banner.repoPath}</strong><br />
           {banner.reason} — review the fields below and Create.
+          {banner.hostFromSaved && <><br />host loaded from this repo's saved default.</>}
         </div>
       )}
       <hr style={{ width: "100%", border: "none", borderTop: "1px solid #eee", margin: "4px 0" }} />
@@ -97,6 +100,11 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
       {mode === "new" && <input placeholder="base branch" value={base} onChange={(e) => setBase(e.target.value)} />}
       <input placeholder="start command" value={startCmd} onChange={(e) => setStartCmd(e.target.value)} />
       <input placeholder="host address" value={address} onChange={(e) => setAddress(e.target.value)} />
+      {repoPath && (
+        <button disabled={!startCmd || !address} onClick={() => setRepoHost(repoPath, { startCmd, address })}>
+          save host as default for this repo
+        </button>
+      )}
       {error && <div style={{ color: "crimson", whiteSpace: "pre-wrap" }}>{error}</div>}
       <div style={{ display: "flex", gap: 6 }}>
         <button disabled={busy || !name || !repoPath || !branch} onClick={submit}>{busy ? "creating…" : "create"}</button>
