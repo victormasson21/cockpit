@@ -41,7 +41,7 @@ pub fn compose_user(prompt: &str, digests: &[serde_json::Value]) -> String {
 pub fn parse_envelope(stdout: &str) -> Result<DeducedWorktree, String> {
     let v: serde_json::Value = serde_json::from_str(stdout.trim())
         .map_err(|e| format!("couldn't parse deduction output: {e}"))?;
-    if v.get("is_error").and_then(|b| b.as_bool()).unwrap_or(false) {
+    if v.get("is_error").and_then(|b| b.as_bool()).unwrap_or(true) {
         let msg = v.get("result").and_then(|r| r.as_str()).filter(|s| !s.is_empty()).unwrap_or("unknown error");
         return Err(format!("deduction failed: {msg}"));
     }
@@ -198,6 +198,9 @@ mod tests {
         let null_so = r#"{"is_error":false,"result":"","structured_output":null}"#;
         assert!(parse_envelope(null_so).is_err());
         assert!(parse_envelope("not json").is_err());
+        // Missing is_error field is treated as an error (safe default: don't trust malformed envelopes).
+        let no_flag = r#"{"structured_output":{"repoPath":"/r","name":"n","branch":"b","base":"main","startCmd":"c","address":"a","reason":"r"}}"#;
+        assert!(parse_envelope(no_flag).is_err());
     }
 
     #[test]
