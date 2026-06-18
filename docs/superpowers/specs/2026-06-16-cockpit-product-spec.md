@@ -120,8 +120,15 @@ This vision is ~5 subsystems. Build order, each shippable/usable on its own:
    correctly); per-repo saved host defaults stored as `{ path, host? }` objects in `knownRepos`
    (deserializer accepts legacy bare-string entries); form applies saved host after deduce (banner
    notes it) and offers a "save host as default for this repo" action.
-   **Source-type iterations next:** Linear → GitHub → Slack (each adds a new input type
-   to the same deduce → preview/confirm → create flow).
+   **Source-type iterations:** Linear (iteration 1) → GitHub (iteration 2) → Slack (iteration 3).
+   - ✅ **Linear source type — code complete & reviewed.** `detect_linear_ref` detects bare ids
+     (`ENG-1234`) and `linear.app` issue URLs; MCP-enabled `claude` call with `--allowedTools mcp__linear`
+     fetches the ticket; `sourceResolved` guardrail prevents fabrication; `ensure_ref_prefix` pins id
+     in name + branch; resolved ticket link auto-staged into worktree links on Create. Live + GUI
+     acceptance **PENDING** — Linear MCP must be authenticated first; `mcp__linear` tool filter +
+     haiku model are provisional pending live smoke test.
+   - **GitHub source type — next.**
+   - **Slack source type — after GitHub.**
 4. **Auth manager + first integration tile** — auth status page; a read-only,
    token-auth tile first (CircleCI or PR reviews) to prove the provider+panel
    pattern.
@@ -134,8 +141,9 @@ This vision is ~5 subsystems. Build order, each shippable/usable on its own:
    prop, not a wrapper class).
 2. ✅ **Settings format** — resolved: two JSON files — `cockpit.json` (portable
    user config) + `layout.json` (disposable geometry).
-3. **Worktree deduction coupling** (open) — the agent depends on integrations/auth to
-   read Linear/GitHub/Slack context; needs a confirm-before-create step.
+3. **Worktree deduction coupling** (partially resolved) — the agent delegates to the user's
+   existing MCP connections (Linear iteration 1 done); GitHub + Slack follow the same shape.
+   Confirm-before-create is the existing deduce → pre-fill → user presses Create flow.
 4. **Auth is heterogeneous** (open) — Slack/Linear = OAuth; GitHub = reuse `gh`;
    CircleCI = API token; Anthropic = reuse Claude Code auth. The page is a
    status dashboard over different mechanisms, not one uniform OAuth wall.
