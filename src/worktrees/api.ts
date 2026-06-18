@@ -9,3 +9,18 @@ export type BranchSpec =
 // Run `git worktree add`; resolves to the created worktree path, rejects with git's stderr.
 export const createWorktree = (repoPath: string, name: string, spec: BranchSpec) =>
   invoke<string>("create_worktree", { repoPath, name, spec });
+
+// Mirrors the Rust DeducedWorktree: the params the deduce agent returns.
+export interface DeducedWorktree {
+  repoPath: string;
+  name: string;
+  branch: string;
+  base: string;
+  startCmd: string;
+  address: string;
+  reason: string;
+}
+
+// Deduce worktree params from a prompt + the known-repos list; rejects with an inline-displayable error string.
+export const deduceWorktree = (prompt: string, repoPaths: string[]) =>
+  invoke<DeducedWorktree>("deduce_worktree", { prompt, repoPaths });

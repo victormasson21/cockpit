@@ -1,12 +1,12 @@
 // NewWorktreeForm.tsx — collapsible manual form: runs git worktree add, stores the model, selects it. Collapsible = sub-project-3 inference seam.
 import { useState } from "react";
-import { createWorktree, type BranchSpec } from "../../worktrees/api";
+import { createWorktree, deduceWorktree, type BranchSpec } from "../../worktrees/api";
 import { makeWorktree } from "../../worktrees/model";
 import { useSettings } from "../../settings/store";
 import { KnownReposEditor } from "./KnownReposEditor";
 
 export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string) => void }) {
-  const { addWorktree } = useSettings();
+  const { addWorktree, cockpit } = useSettings();
   const [open, setOpen] = useState(true); // expanded by default while fields are empty
   const [name, setName] = useState("");
   const [repoPath, setRepoPath] = useState("");
@@ -17,6 +17,31 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
   const [address, setAddress] = useState("http://localhost:3000");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [prompt, setPrompt] = useState("");
+  const [deducing, setDeducing] = useState(false);
+  const [deduceError, setDeduceError] = useState<string | null>(null);
+  const [banner, setBanner] = useState<{ prompt: string; repoPath: string; reason: string } | null>(null);
+
+  // deduce: ask the agent for params, pre-fill the editable fields, and record the banner. Never creates anything.
+  const runDeduce = async () => {
+    setDeduceError(null);
+    setDeducing(true);
+    try {
+      const d = await deduceWorktree(prompt, cockpit.knownRepos);
+      setName(d.name);
+      setRepoPath(d.repoPath);
+      setMode("new");
+      setBranch(d.branch);
+      setBase(d.base);
+      setStartCmd(d.startCmd);
+      setAddress(d.address);
+      setBanner({ prompt, repoPath: d.repoPath, reason: d.reason });
+    } catch (e) {
+      setDeduceError(String(e));
+    } finally {
+      setDeducing(false);
+    }
+  };
 
   // submit: create the git worktree, then persist + select the model.
   const submit = async () => {
@@ -46,6 +71,21 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
   return (
     <div style={{ padding: 8, borderBottom: "1px solid #eee", fontSize: 12, display: "grid", gap: 4 }}>
       <KnownReposEditor />
+      <hr style={{ width: "100%", border: "none", borderTop: "1px solid #eee", margin: "4px 0" }} />
+      {/* deduce: one prompt -> pre-filled fields (deduce -> preview/confirm -> create) */}
+      <textarea placeholder="describe the task (e.g. fix the login bug)" value={prompt} rows={2}
+        onChange={(e) => setPrompt(e.target.value)} />
+      <button disabled={deducing || !prompt.trim() || cockpit.knownRepos.length === 0} onClick={runDeduce}>
+        {deducing ? "deducing…" : "deduce"}
+      </button>
+      {cockpit.knownRepos.length === 0 && <div style={{ opacity: 0.6 }}>Add a known repo above to enable deduce.</div>}
+      {deduceError && <div style={{ color: "crimson", whiteSpace: "pre-wrap" }}>{deduceError}</div>}
+      {banner && (
+        <div style={{ background: "#eef6ff", border: "1px solid #cfe2ff", borderRadius: 4, padding: 6 }}>
+          deduced from "{banner.prompt}" → <strong>{banner.repoPath}</strong><br />
+          {banner.reason} — review the fields below and Create.
+        </div>
+      )}
       <hr style={{ width: "100%", border: "none", borderTop: "1px solid #eee", margin: "4px 0" }} />
       <input placeholder="name" value={name} onChange={(e) => setName(e.target.value)} />
       <input placeholder="repo path (/Users/…/repo)" value={repoPath} onChange={(e) => setRepoPath(e.target.value)} />
