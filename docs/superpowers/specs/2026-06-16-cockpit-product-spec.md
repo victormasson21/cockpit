@@ -113,9 +113,10 @@ This vision is ~5 subsystems. Build order, each shippable/usable on its own:
 2. ✅ **Worktree engine (manual)** — right column: model (repo/branch/worktree +
    local host), 3 auto-running terminals, status, recent-worktrees dropdown.
    No AI yet — user picks repo/branch. *Done.*
-3. **Smart new-worktree** — the Claude deduction agent; start with plain-prompt
-   input, add source types (Linear → GitHub → Slack) one at a time. Always
-   **deduce → preview/confirm → create**, never silent.
+3. ✅ **Smart new-worktree (plain-prompt) — complete.** `deduce_worktree` IPC, `KnownReposEditor`,
+   prompt → deduce → pre-fill → banner flow; deduce never creates. GUI acceptance pending human
+   sign-off. **Source-type iterations next:** Linear → GitHub → Slack (each adds a new input type
+   to the same deduce → preview/confirm → create flow).
 4. **Auth manager + first integration tile** — auth status page; a read-only,
    token-auth tile first (CircleCI or PR reviews) to prove the provider+panel
    pattern.

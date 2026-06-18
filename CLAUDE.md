@@ -99,7 +99,8 @@ renders them. Getting this one pattern right makes the Nth integration mechanica
   `cockpit.json` (portable user config) + `layout.json` (disposable geometry).
 - **IPC surface** includes `load_settings`, `save_settings` (sub-project 1) plus
   the worktree commands added in sub-project 2: `create_worktree`,
-  `pty_ensure`, `pty_attach`, `pty_write`, `pty_resize`, `pty_kill`.
+  `pty_ensure`, `pty_attach`, `pty_write`, `pty_resize`, `pty_kill`; and
+  `deduce_worktree` added in sub-project 3.
 - **PTY provider** (`src-tauri/src/pty.rs`): registry keyed by `worktreeId:role`;
   output events emitted as `pty://{id}`; ~64 KB scrollback (circular, keeps
   newest); spawns a login shell; `host` and `claude` roles autostart their
@@ -119,6 +120,9 @@ renders them. Getting this one pattern right makes the Nth integration mechanica
 - **Scaffold renamed:** crate, `productName`, and window title are now `cockpit`
   (bundle id `com.cockpit.app` unchanged).
 - Missing/deleted worktree path is not pre-checked: each terminal pane shows an in-pane `[failed to start]` error and the header **remove** action is available (the dedicated "path not found" banner from the design spec §G is deferred).
+- **`knownRepos: string[]`** in `cockpit.json`: a persisted list of repo paths the deduce agent may pick from. Managed via the inline `KnownReposEditor` (add/remove) rendered at the top of the new-worktree form; store dedupes on add.
+- **Deduce provider** (`src-tauri/src/deduce.rs`): builds a per-repo digest (package.json name/description/scripts + truncated README snippet up to 800 chars), then shells out to `claude -p --output-format json --json-schema <inline-schema> --model claude-haiku-4-5` from a neutral cwd (temp dir, avoids loading the project's CLAUDE.md; reuses Claude Code auth — no API key). Hard 120s timeout via `wait-timeout`. Parses the top-level `structured_output` from the JSON envelope (checks `is_error`). Validates the returned `repoPath` against the known-repos list; rejects any invented path.
+- **Form flow (sub-project 3):** prompt textarea + **deduce** button (disabled when `knownRepos` is empty or prompt is blank) → on success: pre-fills name/repoPath/branch/base/startCmd/address and shows a "deduced" banner (prompt text + picked repo + one-line reason). All fields remain editable; **Create** is unchanged and always requires explicit user action. Inline error shows deduction failures without breaking manual entry. Deduce never creates anything ("never silent" guarantee).
 
 ## Status
 
@@ -131,7 +135,12 @@ PTY provider, git provider, worktree composite tile, and default first-launch
 instance all in place. 12 Rust tests + 14 JS tests green; Rust + Vite builds
 clean. GUI acceptance pending human sign-off.
 
-**Next:** sub-project 3 — **smart new-worktree**: Claude deduction agent; start
-with plain-prompt input, add source types (Linear → GitHub → Slack) one at a
-time; always deduce → preview/confirm → create, never silent.
+✅ **Sub-project 3 (smart new-worktree, plain prompt) — complete.**
+`deduce_worktree` IPC command, `KnownReposEditor`, prompt → deduce → pre-fill → banner
+flow. 19 Rust tests + 15 JS tests green; Rust + Vite builds clean. Manual GUI acceptance
+pending human sign-off.
+
+**Next:** sub-project 3 source-type iterations — add Linear, GitHub, and Slack as
+structured input sources (one at a time), feeding into the same deduce → preview/confirm
+→ create flow.
 See `docs/superpowers/specs/2026-06-16-cockpit-product-spec.md`.
