@@ -73,6 +73,11 @@ pub fn validate_repo(d: DeducedWorktree, repo_paths: &[String]) -> Result<Deduce
     }
 }
 
+// "origin/master" -> "master" (pure); leaves an already-bare branch name unchanged.
+pub fn strip_origin_prefix(s: &str) -> String {
+    s.strip_prefix("origin/").unwrap_or(s).to_string()
+}
+
 use std::io::Read;
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -133,6 +138,23 @@ fn read_repo_digest(repo_path: &str) -> serde_json::Value {
     })
 }
 
+// Read the repo's default branch from git (origin/HEAD -> e.g. "master"); None when there is no remote/HEAD.
+fn default_branch(repo_path: &str) -> Option<String> {
+    let out = Command::new("git")
+        .args(["-C", repo_path, "symbolic-ref", "--short", "refs/remotes/origin/HEAD"])
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if s.is_empty() {
+        None
+    } else {
+        Some(strip_origin_prefix(&s))
+    }
+}
+
 // Shell out to the claude CLI in headless JSON mode (reuses Claude Code auth), with a hard timeout.
 fn run_claude(user_prompt: &str) -> Result<String, String> {
     let mut child = Command::new("claude")
@@ -182,7 +204,12 @@ pub fn deduce_worktree(prompt: String, repo_paths: Vec<String>) -> Result<Deduce
     let user = compose_user(&prompt, &digests);
     let stdout = run_claude(&user)?;
     let deduced = parse_envelope(&stdout)?;
-    validate_repo(deduced, &repo_paths)
+    let mut deduced = validate_repo(deduced, &repo_paths)?;
+    // Base branch is deterministic from git; don't trust the agent's main/master guess.
+    if let Some(b) = default_branch(&deduced.repo_path) {
+        deduced.base = b;
+    }
+    Ok(deduced)
 }
 
 #[cfg(test)]
@@ -261,5 +288,12 @@ mod tests {
         assert_eq!(tauri_dev_url(conf).as_deref(), Some("http://localhost:1420"));
         assert_eq!(tauri_dev_url(r#"{"build":{}}"#), None);
         assert_eq!(tauri_dev_url("not json"), None);
+    }
+
+    #[test]
+    fn strip_origin_prefix_handles_origin_head() {
+        assert_eq!(strip_origin_prefix("origin/master"), "master");
+        assert_eq!(strip_origin_prefix("origin/main"), "main");
+        assert_eq!(strip_origin_prefix("develop"), "develop"); // no prefix: unchanged
     }
 }
