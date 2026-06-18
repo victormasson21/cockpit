@@ -1,4 +1,5 @@
 mod commands;
+mod deduce;
 mod pty;
 mod settings;
 mod worktree;
