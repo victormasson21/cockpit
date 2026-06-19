@@ -1,5 +1,6 @@
 //! deduce.rs — deduction provider: builds repo digests, shells out to the claude CLI (headless JSON), returns validated worktree params.
 use serde::{Deserialize, Serialize};
+use crate::github::{self, GithubContext, GithubRef};
 
 // The deduced worktree parameters the agent returns; mirrors the TS DeducedWorktree.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -20,6 +21,8 @@ pub struct DeducedWorktree {
     pub source_title: String,
     #[serde(rename = "sourceResolved", default)]
     pub source_resolved: bool,
+    #[serde(rename = "existingBranch", default)]
+    pub existing_branch: bool,
 }
 
 // Char-safe truncation so a long README snippet stays small without splitting a multibyte char.
@@ -131,6 +134,79 @@ pub fn compose_user_ticket(prompt: &str, id: &str, digests: &[serde_json::Value]
 to choose the name and branch (include {id} in both), and set sourceUrl/sourceTitle/sourceResolved accordingly.",
         compose_user(prompt, digests)
     )
+}
+
+// The resolved kind of source the prompt references — one branch point for deduction.
+enum Source {
+    GitHub(GithubRef),
+    Linear(String),
+    Plain,
+}
+
+// Detect which source a prompt references: a GitHub URL wins, then a Linear ref, else plain.
+fn detect_source(prompt: &str) -> Source {
+    if let Some(r) = github::detect_github_ref(prompt) {
+        Source::GitHub(r)
+    } else if let Some(id) = detect_linear_ref(prompt) {
+        Source::Linear(id)
+    } else {
+        Source::Plain
+    }
+}
+
+// Compose the GitHub-path user prompt: the plain composition plus the fetched PR/issue context block.
+pub fn compose_user_github(prompt: &str, ctx: &GithubContext, digests: &[serde_json::Value]) -> String {
+    // For a PR, tell the agent the branch already exists (it won't be asked to invent one).
+    let branch_note = match (&ctx.branch, &ctx.base) {
+        (Some(h), Some(b)) => format!("\nThis is a PR on existing branch '{h}' targeting '{b}'."),
+        _ => String::new(),
+    };
+    format!(
+        "{}\n\nReferenced GitHub item:\nTitle: {}\nBody: {}{}\n\nUse the title/body to choose a short name (and, for an issue, a new branch).",
+        compose_user(prompt, digests),
+        ctx.title,
+        truncate(&ctx.body, 800),
+        branch_note
+    )
+}
+
+// Apply the fields Rust knows authoritatively for a GitHub ref onto the agent's deduction.
+pub fn apply_github_overrides(
+    mut d: DeducedWorktree,
+    r: &GithubRef,
+    ctx: &GithubContext,
+    repo_path: &str,
+    base_default: Option<String>,
+) -> DeducedWorktree {
+    // Both kinds: the repo is known from the ref, and the link comes from gh (not the agent).
+    d.repo_path = repo_path.to_string();
+    d.source_url = ctx.url.clone();
+    d.source_title = ctx.title.clone();
+    d.source_resolved = true;
+    match r.kind {
+        github::GithubKind::Pr => {
+            // PR: check out its existing branch (left untouched so it matches the remote); pin pr-<N> into the name only.
+            d.existing_branch = true;
+            if let Some(b) = &ctx.branch {
+                d.branch = b.clone();
+            }
+            if let Some(b) = &ctx.base {
+                d.base = b.clone();
+            }
+            d.name = ensure_ref_prefix(&d.name, &format!("pr-{}", r.number));
+        }
+        github::GithubKind::Issue => {
+            // Issue: new branch off the git default; pin issue-<N> into both name and branch (Linear's shape).
+            d.existing_branch = false;
+            if let Some(b) = base_default {
+                d.base = b;
+            }
+            let id = format!("issue-{}", r.number);
+            d.branch = ensure_ref_prefix(&d.branch, &id);
+            d.name = ensure_ref_prefix(&d.name, &id);
+        }
+    }
+    d
 }
 
 // Guard against the model inventing a repo: repo_path must be one of the provided paths (spec §B.4: never silent).
@@ -394,7 +470,7 @@ mod tests {
         let d = DeducedWorktree {
             repo_path: "/a".into(), name: "n".into(), branch: "b".into(), base: "main".into(),
             start_cmd: "c".into(), address: "x".into(), reason: "r".into(),
-            source_url: "".into(), source_title: "".into(), source_resolved: false,
+            source_url: "".into(), source_title: "".into(), source_resolved: false, existing_branch: false,
         };
         assert!(validate_repo(d.clone(), &["/a".into(), "/b".into()]).is_ok());
         assert!(validate_repo(d, &["/b".into()]).is_err());
@@ -448,6 +524,70 @@ mod tests {
         assert!(out.contains("do the thing"));
         assert!(out.contains("ENG-1234"));
         assert!(out.contains("cockpit"));
+    }
+
+    #[test]
+    fn detect_source_picks_github_then_linear_then_plain() {
+        assert!(matches!(detect_source("see github.com/a/b/pull/3"), Source::GitHub(_)));
+        assert!(matches!(detect_source("fix ENG-1234 now"), Source::Linear(_)));
+        assert!(matches!(detect_source("just a prompt"), Source::Plain));
+    }
+
+    #[test]
+    fn compose_user_github_includes_prompt_context_and_digests() {
+        let ctx = crate::github::GithubContext {
+            title: "Fix login".into(), body: "the body".into(), url: "https://github.com/a/b/pull/9".into(),
+            branch: Some("fix-login".into()), base: Some("main".into()),
+        };
+        let digests = vec![serde_json::json!({"basename": "cockpit"})];
+        let out = compose_user_github("do the thing", &ctx, &digests);
+        assert!(out.contains("do the thing"));
+        assert!(out.contains("Fix login"));
+        assert!(out.contains("the body"));
+        assert!(out.contains("cockpit"));
+        assert!(out.contains("fix-login")); // PR branch note included
+    }
+
+    #[test]
+    fn apply_github_overrides_pr_uses_existing_branch_and_pins_name() {
+        let d = DeducedWorktree {
+            repo_path: "/wrong".into(), name: "login".into(), branch: "agent-branch".into(), base: "develop".into(),
+            start_cmd: "c".into(), address: "a".into(), reason: "r".into(),
+            source_url: "".into(), source_title: "".into(), source_resolved: false, existing_branch: false,
+        };
+        let r = crate::github::GithubRef { kind: crate::github::GithubKind::Pr, owner: "a".into(), repo: "b".into(), number: 9 };
+        let ctx = crate::github::GithubContext {
+            title: "Fix login".into(), body: "".into(), url: "https://github.com/a/b/pull/9".into(),
+            branch: Some("feat/login".into()), base: Some("main".into()),
+        };
+        let out = apply_github_overrides(d, &r, &ctx, "/p/b", Some("ignored".into()));
+        assert_eq!(out.repo_path, "/p/b");          // repo overridden deterministically
+        assert!(out.existing_branch);                // PR -> existing branch
+        assert_eq!(out.branch, "feat/login");        // the PR's real branch, untouched
+        assert_eq!(out.base, "main");                // the PR's base
+        assert_eq!(out.name, "pr-9-login");          // pr-<N> pinned into the name
+        assert_eq!(out.source_url, "https://github.com/a/b/pull/9");
+        assert_eq!(out.source_title, "Fix login");
+        assert!(out.source_resolved);
+    }
+
+    #[test]
+    fn apply_github_overrides_issue_makes_new_branch_with_id() {
+        let d = DeducedWorktree {
+            repo_path: "/wrong".into(), name: "login".into(), branch: "fix-login".into(), base: "develop".into(),
+            start_cmd: "c".into(), address: "a".into(), reason: "r".into(),
+            source_url: "".into(), source_title: "".into(), source_resolved: false, existing_branch: true,
+        };
+        let r = crate::github::GithubRef { kind: crate::github::GithubKind::Issue, owner: "a".into(), repo: "b".into(), number: 7 };
+        let ctx = crate::github::GithubContext {
+            title: "Login bug".into(), body: "".into(), url: "https://github.com/a/b/issues/7".into(),
+            branch: None, base: None,
+        };
+        let out = apply_github_overrides(d, &r, &ctx, "/p/b", Some("trunk".into()));
+        assert!(!out.existing_branch);               // issue -> new branch
+        assert_eq!(out.base, "trunk");               // base from git default
+        assert_eq!(out.branch, "issue-7-fix-login"); // issue-<N> pinned into branch
+        assert_eq!(out.name, "issue-7-login");       // issue-<N> pinned into name
     }
 
     #[test]
