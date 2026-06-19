@@ -23,6 +23,8 @@ pub struct DeducedWorktree {
     pub source_resolved: bool,
     #[serde(rename = "existingBranch", default)]
     pub existing_branch: bool,
+    #[serde(rename = "prNumber", default)]
+    pub pr_number: u64,
 }
 
 // Char-safe truncation so a long README snippet stays small without splitting a multibyte char.
@@ -186,6 +188,7 @@ pub fn apply_github_overrides(
     match r.kind {
         github::GithubKind::Pr => {
             // PR: check out its existing branch (left untouched so it matches the remote); pin pr-<N> into the name only.
+            d.pr_number = r.number;
             d.existing_branch = true;
             if let Some(b) = &ctx.branch {
                 d.branch = b.clone();
@@ -492,6 +495,7 @@ mod tests {
             repo_path: "/a".into(), name: "n".into(), branch: "b".into(), base: "main".into(),
             start_cmd: "c".into(), address: "x".into(), reason: "r".into(),
             source_url: "".into(), source_title: "".into(), source_resolved: false, existing_branch: false,
+            pr_number: 0,
         };
         assert!(validate_repo(d.clone(), &["/a".into(), "/b".into()]).is_ok());
         assert!(validate_repo(d, &["/b".into()]).is_err());
@@ -575,6 +579,7 @@ mod tests {
             repo_path: "/wrong".into(), name: "login".into(), branch: "agent-branch".into(), base: "develop".into(),
             start_cmd: "c".into(), address: "a".into(), reason: "r".into(),
             source_url: "".into(), source_title: "".into(), source_resolved: false, existing_branch: false,
+            pr_number: 0,
         };
         let r = crate::github::GithubRef { kind: crate::github::GithubKind::Pr, owner: "a".into(), repo: "b".into(), number: 9 };
         let ctx = crate::github::GithubContext {
@@ -590,6 +595,7 @@ mod tests {
         assert_eq!(out.source_url, "https://github.com/a/b/pull/9");
         assert_eq!(out.source_title, "Fix login");
         assert!(out.source_resolved);
+        assert_eq!(out.pr_number, 9);
     }
 
     #[test]
@@ -598,6 +604,7 @@ mod tests {
             repo_path: "/wrong".into(), name: "login".into(), branch: "fix-login".into(), base: "develop".into(),
             start_cmd: "c".into(), address: "a".into(), reason: "r".into(),
             source_url: "".into(), source_title: "".into(), source_resolved: false, existing_branch: true,
+            pr_number: 0,
         };
         let r = crate::github::GithubRef { kind: crate::github::GithubKind::Issue, owner: "a".into(), repo: "b".into(), number: 7 };
         let ctx = crate::github::GithubContext {
@@ -609,6 +616,7 @@ mod tests {
         assert_eq!(out.base, "trunk");               // base from git default
         assert_eq!(out.branch, "issue-7-fix-login"); // issue-<N> pinned into branch
         assert_eq!(out.name, "issue-7-login");       // issue-<N> pinned into name
+        assert_eq!(out.pr_number, 0);
     }
 
     #[test]
