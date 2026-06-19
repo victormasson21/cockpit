@@ -377,40 +377,61 @@ pub fn deduce_worktree(prompt: String, repo_paths: Vec<String>) -> Result<Deduce
         return Err("no known repos configured".into());
     }
     let digests: Vec<serde_json::Value> = repo_paths.iter().map(|p| read_repo_digest(p)).collect();
-    let detected = detect_linear_ref(&prompt);
 
-    // Ticket path: MCP-enabled call so the agent fetches the ticket. Plain path: byte-identical to before (no tools).
-    let stdout = match &detected {
-        Some(id) => run_claude(ClaudeCall {
-            user_prompt: &compose_user_ticket(&prompt, id, &digests),
-            system_prompt: SYSTEM_PROMPT_TICKET,
-            schema: DEDUCE_SCHEMA_TICKET,
-            model: LINEAR_MODEL,
-            allowed_tools: Some(LINEAR_ALLOWED_TOOLS),
-        })?,
-        None => run_claude(ClaudeCall {
-            user_prompt: &compose_user(&prompt, &digests),
-            system_prompt: SYSTEM_PROMPT,
-            schema: DEDUCE_SCHEMA,
-            model: "claude-haiku-4-5",
-            allowed_tools: None,
-        })?,
-    };
-
-    let mut deduced = validate_repo(parse_envelope(&stdout)?, &repo_paths)?;
-    // Base branch is deterministic from git; don't trust the agent's main/master guess.
-    if let Some(b) = default_branch(&deduced.repo_path) {
-        deduced.base = b;
-    }
-    // Ticket guardrails: never fabricate on an unresolved ticket; guarantee the id is in name + branch.
-    if let Some(id) = &detected {
-        if !deduced.source_resolved {
-            return Err(format!("couldn't resolve Linear ticket {id} (is the Linear MCP connected?)"));
+    // One branch point: a GitHub URL, a Linear ref, or a plain prompt.
+    match detect_source(&prompt) {
+        // GitHub: fetch + match in Rust, run the PLAIN agent with the gh context, then override authoritative fields.
+        Source::GitHub(r) => {
+            let ctx = github::fetch_github(&r)?;
+            let repo_path = github::match_repo(&r, &repo_paths)?;
+            let stdout = run_claude(ClaudeCall {
+                user_prompt: &compose_user_github(&prompt, &ctx, &digests),
+                system_prompt: SYSTEM_PROMPT,
+                schema: DEDUCE_SCHEMA,
+                model: "claude-haiku-4-5",
+                allowed_tools: None,
+            })?;
+            let deduced = parse_envelope(&stdout)?;
+            // Issue branches off the git default; PR uses the PR's own base (handled in apply_github_overrides).
+            let base_default = default_branch(&repo_path);
+            Ok(apply_github_overrides(deduced, &r, &ctx, &repo_path, base_default))
         }
-        deduced.branch = ensure_ref_prefix(&deduced.branch, &id.to_lowercase());
-        deduced.name = ensure_ref_prefix(&deduced.name, id);
+        // Linear: MCP-enabled ticket path (unchanged from the Linear iteration).
+        Source::Linear(id) => {
+            let stdout = run_claude(ClaudeCall {
+                user_prompt: &compose_user_ticket(&prompt, &id, &digests),
+                system_prompt: SYSTEM_PROMPT_TICKET,
+                schema: DEDUCE_SCHEMA_TICKET,
+                model: LINEAR_MODEL,
+                allowed_tools: Some(LINEAR_ALLOWED_TOOLS),
+            })?;
+            let mut deduced = validate_repo(parse_envelope(&stdout)?, &repo_paths)?;
+            if let Some(b) = default_branch(&deduced.repo_path) {
+                deduced.base = b;
+            }
+            if !deduced.source_resolved {
+                return Err(format!("couldn't resolve Linear ticket {id} (is the Linear MCP connected?)"));
+            }
+            deduced.branch = ensure_ref_prefix(&deduced.branch, &id.to_lowercase());
+            deduced.name = ensure_ref_prefix(&deduced.name, &id);
+            Ok(deduced)
+        }
+        // Plain: byte-identical to before (no tools, haiku).
+        Source::Plain => {
+            let stdout = run_claude(ClaudeCall {
+                user_prompt: &compose_user(&prompt, &digests),
+                system_prompt: SYSTEM_PROMPT,
+                schema: DEDUCE_SCHEMA,
+                model: "claude-haiku-4-5",
+                allowed_tools: None,
+            })?;
+            let mut deduced = validate_repo(parse_envelope(&stdout)?, &repo_paths)?;
+            if let Some(b) = default_branch(&deduced.repo_path) {
+                deduced.base = b;
+            }
+            Ok(deduced)
+        }
     }
-    Ok(deduced)
 }
 
 #[cfg(test)]
