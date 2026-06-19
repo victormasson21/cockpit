@@ -1,7 +1,7 @@
 // NewWorktreeForm.tsx — collapsible manual form: runs git worktree add, stores the model, selects it. Collapsible = sub-project-3 inference seam.
 import { useState } from "react";
 import { createWorktree, deduceWorktree, type BranchSpec } from "../../worktrees/api";
-import { makeWorktree, ticketLinkFrom } from "../../worktrees/model";
+import { makeWorktree, sourceLinkFrom } from "../../worktrees/model";
 import type { WorktreeLink } from "../../settings/types";
 import { useSettings } from "../../settings/store";
 import { KnownReposEditor } from "./KnownReposEditor";
@@ -39,7 +39,7 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
       const saved = cockpit.knownRepos.find((r) => r.path === d.repoPath)?.host;
       setStartCmd(saved?.startCmd ?? d.startCmd);
       setAddress(saved?.address ?? d.address);
-      const tl = ticketLinkFrom(d);
+      const tl = sourceLinkFrom(d);
       setTicketLink(tl);
       setBanner({ prompt, repoPath: d.repoPath, reason: d.reason, hostFromSaved: !!(saved?.startCmd && saved?.address), ticket: tl });
     } catch (e) {

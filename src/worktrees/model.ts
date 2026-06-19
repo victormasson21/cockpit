@@ -24,8 +24,8 @@ export function removeLink(links: WorktreeLink[], i: number): WorktreeLink[] {
   return links.filter((_, idx) => idx !== i);
 }
 
-// Build the worktree link to attach from a deduction, or null when no ticket was resolved.
-export function ticketLinkFrom(d: DeducedWorktree): WorktreeLink | null {
-  if (!d.ticketUrl) return null;
-  return { label: d.ticketTitle || d.ticketUrl, url: d.ticketUrl };
+// Build the worktree link to attach from a deduction, or null when no source was resolved.
+export function sourceLinkFrom(d: DeducedWorktree): WorktreeLink | null {
+  if (!d.sourceUrl) return null;
+  return { label: d.sourceTitle || d.sourceUrl, url: d.sourceUrl };
 }

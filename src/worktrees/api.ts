@@ -19,8 +19,8 @@ export interface DeducedWorktree {
   startCmd: string;
   address: string;
   reason: string;
-  ticketUrl?: string;
-  ticketTitle?: string;
+  sourceUrl?: string;
+  sourceTitle?: string;
   sourceResolved?: boolean;
 }
 

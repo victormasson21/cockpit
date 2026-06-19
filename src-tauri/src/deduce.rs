@@ -13,11 +13,11 @@ pub struct DeducedWorktree {
     pub start_cmd: String,
     pub address: String,
     pub reason: String,
-    // Source-context fields: populated only on the ticket path; default so the plain path's JSON still deserializes.
-    #[serde(rename = "ticketUrl", default)]
-    pub ticket_url: String,
-    #[serde(rename = "ticketTitle", default)]
-    pub ticket_title: String,
+    // Source-context fields: populated only on a source path; default so the plain path's JSON still deserializes.
+    #[serde(rename = "sourceUrl", default)]
+    pub source_url: String,
+    #[serde(rename = "sourceTitle", default)]
+    pub source_title: String,
     #[serde(rename = "sourceResolved", default)]
     pub source_resolved: bool,
 }
@@ -128,7 +128,7 @@ pub fn ensure_ref_prefix(value: &str, id: &str) -> String {
 pub fn compose_user_ticket(prompt: &str, id: &str, digests: &[serde_json::Value]) -> String {
     format!(
         "{}\n\nA Linear ticket ({id}) was referenced; fetch it via the Linear MCP and use its title/description \
-to choose the name and branch (include {id} in both), and set ticketUrl/ticketTitle/sourceResolved accordingly.",
+to choose the name and branch (include {id} in both), and set sourceUrl/sourceTitle/sourceResolved accordingly.",
         compose_user(prompt, digests)
     )
 }
@@ -171,11 +171,11 @@ const SYSTEM_PROMPT_TICKET: &str = "You deduce git worktree parameters from a ta
 Fetch the referenced ticket via the Linear MCP and use its title/description to choose a short name and a new branch \
 (include the ticket id in BOTH). Choose repoPath from the provided repo digests ONLY (copy one exactly). Also propose the \
 base branch and the dev-server start command/address from that repo's scripts/README, with a one-line reason. \
-Set ticketUrl and ticketTitle from the fetched ticket and sourceResolved=true. If you CANNOT fetch the ticket, set \
-sourceResolved=false and leave ticketUrl/ticketTitle empty. Output only the structured object.";
+Set sourceUrl and sourceTitle from the fetched ticket and sourceResolved=true. If you CANNOT fetch the ticket, set \
+sourceResolved=false and leave sourceUrl/sourceTitle empty. Output only the structured object.";
 
 // Ticket-path schema: the plain fields plus the source-context fields, all required.
-const DEDUCE_SCHEMA_TICKET: &str = r#"{"type":"object","properties":{"repoPath":{"type":"string"},"name":{"type":"string"},"branch":{"type":"string"},"base":{"type":"string"},"startCmd":{"type":"string"},"address":{"type":"string"},"reason":{"type":"string"},"ticketUrl":{"type":"string"},"ticketTitle":{"type":"string"},"sourceResolved":{"type":"boolean"}},"required":["repoPath","name","branch","base","startCmd","address","reason","ticketUrl","ticketTitle","sourceResolved"],"additionalProperties":false}"#;
+const DEDUCE_SCHEMA_TICKET: &str = r#"{"type":"object","properties":{"repoPath":{"type":"string"},"name":{"type":"string"},"branch":{"type":"string"},"base":{"type":"string"},"startCmd":{"type":"string"},"address":{"type":"string"},"reason":{"type":"string"},"sourceUrl":{"type":"string"},"sourceTitle":{"type":"string"},"sourceResolved":{"type":"boolean"}},"required":["repoPath","name","branch","base","startCmd","address","reason","sourceUrl","sourceTitle","sourceResolved"],"additionalProperties":false}"#;
 
 // Pinned in Task 1's smoke test (Verified CLI facts). Starting guesses below.
 const LINEAR_ALLOWED_TOOLS: &str = "mcp__linear";
@@ -394,7 +394,7 @@ mod tests {
         let d = DeducedWorktree {
             repo_path: "/a".into(), name: "n".into(), branch: "b".into(), base: "main".into(),
             start_cmd: "c".into(), address: "x".into(), reason: "r".into(),
-            ticket_url: "".into(), ticket_title: "".into(), source_resolved: false,
+            source_url: "".into(), source_title: "".into(), source_resolved: false,
         };
         assert!(validate_repo(d.clone(), &["/a".into(), "/b".into()]).is_ok());
         assert!(validate_repo(d, &["/b".into()]).is_err());
@@ -451,15 +451,15 @@ mod tests {
     }
 
     #[test]
-    fn parse_envelope_reads_ticket_fields_and_defaults_them() {
-        let with = r#"{"is_error":false,"result":"","structured_output":{"repoPath":"/r","name":"n","branch":"b","base":"main","startCmd":"c","address":"a","reason":"r","ticketUrl":"https://linear.app/x","ticketTitle":"Fix login","sourceResolved":true}}"#;
+    fn parse_envelope_reads_source_fields_and_defaults_them() {
+        let with = r#"{"is_error":false,"result":"","structured_output":{"repoPath":"/r","name":"n","branch":"b","base":"main","startCmd":"c","address":"a","reason":"r","sourceUrl":"https://linear.app/x","sourceTitle":"Fix login","sourceResolved":true}}"#;
         let d = parse_envelope(with).unwrap();
-        assert_eq!(d.ticket_url, "https://linear.app/x");
+        assert_eq!(d.source_url, "https://linear.app/x");
         assert!(d.source_resolved);
-        // Plain-path envelope (no ticket fields) still parses, with defaults.
+        // Plain-path envelope (no source fields) still parses, with defaults.
         let without = r#"{"is_error":false,"result":"","structured_output":{"repoPath":"/r","name":"n","branch":"b","base":"main","startCmd":"c","address":"a","reason":"r"}}"#;
         let d2 = parse_envelope(without).unwrap();
-        assert_eq!(d2.ticket_url, "");
+        assert_eq!(d2.source_url, "");
         assert!(!d2.source_resolved);
     }
 }

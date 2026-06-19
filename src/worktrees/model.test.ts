@@ -1,6 +1,6 @@
-// model.test.ts — pure worktree helpers (existing link reducers + ticket link construction from a deduction).
+// model.test.ts — pure worktree helpers (existing link reducers + source link construction from a deduction).
 import { describe, it, expect } from "vitest";
-import { makeWorktree, addLink, updateLink, removeLink, ticketLinkFrom } from "./model";
+import { makeWorktree, addLink, updateLink, removeLink, sourceLinkFrom } from "./model";
 import type { DeducedWorktree } from "./api";
 
 describe("makeWorktree", () => {
@@ -36,16 +36,16 @@ const deducedBase: DeducedWorktree = {
   repoPath: "/r", name: "n", branch: "b", base: "main", startCmd: "c", address: "a", reason: "r",
 };
 
-describe("ticketLinkFrom", () => {
-  it("returns null when there is no ticket url", () => {
-    expect(ticketLinkFrom(deducedBase)).toBeNull();
+describe("sourceLinkFrom", () => {
+  it("returns null when there is no source url", () => {
+    expect(sourceLinkFrom(deducedBase)).toBeNull();
   });
-  it("uses the ticket title as the link label", () => {
-    expect(ticketLinkFrom({ ...deducedBase, ticketUrl: "https://linear.app/x", ticketTitle: "Fix login" }))
+  it("uses the source title as the link label", () => {
+    expect(sourceLinkFrom({ ...deducedBase, sourceUrl: "https://linear.app/x", sourceTitle: "Fix login" }))
       .toEqual({ label: "Fix login", url: "https://linear.app/x" });
   });
   it("falls back to the url when there is no title", () => {
-    expect(ticketLinkFrom({ ...deducedBase, ticketUrl: "https://linear.app/x" }))
+    expect(sourceLinkFrom({ ...deducedBase, sourceUrl: "https://linear.app/x" }))
       .toEqual({ label: "https://linear.app/x", url: "https://linear.app/x" });
   });
 });
