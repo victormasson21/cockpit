@@ -21,8 +21,8 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
   const [prompt, setPrompt] = useState("");
   const [deducing, setDeducing] = useState(false);
   const [deduceError, setDeduceError] = useState<string | null>(null);
-  const [ticketLink, setTicketLink] = useState<WorktreeLink | null>(null);
-  const [banner, setBanner] = useState<{ prompt: string; repoPath: string; reason: string; hostFromSaved: boolean; ticket: WorktreeLink | null } | null>(null);
+  const [sourceLink, setSourceLink] = useState<WorktreeLink | null>(null);
+  const [banner, setBanner] = useState<{ prompt: string; repoPath: string; reason: string; hostFromSaved: boolean; source: WorktreeLink | null; existingBranch: boolean; branch: string } | null>(null);
 
   // deduce: ask the agent for params, pre-fill the editable fields, and record the banner. Never creates anything.
   const runDeduce = async () => {
@@ -32,16 +32,16 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
       const d = await deduceWorktree(prompt, cockpit.knownRepos.map((r) => r.path));
       setName(d.name);
       setRepoPath(d.repoPath);
-      setMode("new");
+      setMode(d.existingBranch ? "existing" : "new");
       setBranch(d.branch);
       setBase(d.base);
       // A repo's saved host default wins over the agent's guess (port/start cmd aren't reliably inferable).
       const saved = cockpit.knownRepos.find((r) => r.path === d.repoPath)?.host;
       setStartCmd(saved?.startCmd ?? d.startCmd);
       setAddress(saved?.address ?? d.address);
-      const tl = sourceLinkFrom(d);
-      setTicketLink(tl);
-      setBanner({ prompt, repoPath: d.repoPath, reason: d.reason, hostFromSaved: !!(saved?.startCmd && saved?.address), ticket: tl });
+      const sl = sourceLinkFrom(d);
+      setSourceLink(sl);
+      setBanner({ prompt, repoPath: d.repoPath, reason: d.reason, hostFromSaved: !!(saved?.startCmd && saved?.address), source: sl, existingBranch: !!d.existingBranch, branch: d.branch });
     } catch (e) {
       setDeduceError(String(e));
     } finally {
@@ -60,7 +60,7 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
       addWorktree(makeWorktree({
         id, name, repoPath, branch, worktreePath,
         host: { startCmd, address },
-        links: ticketLink ? [ticketLink] : [],
+        links: sourceLink ? [sourceLink] : [],
       }));
       onCreated(id);
       setOpen(false);
@@ -92,7 +92,8 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
           deduced from "{banner.prompt}" → <strong>{banner.repoPath}</strong><br />
           {banner.reason} — review the fields below and Create.
           {banner.hostFromSaved && <><br />host loaded from this repo's saved default.</>}
-          {banner.ticket && <><br />🎫 {banner.ticket.label} — link will be added.</>}
+          {banner.source && <><br />🔗 {banner.source.label} — link will be added.</>}
+          {banner.existingBranch && <><br />will check out existing branch <strong>{banner.branch}</strong>.</>}
         </div>
       )}
       <hr style={{ width: "100%", border: "none", borderTop: "1px solid #eee", margin: "4px 0" }} />

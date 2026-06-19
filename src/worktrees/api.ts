@@ -22,6 +22,7 @@ export interface DeducedWorktree {
   sourceUrl?: string;
   sourceTitle?: string;
   sourceResolved?: boolean;
+  existingBranch?: boolean;
 }
 
 // Deduce worktree params from a prompt + the known-repos list; rejects with an inline-displayable error string.
