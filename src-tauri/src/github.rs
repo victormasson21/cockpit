@@ -117,7 +117,7 @@ fn parse_gh_json(stdout: &str, kind: &GithubKind) -> Result<GithubContext, Strin
         serde_json::from_str(stdout.trim()).map_err(|e| format!("couldn't parse gh output: {e}"))?;
     let get = |k: &str| v.get(k).and_then(|x| x.as_str()).unwrap_or("").to_string();
     let (branch, base) = match kind {
-        GithubKind::Pr => (Some(get("headRefName")), Some(get("baseRefName"))),
+        GithubKind::Pr => (non_empty(&get("headRefName")), non_empty(&get("baseRefName"))),
         GithubKind::Issue => (None, None),
     };
     Ok(GithubContext { title: get("title"), body: get("body"), url: get("url"), branch, base })
@@ -216,5 +216,13 @@ mod tests {
         assert_eq!(ci.title, "Bug");
         assert_eq!(ci.branch, None);
         assert_eq!(ci.base, None);
+    }
+
+    #[test]
+    fn parse_gh_json_pr_with_missing_branch_fields_is_none() {
+        let pr = r#"{"title":"T","body":"b","url":"https://github.com/a/b/pull/9","number":9}"#;
+        let c = parse_gh_json(pr, &GithubKind::Pr).unwrap();
+        assert_eq!(c.branch, None);
+        assert_eq!(c.base, None);
     }
 }
