@@ -8,6 +8,8 @@ use std::process::Command;
 pub enum BranchSpec {
     Existing { branch: String },
     New { branch: String, base: String },
+    // GitHub PR: make a detached worktree, then `gh pr checkout <number>` inside it (handles fork PRs).
+    Pr { number: u64 },
 }
 
 // Lowercase dash-separated slug so a worktree name maps to a safe directory name.
@@ -41,6 +43,10 @@ pub fn worktree_add_args(worktree_path: &str, spec: &BranchSpec) -> Vec<String> 
             "worktree".into(), "add".into(), "-b".into(), branch.clone(),
             worktree_path.into(), base.clone(),
         ],
+        // PR: detached HEAD first; gh pr checkout will create the branch inside the worktree.
+        BranchSpec::Pr { .. } => {
+            vec!["worktree".into(), "add".into(), "--detach".into(), worktree_path.into()]
+        }
     }
 }
 
@@ -64,6 +70,18 @@ pub fn create_worktree(
         .map_err(|e| e.to_string())?;
     if !out.status.success() {
         return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
+    }
+    // PR: fetch + check out the PR inside the fresh detached worktree (gh handles fork PRs via refs/pull/N/head).
+    if let BranchSpec::Pr { number } = &spec {
+        let n = number.to_string();
+        let co = Command::new("gh")
+            .current_dir(&wt)
+            .args(["pr", "checkout", &n])
+            .output()
+            .map_err(|e| format!("gh CLI not found: {e}"))?;
+        if !co.status.success() {
+            return Err(String::from_utf8_lossy(&co.stderr).trim().to_string());
+        }
     }
     Ok(wt_str)
 }
@@ -97,5 +115,11 @@ mod tests {
             &BranchSpec::New { branch: "victor/fix".into(), base: "main".into() },
         );
         assert_eq!(a, vec!["worktree", "add", "-b", "victor/fix", "/wt", "main"]);
+    }
+
+    #[test]
+    fn add_args_pr_makes_detached_worktree() {
+        let a = worktree_add_args("/wt", &BranchSpec::Pr { number: 42 });
+        assert_eq!(a, vec!["worktree", "add", "--detach", "/wt"]);
     }
 }
