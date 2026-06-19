@@ -1,5 +1,12 @@
 //! github.rs — GitHub source provider: detects PR/issue URLs, fetches their context via the gh CLI, and maps owner/repo to a known local repo.
 
+use std::io::Read;
+use std::process::{Command, Stdio};
+use std::time::Duration;
+use wait_timeout::ChildExt;
+
+const GH_TIMEOUT: Duration = Duration::from_secs(30); // gh calls are quick; generous ceiling.
+
 // The kind of GitHub ref: a PR checks out its existing branch, an issue gets a new branch.
 #[derive(Debug, Clone, PartialEq)]
 pub enum GithubKind {
@@ -78,6 +85,86 @@ fn non_empty(s: &str) -> Option<String> {
     if s.is_empty() { None } else { Some(s.to_string()) }
 }
 
+// Fetch the referenced PR/issue context via the gh CLI (reuses gh auth). Err on gh-missing / not-found / no-access.
+pub fn fetch_github(r: &GithubRef) -> Result<GithubContext, String> {
+    let repo = format!("{}/{}", r.owner, r.repo);
+    let number = r.number.to_string();
+    // PR carries branch/base fields; an issue does not.
+    let (sub, fields) = match r.kind {
+        GithubKind::Pr => ("pr", "title,body,headRefName,baseRefName,url,number"),
+        GithubKind::Issue => ("issue", "title,body,url,number"),
+    };
+    let out = run_gh(&[sub, "view", &number, "--repo", &repo, "--json", fields])?;
+    parse_gh_json(&out, &r.kind)
+}
+
+// Resolve the ref's owner/repo to one of the known repo paths via each repo's origin remote. Err if none match.
+pub fn match_repo(r: &GithubRef, repo_paths: &[String]) -> Result<String, String> {
+    // Build (path, owner, repo) candidates, skipping repos without a GitHub origin.
+    let candidates: Vec<(String, String, String)> = repo_paths
+        .iter()
+        .filter_map(|p| origin_owner_repo(p).map(|(o, rp)| (p.clone(), o, rp)))
+        .collect();
+    select_repo(r, &candidates).ok_or_else(|| {
+        let kind = match r.kind { GithubKind::Pr => "PR", GithubKind::Issue => "issue" };
+        format!("this {kind} is for {}/{}, which isn't one of your known repos — add it above", r.owner, r.repo)
+    })
+}
+
+// Parse gh's --json output into a GithubContext (branch/base present only for a PR).
+fn parse_gh_json(stdout: &str, kind: &GithubKind) -> Result<GithubContext, String> {
+    let v: serde_json::Value =
+        serde_json::from_str(stdout.trim()).map_err(|e| format!("couldn't parse gh output: {e}"))?;
+    let get = |k: &str| v.get(k).and_then(|x| x.as_str()).unwrap_or("").to_string();
+    let (branch, base) = match kind {
+        GithubKind::Pr => (Some(get("headRefName")), Some(get("baseRefName"))),
+        GithubKind::Issue => (None, None),
+    };
+    Ok(GithubContext { title: get("title"), body: get("body"), url: get("url"), branch, base })
+}
+
+// Read a repo's origin remote URL via git and parse owner/repo; None if no git/remote/GitHub match.
+fn origin_owner_repo(repo_path: &str) -> Option<(String, String)> {
+    let out = Command::new("git")
+        .args(["-C", repo_path, "remote", "get-url", "origin"])
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    parse_owner_repo(String::from_utf8_lossy(&out.stdout).trim())
+}
+
+// Run a gh subcommand with a hard timeout; returns stdout, or an Err carrying gh's stderr.
+fn run_gh(args: &[&str]) -> Result<String, String> {
+    let mut child = Command::new("gh")
+        .args(args)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("gh CLI not found: {e}"))?;
+    match child.wait_timeout(GH_TIMEOUT).map_err(|e| e.to_string())? {
+        None => {
+            let _ = child.kill();
+            Err("gh timed out".into())
+        }
+        Some(status) => {
+            let mut out = String::new();
+            if let Some(mut so) = child.stdout.take() {
+                let _ = so.read_to_string(&mut out);
+            }
+            if !status.success() {
+                let mut err = String::new();
+                if let Some(mut se) = child.stderr.take() {
+                    let _ = se.read_to_string(&mut err);
+                }
+                return Err(format!("gh failed: {}", err.trim()));
+            }
+            Ok(out)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -114,5 +201,20 @@ mod tests {
         ];
         assert_eq!(select_repo(&r, &cands), Some("/p/cockpit".into()));
         assert_eq!(select_repo(&r, &cands[..1]), None);
+    }
+
+    #[test]
+    fn parse_gh_json_reads_pr_and_issue_shapes() {
+        let pr = r#"{"title":"Fix login","body":"details","url":"https://github.com/a/b/pull/9","headRefName":"fix-login","baseRefName":"main","number":9}"#;
+        let c = parse_gh_json(pr, &GithubKind::Pr).unwrap();
+        assert_eq!(c.title, "Fix login");
+        assert_eq!(c.branch.as_deref(), Some("fix-login"));
+        assert_eq!(c.base.as_deref(), Some("main"));
+        // Issue: no branch/base.
+        let iss = r#"{"title":"Bug","body":"b","url":"https://github.com/a/b/issues/3","number":3}"#;
+        let ci = parse_gh_json(iss, &GithubKind::Issue).unwrap();
+        assert_eq!(ci.title, "Bug");
+        assert_eq!(ci.branch, None);
+        assert_eq!(ci.base, None);
     }
 }
