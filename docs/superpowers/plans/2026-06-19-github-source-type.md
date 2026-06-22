@@ -936,3 +936,134 @@ git commit -m "docs: as-built notes + status for the GitHub source type"
 - **Plain + Linear paths must stay byte-identical.** The `Source::Plain` and `Source::Linear` arms reproduce today's exact calls (system prompt, schema, model, tools, guardrail). Verify no regression there.
 - **The rename (Task 2) is contract-wide.** `ticketUrl/ticketTitle` are renamed in the Rust struct, the Linear ticket *schema*, the Linear *prompt field-name references*, the TS type, and the model helper — a half-rename would make the Linear agent emit fields the schema rejects. Grep to confirm none remain.
 - **No new deps, one new file (`github.rs`), no IPC signature change.**
+
+---
+
+## Follow-on: Robust PR checkout via `gh pr checkout` (addresses final-review Important #1)
+
+> The final whole-branch review found the PR path's existing-branch checkout (`git worktree add <path> <headRefName>`) fails for a PR branch not already local (fresh PRs, fork PRs). Fix: a dedicated `BranchSpec::Pr { number }` that creates a **detached** worktree and runs `gh pr checkout <N>` inside it — gh fetches the PR head (incl. `refs/pull/N/head` for forks), creates the branch, and checks it out there without touching the main checkout. The PR number is threaded deduce → `DeducedWorktree.pr_number` → frontend → `createWorktree`.
+
+### Task F1: `worktree.rs` — `BranchSpec::Pr` + detached-worktree + `gh pr checkout`
+
+**Files:** Modify `src-tauri/src/worktree.rs`
+
+- [ ] **Step 1:** Add the `Pr` variant to `BranchSpec`:
+```rust
+pub enum BranchSpec {
+    Existing { branch: String },
+    New { branch: String, base: String },
+    // GitHub PR: make a detached worktree, then `gh pr checkout <number>` inside it (handles fork PRs).
+    Pr { number: u64 },
+}
+```
+
+- [ ] **Step 2:** Add the failing test in `worktree.rs` `tests`:
+```rust
+    #[test]
+    fn add_args_pr_makes_detached_worktree() {
+        let a = worktree_add_args("/wt", &BranchSpec::Pr { number: 42 });
+        assert_eq!(a, vec!["worktree", "add", "--detach", "/wt"]);
+    }
+```
+
+- [ ] **Step 3:** Run `cd src-tauri && cargo test worktree::` — expect FAIL (non-exhaustive match on the new variant).
+
+- [ ] **Step 4:** Extend `worktree_add_args` with the `Pr` arm:
+```rust
+        BranchSpec::Pr { .. } => {
+            vec!["worktree".into(), "add".into(), "--detach".into(), worktree_path.into()]
+        }
+```
+
+- [ ] **Step 5:** In `create_worktree`, after the existing `git worktree add` success check, run `gh pr checkout` for the PR case (inside the new worktree, so gh infers the repo from its shared origin remote):
+```rust
+    // PR: fetch + check out the PR inside the fresh detached worktree (gh handles fork PRs via refs/pull/N/head).
+    if let BranchSpec::Pr { number } = &spec {
+        let n = number.to_string();
+        let co = Command::new("gh")
+            .current_dir(&wt)
+            .args(["pr", "checkout", &n])
+            .output()
+            .map_err(|e| format!("gh CLI not found: {e}"))?;
+        if !co.status.success() {
+            return Err(String::from_utf8_lossy(&co.stderr).trim().to_string());
+        }
+    }
+```
+
+- [ ] **Step 6:** `cd src-tauri && cargo test worktree:: && cargo build` — expect PASS, warning-clean.
+
+- [ ] **Step 7:** Commit: `feat(worktree): BranchSpec::Pr — detached worktree + gh pr checkout (fork-safe)`
+
+### Task F2: `deduce.rs` — thread the PR number through `DeducedWorktree`
+
+**Files:** Modify `src-tauri/src/deduce.rs`
+
+- [ ] **Step 1:** Add the field after `existing_branch`:
+```rust
+    #[serde(rename = "prNumber", default)]
+    pub pr_number: u64,
+```
+
+- [ ] **Step 2:** Add `pr_number: 0,` to the `DeducedWorktree` literal in the `validate_repo_enforces_membership` test (it currently ends `existing_branch: false`).
+
+- [ ] **Step 3:** In `apply_github_overrides`, set the number in the PR arm only — add as the first line of the `GithubKind::Pr` arm:
+```rust
+            d.pr_number = r.number;
+```
+(The issue arm leaves it at the default 0.)
+
+- [ ] **Step 4:** Extend the two override tests: in `apply_github_overrides_pr_uses_existing_branch_and_pins_name` add `assert_eq!(out.pr_number, 9);` and in the PR input literal add `pr_number: 0,`; in `apply_github_overrides_issue_makes_new_branch_with_id` add `assert_eq!(out.pr_number, 0);` and `pr_number: 0,` to its input literal.
+
+- [ ] **Step 5:** `cd src-tauri && cargo test deduce:: && cargo build` — expect PASS, warning-clean.
+
+- [ ] **Step 6:** Commit: `feat(deduce): carry PR number on DeducedWorktree for fork-safe checkout`
+
+### Task F3: Frontend — `prNumber` type + `pr` BranchSpec + Create wiring
+
+**Files:** Modify `src/worktrees/api.ts`, `src/tiles/worktree/NewWorktreeForm.tsx`
+
+- [ ] **Step 1:** In `src/worktrees/api.ts`, add the `pr` variant to `BranchSpec` and `prNumber?` to `DeducedWorktree`:
+```ts
+export type BranchSpec =
+  | { kind: "existing"; branch: string }
+  | { kind: "new"; branch: string; base: string }
+  | { kind: "pr"; number: number };
+```
+```ts
+  prNumber?: number;
+```
+
+- [ ] **Step 2:** In `NewWorktreeForm.tsx`, add `prNumber` state near the other hooks:
+```tsx
+  const [prNumber, setPrNumber] = useState(0);
+```
+
+- [ ] **Step 3:** In `runDeduce`, after `setMode(...)`, capture the PR number:
+```tsx
+      setPrNumber(d.prNumber ?? 0);
+```
+
+- [ ] **Step 4:** In `submit`, pick the `pr` spec when a PR number is present (a deduced PR checks out via gh; manual existing/new are unchanged):
+```tsx
+    const spec: BranchSpec =
+      prNumber > 0 ? { kind: "pr", number: prNumber }
+      : mode === "existing" ? { kind: "existing", branch }
+      : { kind: "new", branch, base };
+```
+
+- [ ] **Step 5:** `npx tsc --noEmit && npm run build && npm test` — expect clean.
+
+- [ ] **Step 6:** Commit: `feat(tile): send pr BranchSpec so PR worktrees check out via gh pr checkout`
+
+### Task F4: Docs + verification + acceptance
+
+**Files:** Modify `CLAUDE.md`
+
+- [ ] **Step 1:** Full headless verification: `cd src-tauri && cargo test && cargo build && cd .. && npm test && npx tsc --noEmit && npm run build`. If anything fails, STOP/BLOCKED.
+
+- [ ] **Step 2:** Update the `CLAUDE.md` GitHub as-built note: a PR worktree is created by `git worktree add --detach <path>` then `gh pr checkout <N>` inside it (fork-safe; `BranchSpec::Pr { number }`, `prNumber` threaded from deduce), so the PR's branch is fetched + checked out even when not already local. Keep GUI/live acceptance marked PENDING human eyeball.
+
+- [ ] **Step 3 (human):** GUI acceptance now also covers: a fresh/un-fetched PR (and ideally a fork PR) → Create → the worktree is on the PR's branch with its code.
+
+- [ ] **Step 4:** Commit: `docs: PR checkout via gh pr checkout (fork-safe) as-built note`
