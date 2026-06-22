@@ -383,10 +383,14 @@ pub fn deduce_worktree(prompt: String, repo_paths: Vec<String>) -> Result<Deduce
 
     // One branch point: a GitHub URL, a Linear ref, or a plain prompt.
     match detect_source(&prompt) {
-        // GitHub: fetch + match in Rust, run the PLAIN agent with the gh context, then override authoritative fields.
+        // GitHub: match + fetch in Rust, run the PLAIN agent with the gh context, then override authoritative fields.
         Source::GitHub(r) => {
-            let ctx = github::fetch_github(&r)?;
+            // Match the ref to a known local repo first: fail fast (and clearly) if it isn't one, before any gh round-trip.
             let repo_path = github::match_repo(&r, &repo_paths)?;
+            // The repo IS known locally, so a gh fetch failure here is almost always a wrong-account/auth issue, not a missing repo.
+            let ctx = github::fetch_github(&r).map_err(|e| {
+                format!("{e}\n({}/{} is one of your known repos — this is likely a gh account/auth issue: check `gh auth status` (you may have the wrong account active) or `gh auth switch`)", r.owner, r.repo)
+            })?;
             let stdout = run_claude(ClaudeCall {
                 user_prompt: &compose_user_github(&prompt, &ctx, &digests),
                 system_prompt: SYSTEM_PROMPT,
