@@ -28,11 +28,14 @@
 
 Confirm against a real permalink with the Slack MCP connected, via a headless `claude -p` smoke run by the **human** (the agent's Bash-spawned `claude` is not logged into the MCPs):
 
-- `SLACK_ALLOWED_TOOLS` — the exact `--allowedTools` string enabling the Slack MCP non-interactively: **<pin in Task 1>** (the server name from `claude mcp list`; observed in dev as `mcp__01908495-040f-4e65-9662-113bde0be3f5`).
-- whether a `--permission-mode` flag is also required: **<pin in Task 1>** (Linear needed none).
-- `SLACK_MODEL` — whether `claude-haiku-4-5` suffices for Slack MCP tool-use + thread read + structured output, or a stronger model (sonnet) is needed: **<pin in Task 1>**.
-- whether the Slack MCP can resolve a **permalink** directly (vs. needing channel id + ts parsed out): **<pin in Task 1>** — if it needs channel+ts, record whether instructing the agent to parse them from the permalink worked, or whether Rust must parse and pass them.
-- whether a user-scoped Slack MCP loads for `claude -p` run from `std::env::temp_dir()`: **<pin in Task 1>** (Linear's did).
+**PINNED (live smoke, 2026-06-22).** Confirmed against a real DM permalink with the `claude.ai Slack` connector `✔ Connected`, via a headless `claude -p` from a temp dir:
+
+- `SLACK_ALLOWED_TOOLS` — the exact `--allowedTools` string: **`mcp__slack`** (the claude.ai connector's headless name, like `mcp__linear` — NOT the in-session tool-namespace UUID `mcp__01908495-…`, which was the original wrong guess).
+- whether a `--permission-mode` flag is also required: **Yes — `bypassPermissions` is required.** Unlike Linear, the Slack connector gates its tool calls even when allow-listed via `--allowedTools`; without the bypass the agent reports "Slack message fetch requires permission" and returns `sourceResolved=false`. Kept alongside `--allowedTools "mcp__slack"`, so the agent is still restricted to Slack tools only.
+- `SLACK_MODEL` — **`claude-haiku-4-5` suffices** (resolved the DM, read the message, emitted the forced JSON; ~6 turns).
+- whether the Slack MCP can resolve a **permalink** directly: **Yes** — the agent resolved a bare `archives/<channel>/p<ts>` permalink (a DM, `D…` channel) with no channel+ts parsing needed; Rust passes the raw permalink. (Private/DM access confirmed working.)
+- whether the connector loads for `claude -p` from `std::env::temp_dir()`: **Yes** (`claude mcp list` shows it `✔ Connected` from the temp dir, and the smoke ran from one).
+- Note: the agent's own Bash-spawned `claude` **was** able to reach the connector this time (the connectors show `✔ Connected`), so this smoke was run by the agent — contrary to the earlier assumption. The GUI end-to-end retry remains the human's final confirmation.
 
 ---
 

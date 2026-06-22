@@ -56,9 +56,11 @@ Why this is the right MVP and is spec-consistent:
    fails. → **Mitigated by the `sourceResolved` guardrail** (§B/§D): a detected
    permalink that wasn't actually fetched returns an inline error, never guessed
    params.
-3. It **couples Cockpit to the user's Claude Code MCP config**, and
-   `SLACK_ALLOWED_TOOLS` is a per-install **UUID** server name (unlike Linear's clean
-   `mcp__linear`). → **Documented, not hidden** (§F): acceptable for a single-user
+3. It **couples Cockpit to the user's Claude Code MCP config.** (The live smoke
+   resolved `SLACK_ALLOWED_TOOLS` to the clean connector name `mcp__slack`, like
+   Linear's — *not* the per-install UUID first guessed; but it also revealed the
+   Slack connector needs `--permission-mode bypassPermissions`, which Linear did
+   not.) → **Documented, not hidden** (§F): acceptable for a single-user
    app; making it configurable is part of the sub-project-4 auth manager, alongside
    `linear.rs`.
 
@@ -164,9 +166,10 @@ command/address from that repo's scripts/README, with a one-line reason. Set sou
 discussion and sourceResolved=true (sourceUrl may echo the permalink). If you CANNOT fetch the message, set \
 sourceResolved=false. Output only the structured object.";
 
-// Pinned by the human-run smoke in the plan (Verified CLI facts). Starting guesses below.
-const SLACK_ALLOWED_TOOLS: &str = "mcp__01908495-040f-4e65-9662-113bde0be3f5"; // the user's Slack MCP server name (UUID)
-const SLACK_MODEL: &str = "claude-haiku-4-5";                                  // may bump to sonnet if thread-reading needs it
+// Pinned by live smoke (2026-06-22). The Slack connector also needs a permission-mode bypass (Linear did not).
+const SLACK_ALLOWED_TOOLS: &str = "mcp__slack";          // claude.ai Slack connector's headless name (like mcp__linear)
+const SLACK_MODEL: &str = "claude-haiku-4-5";            // haiku resolved the DM + thread reliably
+const SLACK_PERMISSION_MODE: &str = "bypassPermissions"; // scoped to Slack tools by SLACK_ALLOWED_TOOLS
 ```
 
 - **Rename** `DEDUCE_SCHEMA_TICKET` → `DEDUCE_SCHEMA_SOURCE` (its fields —
@@ -231,23 +234,25 @@ live MCP call.
   → inline error, form still usable manually. Plain / Linear / GitHub prompts behave
   exactly as before.
 
-## F. Implementation-time unknowns (smoke-test first, like Linear's consts were)
+## F. Implementation-time unknowns — RESOLVED by live smoke (2026-06-22)
 
-Resolve with a quick **human-run** paid `claude -p` smoke **before** wiring the UI
-(the agent's own Bash-spawned `claude` is not logged into the MCPs); record the answers
-in the plan's "Verified CLI facts" block:
+A live `claude -p` smoke against a real DM permalink (connector `✔ Connected`) pinned
+all four, recorded in the plan's "Verified CLI facts" block:
 
-1. The Slack MCP **server name** (`claude mcp list`) → the exact `--allowedTools`
-   token (`mcp__<server>`). (Observed in the dev environment as
-   `mcp__01908495-040f-4e65-9662-113bde0be3f5`, but pin it from `claude mcp list`.)
-2. Whether **haiku** reliably drives the Slack MCP tool-use + thread read + forced
-   structured output, or the path needs a stronger model (sonnet).
-3. **That the Slack MCP can resolve a *permalink*** (vs. needing channel id + ts) with
-   the tools it exposes (`slack_read_thread` / `slack_read_channel`). If it needs
-   channel+ts, either (a) instruct the agent to parse them out of the permalink, or (b)
-   parse them in Rust and pass them in the user prompt — decide from the smoke.
-4. Whether a user-scoped Slack MCP loads for `claude -p` from `std::env::temp_dir()`
-   (Linear's did; confirm Slack's does too, else adjust the cwd/config).
+1. **Server name → `mcp__slack`** (the claude.ai connector's headless name, like
+   `mcp__linear`). The `mcp__01908495-…` UUID first guessed was the *in-session*
+   tool-namespace id, NOT the `--allowedTools` token — using it was the cause of the
+   first live failure (`sourceResolved=false`, "fetch requires permission").
+2. **haiku suffices** — resolved the message and emitted the forced JSON (~6 turns).
+3. **The MCP resolves a bare permalink** — no channel+ts parsing needed; Rust passes
+   the raw permalink (a `D…` DM resolved, so private/DM access works too).
+4. **The connector loads from `std::env::temp_dir()`** (`✔ Connected` there; smoke ran
+   from a temp dir).
+
+**New finding (not anticipated):** the Slack connector **gates its tool calls even when
+allow-listed**, so the path additionally needs `--permission-mode bypassPermissions`
+(Linear needed none). It is kept alongside `--allowedTools "mcp__slack"`, so the agent
+stays restricted to Slack tools. Pinned as `SLACK_PERMISSION_MODE`.
 
 ## G. Extensibility / what this closes
 

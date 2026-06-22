@@ -290,9 +290,11 @@ command/address from that repo's scripts/README, with a one-line reason. Set sou
 discussion and sourceResolved=true (sourceUrl may echo the permalink). If you CANNOT fetch the message, set \
 sourceResolved=false. Output only the structured object.";
 
-// Plan defaults — NOT yet pinned (unlike LINEAR_*): pending the human-run Task 1 live MCP smoke.
-const SLACK_ALLOWED_TOOLS: &str = "mcp__01908495-040f-4e65-9662-113bde0be3f5";
+// Pinned by live smoke (2026-06-22): the claude.ai Slack connector's headless name is `mcp__slack` (like `mcp__linear`),
+// and its tool calls need a permission-mode bypass even when allow-listed (Linear does not). haiku suffices; resolves a bare permalink.
+const SLACK_ALLOWED_TOOLS: &str = "mcp__slack";
 const SLACK_MODEL: &str = "claude-haiku-4-5";
+const SLACK_PERMISSION_MODE: &str = "bypassPermissions"; // restricted to Slack tools by SLACK_ALLOWED_TOOLS above
 
 const DEDUCE_TIMEOUT: Duration = Duration::from_secs(120); // CLI calls observed at 15-43s; generous ceiling.
 
@@ -359,6 +361,7 @@ struct ClaudeCall<'a> {
     schema: &'a str,
     model: &'a str,
     allowed_tools: Option<&'a str>, // Some(..) on the MCP paths (Linear/Slack), to enable that source's MCP
+    permission_mode: Option<&'a str>, // Some(..) when a source's MCP tools need a permission gate bypassed (Slack does, Linear doesn't)
 }
 
 // Shell out to the claude CLI in headless JSON mode (reuses Claude Code auth), with a hard timeout.
@@ -374,6 +377,11 @@ fn run_claude(call: ClaudeCall) -> Result<String, String> {
     if let Some(tools) = call.allowed_tools {
         args.push("--allowedTools");
         args.push(tools);
+    }
+    // Some MCP connectors (Slack) gate tool calls even when allow-listed; bypass the prompt non-interactively.
+    if let Some(mode) = call.permission_mode {
+        args.push("--permission-mode");
+        args.push(mode);
     }
 
     let mut child = Command::new("claude")
@@ -431,6 +439,7 @@ pub fn deduce_worktree(prompt: String, repo_paths: Vec<String>) -> Result<Deduce
                 schema: DEDUCE_SCHEMA,
                 model: "claude-haiku-4-5",
                 allowed_tools: None,
+                permission_mode: None,
             })?;
             let deduced = parse_envelope(&stdout)?;
             // Issue branches off the git default; PR uses the PR's own base (handled in apply_github_overrides).
@@ -445,6 +454,7 @@ pub fn deduce_worktree(prompt: String, repo_paths: Vec<String>) -> Result<Deduce
                 schema: DEDUCE_SCHEMA_SOURCE,
                 model: LINEAR_MODEL,
                 allowed_tools: Some(LINEAR_ALLOWED_TOOLS),
+                permission_mode: None, // Linear's MCP tools don't require a permission bypass
             })?;
             let mut deduced = validate_repo(parse_envelope(&stdout)?, &repo_paths)?;
             if let Some(b) = default_branch(&deduced.repo_path) {
@@ -465,6 +475,7 @@ pub fn deduce_worktree(prompt: String, repo_paths: Vec<String>) -> Result<Deduce
                 schema: DEDUCE_SCHEMA_SOURCE,
                 model: SLACK_MODEL,
                 allowed_tools: Some(SLACK_ALLOWED_TOOLS),
+                permission_mode: Some(SLACK_PERMISSION_MODE), // Slack connector gates tool calls even when allow-listed
             })?;
             let mut deduced = validate_repo(parse_envelope(&stdout)?, &repo_paths)?;
             if let Some(b) = default_branch(&deduced.repo_path) {
@@ -486,6 +497,7 @@ pub fn deduce_worktree(prompt: String, repo_paths: Vec<String>) -> Result<Deduce
                 schema: DEDUCE_SCHEMA,
                 model: "claude-haiku-4-5",
                 allowed_tools: None,
+                permission_mode: None,
             })?;
             let mut deduced = validate_repo(parse_envelope(&stdout)?, &repo_paths)?;
             if let Some(b) = default_branch(&deduced.repo_path) {
