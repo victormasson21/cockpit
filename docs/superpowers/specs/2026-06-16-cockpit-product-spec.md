@@ -127,8 +127,13 @@ This vision is ~5 subsystems. Build order, each shippable/usable on its own:
      in name + branch; resolved ticket link auto-staged into worktree links on Create. Live + GUI
      acceptance **PENDING** — Linear MCP must be authenticated first; `mcp__linear` tool filter +
      haiku model are provisional pending live smoke test.
-   - **GitHub source type — next.**
-   - **Slack source type — after GitHub.**
+   - ✅ **GitHub source type — code complete & reviewed.** `detect_github_ref` detects GitHub PR/issue
+     URLs; fetch via `gh` CLI (no MCP — decision 4 realized: reuse `gh` auth), `match_repo` resolves
+     `owner/repo` from origin remotes (never fabricates), `apply_github_overrides` sets authoritative
+     fields (PR → existing `headRefName`/`baseRefName` + `pr-<N>` in name; issue → new branch with
+     `issue-<N>`); source-neutral rename (`sourceUrl`/`sourceTitle`/`sourceLinkFrom`). 37 Rust tests +
+     22 JS tests green; builds clean. GUI + live acceptance **PENDING human eyeball.**
+   - **Slack source type — next (last source-type iteration).**
 4. **Auth manager + first integration tile** — auth status page; a read-only,
    token-auth tile first (CircleCI or PR reviews) to prove the provider+panel
    pattern.
@@ -142,8 +147,10 @@ This vision is ~5 subsystems. Build order, each shippable/usable on its own:
 2. ✅ **Settings format** — resolved: two JSON files — `cockpit.json` (portable
    user config) + `layout.json` (disposable geometry).
 3. **Worktree deduction coupling** (partially resolved) — the agent delegates to the user's
-   existing MCP connections (Linear iteration 1 done); GitHub + Slack follow the same shape.
-   Confirm-before-create is the existing deduce → pre-fill → user presses Create flow.
-4. **Auth is heterogeneous** (open) — Slack/Linear = OAuth; GitHub = reuse `gh`;
-   CircleCI = API token; Anthropic = reuse Claude Code auth. The page is a
-   status dashboard over different mechanisms, not one uniform OAuth wall.
+   existing MCP connections (Linear iteration 1 done); GitHub reuses `gh` CLI (iteration 2 done);
+   Slack follows next. Confirm-before-create is the existing deduce → pre-fill → user presses
+   Create flow.
+4. ✅ **Auth is heterogeneous** (realized for GitHub) — Slack/Linear = OAuth; GitHub = reuse `gh`
+   (confirmed: `github.rs` calls `gh pr|issue view`, no in-app auth); CircleCI = API token;
+   Anthropic = reuse Claude Code auth. The page is a status dashboard over different mechanisms,
+   not one uniform OAuth wall.

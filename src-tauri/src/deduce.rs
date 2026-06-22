@@ -1,5 +1,6 @@
 //! deduce.rs — deduction provider: builds repo digests, shells out to the claude CLI (headless JSON), returns validated worktree params.
 use serde::{Deserialize, Serialize};
+use crate::github::{self, GithubContext, GithubRef};
 
 // The deduced worktree parameters the agent returns; mirrors the TS DeducedWorktree.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -13,13 +14,17 @@ pub struct DeducedWorktree {
     pub start_cmd: String,
     pub address: String,
     pub reason: String,
-    // Source-context fields: populated only on the ticket path; default so the plain path's JSON still deserializes.
-    #[serde(rename = "ticketUrl", default)]
-    pub ticket_url: String,
-    #[serde(rename = "ticketTitle", default)]
-    pub ticket_title: String,
+    // Source-context fields: populated only on a source path; default so the plain path's JSON still deserializes.
+    #[serde(rename = "sourceUrl", default)]
+    pub source_url: String,
+    #[serde(rename = "sourceTitle", default)]
+    pub source_title: String,
     #[serde(rename = "sourceResolved", default)]
     pub source_resolved: bool,
+    #[serde(rename = "existingBranch", default)]
+    pub existing_branch: bool,
+    #[serde(rename = "prNumber", default)]
+    pub pr_number: u64,
 }
 
 // Char-safe truncation so a long README snippet stays small without splitting a multibyte char.
@@ -128,9 +133,83 @@ pub fn ensure_ref_prefix(value: &str, id: &str) -> String {
 pub fn compose_user_ticket(prompt: &str, id: &str, digests: &[serde_json::Value]) -> String {
     format!(
         "{}\n\nA Linear ticket ({id}) was referenced; fetch it via the Linear MCP and use its title/description \
-to choose the name and branch (include {id} in both), and set ticketUrl/ticketTitle/sourceResolved accordingly.",
+to choose the name and branch (include {id} in both), and set sourceUrl/sourceTitle/sourceResolved accordingly.",
         compose_user(prompt, digests)
     )
+}
+
+// The resolved kind of source the prompt references — one branch point for deduction.
+enum Source {
+    GitHub(GithubRef),
+    Linear(String),
+    Plain,
+}
+
+// Detect which source a prompt references: a GitHub URL wins, then a Linear ref, else plain.
+fn detect_source(prompt: &str) -> Source {
+    if let Some(r) = github::detect_github_ref(prompt) {
+        Source::GitHub(r)
+    } else if let Some(id) = detect_linear_ref(prompt) {
+        Source::Linear(id)
+    } else {
+        Source::Plain
+    }
+}
+
+// Compose the GitHub-path user prompt: the plain composition plus the fetched PR/issue context block.
+pub fn compose_user_github(prompt: &str, ctx: &GithubContext, digests: &[serde_json::Value]) -> String {
+    // For a PR, tell the agent the branch already exists (it won't be asked to invent one).
+    let branch_note = match (&ctx.branch, &ctx.base) {
+        (Some(h), Some(b)) => format!("\nThis is a PR on existing branch '{h}' targeting '{b}'."),
+        _ => String::new(),
+    };
+    format!(
+        "{}\n\nReferenced GitHub item:\nTitle: {}\nBody: {}{}\n\nUse the title/body to choose a short name (and, for an issue, a new branch).",
+        compose_user(prompt, digests),
+        ctx.title,
+        truncate(&ctx.body, 800),
+        branch_note
+    )
+}
+
+// Apply the fields Rust knows authoritatively for a GitHub ref onto the agent's deduction.
+pub fn apply_github_overrides(
+    mut d: DeducedWorktree,
+    r: &GithubRef,
+    ctx: &GithubContext,
+    repo_path: &str,
+    base_default: Option<String>,
+) -> DeducedWorktree {
+    // Both kinds: the repo is known from the ref, and the link comes from gh (not the agent).
+    d.repo_path = repo_path.to_string();
+    d.source_url = ctx.url.clone();
+    d.source_title = ctx.title.clone();
+    d.source_resolved = true;
+    match r.kind {
+        github::GithubKind::Pr => {
+            // PR: check out its existing branch (left untouched so it matches the remote); pin pr-<N> into the name only.
+            d.pr_number = r.number;
+            d.existing_branch = true;
+            if let Some(b) = &ctx.branch {
+                d.branch = b.clone();
+            }
+            if let Some(b) = &ctx.base {
+                d.base = b.clone();
+            }
+            d.name = ensure_ref_prefix(&d.name, &format!("pr-{}", r.number));
+        }
+        github::GithubKind::Issue => {
+            // Issue: new branch off the git default; pin issue-<N> into both name and branch (Linear's shape).
+            d.existing_branch = false;
+            if let Some(b) = base_default {
+                d.base = b;
+            }
+            let id = format!("issue-{}", r.number);
+            d.branch = ensure_ref_prefix(&d.branch, &id);
+            d.name = ensure_ref_prefix(&d.name, &id);
+        }
+    }
+    d
 }
 
 // Guard against the model inventing a repo: repo_path must be one of the provided paths (spec §B.4: never silent).
@@ -171,11 +250,11 @@ const SYSTEM_PROMPT_TICKET: &str = "You deduce git worktree parameters from a ta
 Fetch the referenced ticket via the Linear MCP and use its title/description to choose a short name and a new branch \
 (include the ticket id in BOTH). Choose repoPath from the provided repo digests ONLY (copy one exactly). Also propose the \
 base branch and the dev-server start command/address from that repo's scripts/README, with a one-line reason. \
-Set ticketUrl and ticketTitle from the fetched ticket and sourceResolved=true. If you CANNOT fetch the ticket, set \
-sourceResolved=false and leave ticketUrl/ticketTitle empty. Output only the structured object.";
+Set sourceUrl and sourceTitle from the fetched ticket and sourceResolved=true. If you CANNOT fetch the ticket, set \
+sourceResolved=false and leave sourceUrl/sourceTitle empty. Output only the structured object.";
 
 // Ticket-path schema: the plain fields plus the source-context fields, all required.
-const DEDUCE_SCHEMA_TICKET: &str = r#"{"type":"object","properties":{"repoPath":{"type":"string"},"name":{"type":"string"},"branch":{"type":"string"},"base":{"type":"string"},"startCmd":{"type":"string"},"address":{"type":"string"},"reason":{"type":"string"},"ticketUrl":{"type":"string"},"ticketTitle":{"type":"string"},"sourceResolved":{"type":"boolean"}},"required":["repoPath","name","branch","base","startCmd","address","reason","ticketUrl","ticketTitle","sourceResolved"],"additionalProperties":false}"#;
+const DEDUCE_SCHEMA_TICKET: &str = r#"{"type":"object","properties":{"repoPath":{"type":"string"},"name":{"type":"string"},"branch":{"type":"string"},"base":{"type":"string"},"startCmd":{"type":"string"},"address":{"type":"string"},"reason":{"type":"string"},"sourceUrl":{"type":"string"},"sourceTitle":{"type":"string"},"sourceResolved":{"type":"boolean"}},"required":["repoPath","name","branch","base","startCmd","address","reason","sourceUrl","sourceTitle","sourceResolved"],"additionalProperties":false}"#;
 
 // Pinned in Task 1's smoke test (Verified CLI facts). Starting guesses below.
 const LINEAR_ALLOWED_TOOLS: &str = "mcp__linear";
@@ -301,40 +380,65 @@ pub fn deduce_worktree(prompt: String, repo_paths: Vec<String>) -> Result<Deduce
         return Err("no known repos configured".into());
     }
     let digests: Vec<serde_json::Value> = repo_paths.iter().map(|p| read_repo_digest(p)).collect();
-    let detected = detect_linear_ref(&prompt);
 
-    // Ticket path: MCP-enabled call so the agent fetches the ticket. Plain path: byte-identical to before (no tools).
-    let stdout = match &detected {
-        Some(id) => run_claude(ClaudeCall {
-            user_prompt: &compose_user_ticket(&prompt, id, &digests),
-            system_prompt: SYSTEM_PROMPT_TICKET,
-            schema: DEDUCE_SCHEMA_TICKET,
-            model: LINEAR_MODEL,
-            allowed_tools: Some(LINEAR_ALLOWED_TOOLS),
-        })?,
-        None => run_claude(ClaudeCall {
-            user_prompt: &compose_user(&prompt, &digests),
-            system_prompt: SYSTEM_PROMPT,
-            schema: DEDUCE_SCHEMA,
-            model: "claude-haiku-4-5",
-            allowed_tools: None,
-        })?,
-    };
-
-    let mut deduced = validate_repo(parse_envelope(&stdout)?, &repo_paths)?;
-    // Base branch is deterministic from git; don't trust the agent's main/master guess.
-    if let Some(b) = default_branch(&deduced.repo_path) {
-        deduced.base = b;
-    }
-    // Ticket guardrails: never fabricate on an unresolved ticket; guarantee the id is in name + branch.
-    if let Some(id) = &detected {
-        if !deduced.source_resolved {
-            return Err(format!("couldn't resolve Linear ticket {id} (is the Linear MCP connected?)"));
+    // One branch point: a GitHub URL, a Linear ref, or a plain prompt.
+    match detect_source(&prompt) {
+        // GitHub: match + fetch in Rust, run the PLAIN agent with the gh context, then override authoritative fields.
+        Source::GitHub(r) => {
+            // Match the ref to a known local repo first: fail fast (and clearly) if it isn't one, before any gh round-trip.
+            let repo_path = github::match_repo(&r, &repo_paths)?;
+            // The repo IS known locally, so a gh fetch failure here is almost always a wrong-account/auth issue, not a missing repo.
+            let ctx = github::fetch_github(&r).map_err(|e| {
+                format!("{e}\n({}/{} is one of your known repos — this is likely a gh account/auth issue: check `gh auth status` (you may have the wrong account active) or `gh auth switch`)", r.owner, r.repo)
+            })?;
+            let stdout = run_claude(ClaudeCall {
+                user_prompt: &compose_user_github(&prompt, &ctx, &digests),
+                system_prompt: SYSTEM_PROMPT,
+                schema: DEDUCE_SCHEMA,
+                model: "claude-haiku-4-5",
+                allowed_tools: None,
+            })?;
+            let deduced = parse_envelope(&stdout)?;
+            // Issue branches off the git default; PR uses the PR's own base (handled in apply_github_overrides).
+            let base_default = default_branch(&repo_path);
+            Ok(apply_github_overrides(deduced, &r, &ctx, &repo_path, base_default))
         }
-        deduced.branch = ensure_ref_prefix(&deduced.branch, &id.to_lowercase());
-        deduced.name = ensure_ref_prefix(&deduced.name, id);
+        // Linear: MCP-enabled ticket path (unchanged from the Linear iteration).
+        Source::Linear(id) => {
+            let stdout = run_claude(ClaudeCall {
+                user_prompt: &compose_user_ticket(&prompt, &id, &digests),
+                system_prompt: SYSTEM_PROMPT_TICKET,
+                schema: DEDUCE_SCHEMA_TICKET,
+                model: LINEAR_MODEL,
+                allowed_tools: Some(LINEAR_ALLOWED_TOOLS),
+            })?;
+            let mut deduced = validate_repo(parse_envelope(&stdout)?, &repo_paths)?;
+            if let Some(b) = default_branch(&deduced.repo_path) {
+                deduced.base = b;
+            }
+            if !deduced.source_resolved {
+                return Err(format!("couldn't resolve Linear ticket {id} (is the Linear MCP connected?)"));
+            }
+            deduced.branch = ensure_ref_prefix(&deduced.branch, &id.to_lowercase());
+            deduced.name = ensure_ref_prefix(&deduced.name, &id);
+            Ok(deduced)
+        }
+        // Plain: byte-identical to before (no tools, haiku).
+        Source::Plain => {
+            let stdout = run_claude(ClaudeCall {
+                user_prompt: &compose_user(&prompt, &digests),
+                system_prompt: SYSTEM_PROMPT,
+                schema: DEDUCE_SCHEMA,
+                model: "claude-haiku-4-5",
+                allowed_tools: None,
+            })?;
+            let mut deduced = validate_repo(parse_envelope(&stdout)?, &repo_paths)?;
+            if let Some(b) = default_branch(&deduced.repo_path) {
+                deduced.base = b;
+            }
+            Ok(deduced)
+        }
     }
-    Ok(deduced)
 }
 
 #[cfg(test)]
@@ -394,7 +498,8 @@ mod tests {
         let d = DeducedWorktree {
             repo_path: "/a".into(), name: "n".into(), branch: "b".into(), base: "main".into(),
             start_cmd: "c".into(), address: "x".into(), reason: "r".into(),
-            ticket_url: "".into(), ticket_title: "".into(), source_resolved: false,
+            source_url: "".into(), source_title: "".into(), source_resolved: false, existing_branch: false,
+            pr_number: 0,
         };
         assert!(validate_repo(d.clone(), &["/a".into(), "/b".into()]).is_ok());
         assert!(validate_repo(d, &["/b".into()]).is_err());
@@ -451,15 +556,83 @@ mod tests {
     }
 
     #[test]
-    fn parse_envelope_reads_ticket_fields_and_defaults_them() {
-        let with = r#"{"is_error":false,"result":"","structured_output":{"repoPath":"/r","name":"n","branch":"b","base":"main","startCmd":"c","address":"a","reason":"r","ticketUrl":"https://linear.app/x","ticketTitle":"Fix login","sourceResolved":true}}"#;
+    fn detect_source_picks_github_then_linear_then_plain() {
+        assert!(matches!(detect_source("see github.com/a/b/pull/3"), Source::GitHub(_)));
+        assert!(matches!(detect_source("fix ENG-1234 now"), Source::Linear(_)));
+        assert!(matches!(detect_source("just a prompt"), Source::Plain));
+    }
+
+    #[test]
+    fn compose_user_github_includes_prompt_context_and_digests() {
+        let ctx = crate::github::GithubContext {
+            title: "Fix login".into(), body: "the body".into(), url: "https://github.com/a/b/pull/9".into(),
+            branch: Some("fix-login".into()), base: Some("main".into()),
+        };
+        let digests = vec![serde_json::json!({"basename": "cockpit"})];
+        let out = compose_user_github("do the thing", &ctx, &digests);
+        assert!(out.contains("do the thing"));
+        assert!(out.contains("Fix login"));
+        assert!(out.contains("the body"));
+        assert!(out.contains("cockpit"));
+        assert!(out.contains("fix-login")); // PR branch note included
+    }
+
+    #[test]
+    fn apply_github_overrides_pr_uses_existing_branch_and_pins_name() {
+        let d = DeducedWorktree {
+            repo_path: "/wrong".into(), name: "login".into(), branch: "agent-branch".into(), base: "develop".into(),
+            start_cmd: "c".into(), address: "a".into(), reason: "r".into(),
+            source_url: "".into(), source_title: "".into(), source_resolved: false, existing_branch: false,
+            pr_number: 0,
+        };
+        let r = crate::github::GithubRef { kind: crate::github::GithubKind::Pr, owner: "a".into(), repo: "b".into(), number: 9 };
+        let ctx = crate::github::GithubContext {
+            title: "Fix login".into(), body: "".into(), url: "https://github.com/a/b/pull/9".into(),
+            branch: Some("feat/login".into()), base: Some("main".into()),
+        };
+        let out = apply_github_overrides(d, &r, &ctx, "/p/b", Some("ignored".into()));
+        assert_eq!(out.repo_path, "/p/b");          // repo overridden deterministically
+        assert!(out.existing_branch);                // PR -> existing branch
+        assert_eq!(out.branch, "feat/login");        // the PR's real branch, untouched
+        assert_eq!(out.base, "main");                // the PR's base
+        assert_eq!(out.name, "pr-9-login");          // pr-<N> pinned into the name
+        assert_eq!(out.source_url, "https://github.com/a/b/pull/9");
+        assert_eq!(out.source_title, "Fix login");
+        assert!(out.source_resolved);
+        assert_eq!(out.pr_number, 9);
+    }
+
+    #[test]
+    fn apply_github_overrides_issue_makes_new_branch_with_id() {
+        let d = DeducedWorktree {
+            repo_path: "/wrong".into(), name: "login".into(), branch: "fix-login".into(), base: "develop".into(),
+            start_cmd: "c".into(), address: "a".into(), reason: "r".into(),
+            source_url: "".into(), source_title: "".into(), source_resolved: false, existing_branch: true,
+            pr_number: 0,
+        };
+        let r = crate::github::GithubRef { kind: crate::github::GithubKind::Issue, owner: "a".into(), repo: "b".into(), number: 7 };
+        let ctx = crate::github::GithubContext {
+            title: "Login bug".into(), body: "".into(), url: "https://github.com/a/b/issues/7".into(),
+            branch: None, base: None,
+        };
+        let out = apply_github_overrides(d, &r, &ctx, "/p/b", Some("trunk".into()));
+        assert!(!out.existing_branch);               // issue -> new branch
+        assert_eq!(out.base, "trunk");               // base from git default
+        assert_eq!(out.branch, "issue-7-fix-login"); // issue-<N> pinned into branch
+        assert_eq!(out.name, "issue-7-login");       // issue-<N> pinned into name
+        assert_eq!(out.pr_number, 0);
+    }
+
+    #[test]
+    fn parse_envelope_reads_source_fields_and_defaults_them() {
+        let with = r#"{"is_error":false,"result":"","structured_output":{"repoPath":"/r","name":"n","branch":"b","base":"main","startCmd":"c","address":"a","reason":"r","sourceUrl":"https://linear.app/x","sourceTitle":"Fix login","sourceResolved":true}}"#;
         let d = parse_envelope(with).unwrap();
-        assert_eq!(d.ticket_url, "https://linear.app/x");
+        assert_eq!(d.source_url, "https://linear.app/x");
         assert!(d.source_resolved);
-        // Plain-path envelope (no ticket fields) still parses, with defaults.
+        // Plain-path envelope (no source fields) still parses, with defaults.
         let without = r#"{"is_error":false,"result":"","structured_output":{"repoPath":"/r","name":"n","branch":"b","base":"main","startCmd":"c","address":"a","reason":"r"}}"#;
         let d2 = parse_envelope(without).unwrap();
-        assert_eq!(d2.ticket_url, "");
+        assert_eq!(d2.source_url, "");
         assert!(!d2.source_resolved);
     }
 }

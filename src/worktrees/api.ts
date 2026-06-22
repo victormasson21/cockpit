@@ -4,7 +4,8 @@ import { invoke } from "@tauri-apps/api/core";
 // Mirrors the Rust BranchSpec tagged union.
 export type BranchSpec =
   | { kind: "existing"; branch: string }
-  | { kind: "new"; branch: string; base: string };
+  | { kind: "new"; branch: string; base: string }
+  | { kind: "pr"; number: number; branch: string };
 
 // Run `git worktree add`; resolves to the created worktree path, rejects with git's stderr.
 export const createWorktree = (repoPath: string, name: string, spec: BranchSpec) =>
@@ -19,9 +20,11 @@ export interface DeducedWorktree {
   startCmd: string;
   address: string;
   reason: string;
-  ticketUrl?: string;
-  ticketTitle?: string;
+  sourceUrl?: string;
+  sourceTitle?: string;
   sourceResolved?: boolean;
+  existingBranch?: boolean;
+  prNumber?: number;
 }
 
 // Deduce worktree params from a prompt + the known-repos list; rejects with an inline-displayable error string.

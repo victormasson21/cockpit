@@ -8,6 +8,9 @@ use std::process::Command;
 pub enum BranchSpec {
     Existing { branch: String },
     New { branch: String, base: String },
+    // GitHub PR: make a detached worktree, then `gh pr checkout <number>` inside it; `branch` (the PR's
+    // headRefName) names the local branch on the merged/deleted-branch fallback (handles fork PRs too).
+    Pr { number: u64, branch: String },
 }
 
 // Lowercase dash-separated slug so a worktree name maps to a safe directory name.
@@ -41,6 +44,10 @@ pub fn worktree_add_args(worktree_path: &str, spec: &BranchSpec) -> Vec<String> 
             "worktree".into(), "add".into(), "-b".into(), branch.clone(),
             worktree_path.into(), base.clone(),
         ],
+        // PR: detached HEAD first; gh pr checkout will create the branch inside the worktree.
+        BranchSpec::Pr { .. } => {
+            vec!["worktree".into(), "add".into(), "--detach".into(), worktree_path.into()]
+        }
     }
 }
 
@@ -56,14 +63,52 @@ pub fn create_worktree(
     let home = app.path().home_dir().map_err(|e| e.to_string())?;
     let wt = managed_path(&home, &repo_path, &name);
     let wt_str = wt.to_string_lossy().to_string();
-    let args = worktree_add_args(&wt_str, &spec);
-    let out = Command::new("git")
-        .current_dir(&repo_path)
-        .args(&args)
-        .output()
-        .map_err(|e| e.to_string())?;
-    if !out.status.success() {
-        return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
+    // Add the worktree — but for a PR, reuse an existing target dir (idempotent retry after a failed
+    // checkout, e.g. a leftover detached worktree) instead of failing; the PR checkout below brings it
+    // onto the right branch. Non-PR specs keep failing on a colliding path (a "new branch" shouldn't reuse).
+    let reuse = matches!(spec, BranchSpec::Pr { .. }) && wt.exists();
+    if !reuse {
+        let args = worktree_add_args(&wt_str, &spec);
+        let out = Command::new("git")
+            .current_dir(&repo_path)
+            .args(&args)
+            .output()
+            .map_err(|e| e.to_string())?;
+        if !out.status.success() {
+            return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
+        }
+    }
+    // PR: check out the PR inside the (fresh or reused) worktree.
+    if let BranchSpec::Pr { number, branch } = &spec {
+        let n = number.to_string();
+        // Primary: `gh pr checkout` sets up a push-tracking branch for an open PR and handles forks.
+        let co = Command::new("gh")
+            .current_dir(&wt)
+            .args(["pr", "checkout", &n])
+            .output()
+            .map_err(|e| format!("gh CLI not found: {e}"))?;
+        if !co.status.success() {
+            // Fallback: the live head branch may be gone (e.g. a merged PR with its branch deleted).
+            // The immutable refs/pull/<N>/head always exists — fetch it and create the branch from it.
+            let pull_ref = format!("pull/{n}/head");
+            let fetched = Command::new("git")
+                .current_dir(&wt)
+                .args(["fetch", "origin", &pull_ref])
+                .output()
+                .map_err(|e| format!("failed to run git: {e}"))?;
+            if !fetched.status.success() {
+                return Err(String::from_utf8_lossy(&fetched.stderr).trim().to_string());
+            }
+            // -B (not -b): create the branch, or reset it to the PR head if a prior attempt left it — idempotent.
+            let checked = Command::new("git")
+                .current_dir(&wt)
+                .args(["checkout", "-B", branch, "FETCH_HEAD"])
+                .output()
+                .map_err(|e| format!("failed to run git: {e}"))?;
+            if !checked.status.success() {
+                return Err(String::from_utf8_lossy(&checked.stderr).trim().to_string());
+            }
+        }
     }
     Ok(wt_str)
 }
@@ -97,5 +142,11 @@ mod tests {
             &BranchSpec::New { branch: "victor/fix".into(), base: "main".into() },
         );
         assert_eq!(a, vec!["worktree", "add", "-b", "victor/fix", "/wt", "main"]);
+    }
+
+    #[test]
+    fn add_args_pr_makes_detached_worktree() {
+        let a = worktree_add_args("/wt", &BranchSpec::Pr { number: 42, branch: "feat/x".into() });
+        assert_eq!(a, vec!["worktree", "add", "--detach", "/wt"]);
     }
 }
