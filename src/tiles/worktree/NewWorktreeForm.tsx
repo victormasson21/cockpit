@@ -56,7 +56,7 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
     setError(null);
     setBusy(true);
     const spec: BranchSpec =
-      prNumber > 0 ? { kind: "pr", number: prNumber }
+      prNumber > 0 ? { kind: "pr", number: prNumber, branch }
       : mode === "existing" ? { kind: "existing", branch }
       : { kind: "new", branch, base };
     try {

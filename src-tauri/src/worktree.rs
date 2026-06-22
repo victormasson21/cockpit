@@ -8,8 +8,9 @@ use std::process::Command;
 pub enum BranchSpec {
     Existing { branch: String },
     New { branch: String, base: String },
-    // GitHub PR: make a detached worktree, then `gh pr checkout <number>` inside it (handles fork PRs).
-    Pr { number: u64 },
+    // GitHub PR: make a detached worktree, then `gh pr checkout <number>` inside it; `branch` (the PR's
+    // headRefName) names the local branch on the merged/deleted-branch fallback (handles fork PRs too).
+    Pr { number: u64, branch: String },
 }
 
 // Lowercase dash-separated slug so a worktree name maps to a safe directory name.
@@ -71,16 +72,35 @@ pub fn create_worktree(
     if !out.status.success() {
         return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
     }
-    // PR: fetch + check out the PR inside the fresh detached worktree (gh handles fork PRs via refs/pull/N/head).
-    if let BranchSpec::Pr { number } = &spec {
+    // PR: check out the PR inside the fresh detached worktree.
+    if let BranchSpec::Pr { number, branch } = &spec {
         let n = number.to_string();
+        // Primary: `gh pr checkout` sets up a push-tracking branch for an open PR and handles forks.
         let co = Command::new("gh")
             .current_dir(&wt)
             .args(["pr", "checkout", &n])
             .output()
             .map_err(|e| format!("gh CLI not found: {e}"))?;
         if !co.status.success() {
-            return Err(String::from_utf8_lossy(&co.stderr).trim().to_string());
+            // Fallback: the live head branch may be gone (e.g. a merged PR with its branch deleted).
+            // The immutable refs/pull/<N>/head always exists — fetch it and create the branch from it.
+            let pull_ref = format!("pull/{n}/head");
+            let fetched = Command::new("git")
+                .current_dir(&wt)
+                .args(["fetch", "origin", &pull_ref])
+                .output()
+                .map_err(|e| format!("failed to run git: {e}"))?;
+            if !fetched.status.success() {
+                return Err(String::from_utf8_lossy(&fetched.stderr).trim().to_string());
+            }
+            let checked = Command::new("git")
+                .current_dir(&wt)
+                .args(["checkout", "-b", branch, "FETCH_HEAD"])
+                .output()
+                .map_err(|e| format!("failed to run git: {e}"))?;
+            if !checked.status.success() {
+                return Err(String::from_utf8_lossy(&checked.stderr).trim().to_string());
+            }
         }
     }
     Ok(wt_str)
@@ -119,7 +139,7 @@ mod tests {
 
     #[test]
     fn add_args_pr_makes_detached_worktree() {
-        let a = worktree_add_args("/wt", &BranchSpec::Pr { number: 42 });
+        let a = worktree_add_args("/wt", &BranchSpec::Pr { number: 42, branch: "feat/x".into() });
         assert_eq!(a, vec!["worktree", "add", "--detach", "/wt"]);
     }
 }

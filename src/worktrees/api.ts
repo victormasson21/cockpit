@@ -5,7 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 export type BranchSpec =
   | { kind: "existing"; branch: string }
   | { kind: "new"; branch: string; base: string }
-  | { kind: "pr"; number: number };
+  | { kind: "pr"; number: number; branch: string };
 
 // Run `git worktree add`; resolves to the created worktree path, rejects with git's stderr.
 export const createWorktree = (repoPath: string, name: string, spec: BranchSpec) =>
