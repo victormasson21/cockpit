@@ -290,7 +290,7 @@ command/address from that repo's scripts/README, with a one-line reason. Set sou
 discussion and sourceResolved=true (sourceUrl may echo the permalink). If you CANNOT fetch the message, set \
 sourceResolved=false. Output only the structured object.";
 
-// Pinned in Task 1's smoke test (Verified CLI facts). Starting guesses below.
+// Plan defaults — NOT yet pinned (unlike LINEAR_*): pending the human-run Task 1 live MCP smoke.
 const SLACK_ALLOWED_TOOLS: &str = "mcp__01908495-040f-4e65-9662-113bde0be3f5";
 const SLACK_MODEL: &str = "claude-haiku-4-5";
 
@@ -358,7 +358,7 @@ struct ClaudeCall<'a> {
     system_prompt: &'a str,
     schema: &'a str,
     model: &'a str,
-    allowed_tools: Option<&'a str>, // Some(..) only on the ticket path, to enable the Linear MCP
+    allowed_tools: Option<&'a str>, // Some(..) on the MCP paths (Linear/Slack), to enable that source's MCP
 }
 
 // Shell out to the claude CLI in headless JSON mode (reuses Claude Code auth), with a hard timeout.
@@ -370,7 +370,7 @@ fn run_claude(call: ClaudeCall) -> Result<String, String> {
         "--json-schema", call.schema,
         "--model", call.model,
     ];
-    // Ticket path only: allow the Linear MCP tools so the agent can fetch the ticket non-interactively.
+    // MCP paths only (Linear/Slack): allow that source's MCP tools so the agent can fetch non-interactively.
     if let Some(tools) = call.allowed_tools {
         args.push("--allowedTools");
         args.push(tools);
