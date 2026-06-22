@@ -138,6 +138,24 @@ to choose the name and branch (include {id} in both), and set sourceUrl/sourceTi
     )
 }
 
+// Detect a Slack message permalink (*.slack.com/archives/…) anywhere in the prompt; None for plain prompts. Pure, no I/O.
+pub fn detect_slack_ref(prompt: &str) -> Option<String> {
+    // Scan whitespace-delimited tokens; return the whole permalink with surrounding paste-punctuation trimmed.
+    prompt
+        .split_whitespace()
+        .find(|t| t.contains(".slack.com/archives/"))
+        .map(|t| t.trim_matches(|c| matches!(c, '(' | ')' | ',' | '.' | '<' | '>')).to_string())
+}
+
+// Compose the Slack-path user prompt: the plain composition plus an instruction to fetch the message+thread.
+pub fn compose_user_slack(prompt: &str, url: &str, digests: &[serde_json::Value]) -> String {
+    format!(
+        "{}\n\nA Slack message ({url}) was referenced; fetch it (and its thread, if any) via the Slack MCP \
+and use the discussion to choose the name and branch, and set sourceTitle/sourceResolved accordingly.",
+        compose_user(prompt, digests)
+    )
+}
+
 // The resolved kind of source the prompt references — one branch point for deduction.
 enum Source {
     GitHub(GithubRef),
@@ -253,8 +271,8 @@ base branch and the dev-server start command/address from that repo's scripts/RE
 Set sourceUrl and sourceTitle from the fetched ticket and sourceResolved=true. If you CANNOT fetch the ticket, set \
 sourceResolved=false and leave sourceUrl/sourceTitle empty. Output only the structured object.";
 
-// Ticket-path schema: the plain fields plus the source-context fields, all required.
-const DEDUCE_SCHEMA_TICKET: &str = r#"{"type":"object","properties":{"repoPath":{"type":"string"},"name":{"type":"string"},"branch":{"type":"string"},"base":{"type":"string"},"startCmd":{"type":"string"},"address":{"type":"string"},"reason":{"type":"string"},"sourceUrl":{"type":"string"},"sourceTitle":{"type":"string"},"sourceResolved":{"type":"boolean"}},"required":["repoPath","name","branch","base","startCmd","address","reason","sourceUrl","sourceTitle","sourceResolved"],"additionalProperties":false}"#;
+// Source-path schema: the plain fields plus the source-context fields, all required. Shared by the Linear and Slack paths.
+const DEDUCE_SCHEMA_SOURCE: &str = r#"{"type":"object","properties":{"repoPath":{"type":"string"},"name":{"type":"string"},"branch":{"type":"string"},"base":{"type":"string"},"startCmd":{"type":"string"},"address":{"type":"string"},"reason":{"type":"string"},"sourceUrl":{"type":"string"},"sourceTitle":{"type":"string"},"sourceResolved":{"type":"boolean"}},"required":["repoPath","name","branch","base","startCmd","address","reason","sourceUrl","sourceTitle","sourceResolved"],"additionalProperties":false}"#;
 
 // Pinned in Task 1's smoke test (Verified CLI facts). Starting guesses below.
 const LINEAR_ALLOWED_TOOLS: &str = "mcp__linear";
@@ -408,7 +426,7 @@ pub fn deduce_worktree(prompt: String, repo_paths: Vec<String>) -> Result<Deduce
             let stdout = run_claude(ClaudeCall {
                 user_prompt: &compose_user_ticket(&prompt, &id, &digests),
                 system_prompt: SYSTEM_PROMPT_TICKET,
-                schema: DEDUCE_SCHEMA_TICKET,
+                schema: DEDUCE_SCHEMA_SOURCE,
                 model: LINEAR_MODEL,
                 allowed_tools: Some(LINEAR_ALLOWED_TOOLS),
             })?;
@@ -634,5 +652,30 @@ mod tests {
         let d2 = parse_envelope(without).unwrap();
         assert_eq!(d2.source_url, "");
         assert!(!d2.source_resolved);
+    }
+
+    #[test]
+    fn detect_slack_ref_matches_permalinks_and_rejects_noise() {
+        assert_eq!(
+            detect_slack_ref("https://elderteam.slack.com/archives/C0ADKCM7A4U/p1782139459441759"),
+            Some("https://elderteam.slack.com/archives/C0ADKCM7A4U/p1782139459441759".into())
+        ); // plain permalink
+        assert_eq!(
+            detect_slack_ref("see (https://elderteam.slack.com/archives/C0ADKCM7A4U/p1782140757530969?thread_ts=1782140735.398509&cid=C0ADKCM7A4U)."),
+            Some("https://elderteam.slack.com/archives/C0ADKCM7A4U/p1782140757530969?thread_ts=1782140735.398509&cid=C0ADKCM7A4U".into())
+        ); // thread form embedded in prose: surrounding ()./ trimmed, query kept verbatim
+        assert_eq!(detect_slack_ref("fix the login bug"), None); // plain prompt
+        assert_eq!(detect_slack_ref("https://elderteam.slack.com/"), None); // workspace home, not an archives permalink
+        assert_eq!(detect_slack_ref("https://github.com/a/b/pull/3"), None); // github not misdetected
+        assert_eq!(detect_slack_ref("fix ENG-1234"), None); // linear ref not misdetected
+    }
+
+    #[test]
+    fn compose_user_slack_names_url_prompt_and_digests() {
+        let digests = vec![serde_json::json!({"basename": "web-app"})];
+        let out = compose_user_slack("do this in the web-app", "https://x.slack.com/archives/C1/p1", &digests);
+        assert!(out.contains("do this in the web-app"));
+        assert!(out.contains("https://x.slack.com/archives/C1/p1"));
+        assert!(out.contains("web-app"));
     }
 }
