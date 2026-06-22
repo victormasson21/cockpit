@@ -1,7 +1,7 @@
 // NewWorktreeForm.tsx — collapsible manual form: runs git worktree add, stores the model, selects it. Collapsible = sub-project-3 inference seam.
 import { useState } from "react";
-import { createWorktree, deduceWorktree, type BranchSpec } from "../../worktrees/api";
-import { makeWorktree, sourceLinkFrom } from "../../worktrees/model";
+import { createWorktree, deduceWorktree } from "../../worktrees/api";
+import { makeWorktree, sourceLinkFrom, branchSpecFrom, FORM_DEFAULTS } from "../../worktrees/model";
 import type { WorktreeLink } from "../../settings/types";
 import { useSettings } from "../../settings/store";
 import { KnownReposEditor } from "./KnownReposEditor";
@@ -9,13 +9,13 @@ import { KnownReposEditor } from "./KnownReposEditor";
 export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string) => void }) {
   const { addWorktree, cockpit, setRepoHost } = useSettings();
   const [open, setOpen] = useState(true); // expanded by default while fields are empty
-  const [name, setName] = useState("");
-  const [repoPath, setRepoPath] = useState("");
-  const [mode, setMode] = useState<"existing" | "new">("new");
-  const [branch, setBranch] = useState("");
-  const [base, setBase] = useState("main");
-  const [startCmd, setStartCmd] = useState("npm run dev");
-  const [address, setAddress] = useState("http://localhost:3000");
+  const [name, setName] = useState(FORM_DEFAULTS.name);
+  const [repoPath, setRepoPath] = useState(FORM_DEFAULTS.repoPath);
+  const [mode, setMode] = useState<"existing" | "new">(FORM_DEFAULTS.mode);
+  const [branch, setBranch] = useState(FORM_DEFAULTS.branch);
+  const [base, setBase] = useState(FORM_DEFAULTS.base);
+  const [startCmd, setStartCmd] = useState(FORM_DEFAULTS.startCmd);
+  const [address, setAddress] = useState(FORM_DEFAULTS.address);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [prompt, setPrompt] = useState("");
@@ -24,6 +24,28 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
   const [prNumber, setPrNumber] = useState(0);
   const [sourceLink, setSourceLink] = useState<WorktreeLink | null>(null);
   const [banner, setBanner] = useState<{ prompt: string; repoPath: string; reason: string; hostFromSaved: boolean; source: WorktreeLink | null; existingBranch: boolean; branch: string } | null>(null);
+
+  // clearDeduction: drop the staged-deduction unit so a stale deduction can't misroute a later Create.
+  const clearDeduction = () => {
+    setPrNumber(0);
+    setSourceLink(null);
+    setBanner(null);
+    setDeduceError(null);
+  };
+
+  // resetForm: full clean slate — staged unit + visible fields back to defaults + prompt + errors.
+  const resetForm = () => {
+    clearDeduction();
+    setName(FORM_DEFAULTS.name);
+    setRepoPath(FORM_DEFAULTS.repoPath);
+    setMode(FORM_DEFAULTS.mode);
+    setBranch(FORM_DEFAULTS.branch);
+    setBase(FORM_DEFAULTS.base);
+    setStartCmd(FORM_DEFAULTS.startCmd);
+    setAddress(FORM_DEFAULTS.address);
+    setPrompt("");
+    setError(null);
+  };
 
   // deduce: ask the agent for params, pre-fill the editable fields, and record the banner. Never creates anything.
   const runDeduce = async () => {
@@ -55,10 +77,7 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
   const submit = async () => {
     setError(null);
     setBusy(true);
-    const spec: BranchSpec =
-      prNumber > 0 ? { kind: "pr", number: prNumber, branch }
-      : mode === "existing" ? { kind: "existing", branch }
-      : { kind: "new", branch, base };
+    const spec = branchSpecFrom({ prNumber, mode, branch, base });
     try {
       const worktreePath = await createWorktree(repoPath, name, spec);
       const id = `wt-${Date.now()}`;
@@ -77,7 +96,7 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
   };
 
   if (!open) {
-    return <div style={{ padding: 6 }}><button onClick={() => setOpen(true)}>+ new worktree</button></div>;
+    return <div style={{ padding: 6 }}><button onClick={() => { resetForm(); setOpen(true); }}>+ new worktree</button></div>;
   }
 
   return (
@@ -86,7 +105,7 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
       <hr style={{ width: "100%", border: "none", borderTop: "1px solid #eee", margin: "4px 0" }} />
       {/* deduce: one prompt -> pre-filled fields (deduce -> preview/confirm -> create) */}
       <textarea placeholder="describe the task (e.g. fix the login bug)" value={prompt} rows={2}
-        onChange={(e) => setPrompt(e.target.value)} />
+        onChange={(e) => { setPrompt(e.target.value); clearDeduction(); }} />
       <button disabled={deducing || !prompt.trim() || cockpit.knownRepos.length === 0} onClick={runDeduce}>
         {deducing ? "deducing…" : "deduce"}
       </button>
@@ -121,7 +140,7 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
       {error && <div style={{ color: "crimson", whiteSpace: "pre-wrap" }}>{error}</div>}
       <div style={{ display: "flex", gap: 6 }}>
         <button disabled={busy || !name || !repoPath || !branch} onClick={submit}>{busy ? "creating…" : "create"}</button>
-        <button disabled={busy} onClick={() => setOpen(false)}>cancel</button>
+        <button disabled={busy} onClick={() => { resetForm(); setOpen(false); }}>cancel</button>
       </div>
     </div>
   );
