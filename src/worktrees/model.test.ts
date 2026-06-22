@@ -1,6 +1,6 @@
 // model.test.ts — pure worktree helpers (existing link reducers + source link construction from a deduction).
 import { describe, it, expect } from "vitest";
-import { makeWorktree, addLink, updateLink, removeLink, sourceLinkFrom } from "./model";
+import { makeWorktree, addLink, updateLink, removeLink, sourceLinkFrom, branchSpecFrom, FORM_DEFAULTS } from "./model";
 import type { DeducedWorktree } from "./api";
 
 describe("makeWorktree", () => {
@@ -49,8 +49,6 @@ describe("sourceLinkFrom", () => {
       .toEqual({ label: "https://linear.app/x", url: "https://linear.app/x" });
   });
 });
-
-import { branchSpecFrom, FORM_DEFAULTS } from "./model";
 
 describe("branchSpecFrom", () => {
   it("builds a pr spec when prNumber > 0 (pr wins over mode)", () => {
