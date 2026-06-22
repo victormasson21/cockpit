@@ -49,3 +49,29 @@ describe("sourceLinkFrom", () => {
       .toEqual({ label: "https://linear.app/x", url: "https://linear.app/x" });
   });
 });
+
+import { branchSpecFrom, FORM_DEFAULTS } from "./model";
+
+describe("branchSpecFrom", () => {
+  it("builds a pr spec when prNumber > 0 (pr wins over mode)", () => {
+    expect(branchSpecFrom({ prNumber: 42, mode: "existing", branch: "feat", base: "main" }))
+      .toEqual({ kind: "pr", number: 42, branch: "feat" });
+  });
+  it("builds an existing spec when no pr and mode is existing", () => {
+    expect(branchSpecFrom({ prNumber: 0, mode: "existing", branch: "feat", base: "main" }))
+      .toEqual({ kind: "existing", branch: "feat" });
+  });
+  it("builds a new spec with base otherwise", () => {
+    expect(branchSpecFrom({ prNumber: 0, mode: "new", branch: "feat", base: "develop" }))
+      .toEqual({ kind: "new", branch: "feat", base: "develop" });
+  });
+});
+
+describe("FORM_DEFAULTS", () => {
+  it("provides the fresh-form defaults", () => {
+    expect(FORM_DEFAULTS).toEqual({
+      name: "", repoPath: "", mode: "new",
+      branch: "", base: "main", startCmd: "npm run dev", address: "http://localhost:3000",
+    });
+  });
+});

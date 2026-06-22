@@ -1,6 +1,6 @@
 // model.ts — pure helpers for worktree domain data (creation defaults + immutable link editing + deduction link). No IO.
 import type { Worktree, WorktreeLink } from "../settings/types";
-import type { DeducedWorktree } from "./api";
+import type { DeducedWorktree, BranchSpec } from "./api";
 
 // Build a worktree model from resolved fields, applying defaults (ongoing, no links).
 export function makeWorktree(
@@ -28,4 +28,20 @@ export function removeLink(links: WorktreeLink[], i: number): WorktreeLink[] {
 export function sourceLinkFrom(d: DeducedWorktree): WorktreeLink | null {
   if (!d.sourceUrl) return null;
   return { label: d.sourceTitle || d.sourceUrl, url: d.sourceUrl };
+}
+
+// Default editable-field values for a fresh new-worktree form (single source for init + reset).
+export const FORM_DEFAULTS = {
+  name: "", repoPath: "", mode: "new" as "existing" | "new",
+  branch: "", base: "main", startCmd: "npm run dev", address: "http://localhost:3000",
+};
+
+// Build the git BranchSpec from form state: a deduced PR (prNumber > 0) checks out the PR;
+// otherwise an existing or new branch per the mode.
+export function branchSpecFrom(opts: {
+  prNumber: number; mode: "existing" | "new"; branch: string; base: string;
+}): BranchSpec {
+  if (opts.prNumber > 0) return { kind: "pr", number: opts.prNumber, branch: opts.branch };
+  if (opts.mode === "existing") return { kind: "existing", branch: opts.branch };
+  return { kind: "new", branch: opts.branch, base: opts.base };
 }
