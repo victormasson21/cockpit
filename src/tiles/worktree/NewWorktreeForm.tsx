@@ -21,6 +21,7 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
   const [prompt, setPrompt] = useState("");
   const [deducing, setDeducing] = useState(false);
   const [deduceError, setDeduceError] = useState<string | null>(null);
+  const [prNumber, setPrNumber] = useState(0);
   const [sourceLink, setSourceLink] = useState<WorktreeLink | null>(null);
   const [banner, setBanner] = useState<{ prompt: string; repoPath: string; reason: string; hostFromSaved: boolean; source: WorktreeLink | null; existingBranch: boolean; branch: string } | null>(null);
 
@@ -33,6 +34,7 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
       setName(d.name);
       setRepoPath(d.repoPath);
       setMode(d.existingBranch ? "existing" : "new");
+      setPrNumber(d.prNumber ?? 0);
       setBranch(d.branch);
       setBase(d.base);
       // A repo's saved host default wins over the agent's guess (port/start cmd aren't reliably inferable).
@@ -53,7 +55,10 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
   const submit = async () => {
     setError(null);
     setBusy(true);
-    const spec: BranchSpec = mode === "existing" ? { kind: "existing", branch } : { kind: "new", branch, base };
+    const spec: BranchSpec =
+      prNumber > 0 ? { kind: "pr", number: prNumber }
+      : mode === "existing" ? { kind: "existing", branch }
+      : { kind: "new", branch, base };
     try {
       const worktreePath = await createWorktree(repoPath, name, spec);
       const id = `wt-${Date.now()}`;
