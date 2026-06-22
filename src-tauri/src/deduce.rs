@@ -160,15 +160,18 @@ and use the discussion to choose the name and branch, and set sourceTitle/source
 enum Source {
     GitHub(GithubRef),
     Linear(String),
+    Slack(String),
     Plain,
 }
 
-// Detect which source a prompt references: a GitHub URL wins, then a Linear ref, else plain.
+// Detect which source a prompt references: a GitHub URL wins, then a Linear ref, then a Slack permalink, else plain.
 fn detect_source(prompt: &str) -> Source {
     if let Some(r) = github::detect_github_ref(prompt) {
         Source::GitHub(r)
     } else if let Some(id) = detect_linear_ref(prompt) {
         Source::Linear(id)
+    } else if let Some(url) = detect_slack_ref(prompt) {
+        Source::Slack(url)
     } else {
         Source::Plain
     }
@@ -277,6 +280,19 @@ const DEDUCE_SCHEMA_SOURCE: &str = r#"{"type":"object","properties":{"repoPath":
 // Pinned in Task 1's smoke test (Verified CLI facts). Starting guesses below.
 const LINEAR_ALLOWED_TOOLS: &str = "mcp__linear";
 const LINEAR_MODEL: &str = "claude-haiku-4-5";
+
+// Slack-path system prompt: same deduction, but the agent fetches the referenced Slack message (and its thread) via MCP and must report whether it did.
+const SYSTEM_PROMPT_SLACK: &str = "You deduce git worktree parameters from a task prompt that references a Slack message. \
+Fetch the referenced message via the Slack MCP, and if it is part of a thread, read the thread for context. Use the \
+discussion to choose a short descriptive name and a new branch. Choose repoPath from the provided repo digests ONLY \
+(copy one exactly); the prompt text may name the repo. Also propose the base branch and the dev-server start \
+command/address from that repo's scripts/README, with a one-line reason. Set sourceTitle to a short label for the \
+discussion and sourceResolved=true (sourceUrl may echo the permalink). If you CANNOT fetch the message, set \
+sourceResolved=false. Output only the structured object.";
+
+// Pinned in Task 1's smoke test (Verified CLI facts). Starting guesses below.
+const SLACK_ALLOWED_TOOLS: &str = "mcp__01908495-040f-4e65-9662-113bde0be3f5";
+const SLACK_MODEL: &str = "claude-haiku-4-5";
 
 const DEDUCE_TIMEOUT: Duration = Duration::from_secs(120); // CLI calls observed at 15-43s; generous ceiling.
 
@@ -441,6 +457,27 @@ pub fn deduce_worktree(prompt: String, repo_paths: Vec<String>) -> Result<Deduce
             deduced.name = ensure_ref_prefix(&deduced.name, &id);
             Ok(deduced)
         }
+        // Slack: MCP-enabled call so the agent fetches the message+thread. New branch, no id pinned.
+        Source::Slack(url) => {
+            let stdout = run_claude(ClaudeCall {
+                user_prompt: &compose_user_slack(&prompt, &url, &digests),
+                system_prompt: SYSTEM_PROMPT_SLACK,
+                schema: DEDUCE_SCHEMA_SOURCE,
+                model: SLACK_MODEL,
+                allowed_tools: Some(SLACK_ALLOWED_TOOLS),
+            })?;
+            let mut deduced = validate_repo(parse_envelope(&stdout)?, &repo_paths)?;
+            if let Some(b) = default_branch(&deduced.repo_path) {
+                deduced.base = b;
+            }
+            // Never fabricate on an unresolved message.
+            if !deduced.source_resolved {
+                return Err("couldn't resolve Slack message (is the Slack MCP connected?)".into());
+            }
+            // The permalink the user pasted is the canonical URL — trust it over the agent's echo.
+            deduced.source_url = url;
+            Ok(deduced)
+        }
         // Plain: byte-identical to before (no tools, haiku).
         Source::Plain => {
             let stdout = run_claude(ClaudeCall {
@@ -578,6 +615,13 @@ mod tests {
         assert!(matches!(detect_source("see github.com/a/b/pull/3"), Source::GitHub(_)));
         assert!(matches!(detect_source("fix ENG-1234 now"), Source::Linear(_)));
         assert!(matches!(detect_source("just a prompt"), Source::Plain));
+    }
+
+    #[test]
+    fn detect_source_picks_slack_after_github_and_linear() {
+        assert!(matches!(detect_source("https://x.slack.com/archives/C1/p1"), Source::Slack(_)));
+        // GitHub still wins when both a GitHub URL and a Slack link are present.
+        assert!(matches!(detect_source("github.com/a/b/pull/3 https://x.slack.com/archives/C1/p1"), Source::GitHub(_)));
     }
 
     #[test]
