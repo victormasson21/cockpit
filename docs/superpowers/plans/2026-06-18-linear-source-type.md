@@ -24,14 +24,14 @@
 - **Source-neutral naming:** the guardrail field is `source_resolved` (not `linear_resolved`) so GitHub/Slack iterations reuse it. Linear-specific names stay inside the `detect_linear_*` / ticket-prompt code.
 - **Tests:** Rust `cd src-tauri && cargo test`; frontend `npm test` (Vitest). Headless build checks: `cargo build`, `npm run build`, `npx tsc --noEmit`. GUI the user eyeballs.
 
-## Verified CLI facts (TO PIN in Task 1, then copy here)
+## Verified CLI facts (PINNED — live smoke + in-app deduce, 2026-06-22)
 
-These three values are unknown until Task 1's smoke test; record them here once pinned, then use them verbatim in Task 3:
+Confirmed against a real ticket (`ENG-1558`) with the Linear MCP connected, via both a headless `claude -p` smoke and the running app's deduce (which itself calls `claude` from `std::env::temp_dir()`):
 
-- `LINEAR_ALLOWED_TOOLS` — the exact `--allowedTools` string enabling the Linear MCP non-interactively (e.g. `mcp__linear` or `mcp__linear__get_issue`): **<pin in Task 1>**
-- whether a `--permission-mode` flag is also required: **<pin in Task 1>**
-- `LINEAR_MODEL` — whether haiku suffices for MCP tool-use + structured output, or a stronger model is needed: **<pin in Task 1>**
-- whether a user-scoped Linear MCP loads for `claude -p` run from `std::env::temp_dir()` (if not, the ticket call needs a cwd/config that has it): **<pin in Task 1>**
+- `LINEAR_ALLOWED_TOOLS` — the exact `--allowedTools` string enabling the Linear MCP non-interactively: **`mcp__linear`** (whole-server filter; the specific-tool form was not needed).
+- whether a `--permission-mode` flag is also required: **No** — the call fetched the ticket non-interactively without one.
+- `LINEAR_MODEL` — whether haiku suffices for MCP tool-use + structured output: **Yes, `claude-haiku-4-5` suffices** (resolved the ticket and emitted the forced JSON reliably).
+- whether a user-scoped Linear MCP loads for `claude -p` run from `std::env::temp_dir()`: **Yes** — the in-app deduce runs from the temp dir and resolved the ticket, so no cwd/config workaround is needed.
 
 ---
 
