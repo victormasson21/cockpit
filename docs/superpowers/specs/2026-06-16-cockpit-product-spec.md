@@ -133,7 +133,17 @@ This vision is ~5 subsystems. Build order, each shippable/usable on its own:
      fields (PR → existing `headRefName`/`baseRefName` + `pr-<N>` in name; issue → new branch with
      `issue-<N>`); source-neutral rename (`sourceUrl`/`sourceTitle`/`sourceLinkFrom`). 37 Rust tests +
      22 JS tests green; builds clean. GUI + live acceptance **PENDING human eyeball.**
-   - **Slack source type — next (last source-type iteration).**
+   - ✅ **Slack source type — code complete. All three source types done.** `detect_slack_ref` detects
+     `*.slack.com/archives/…` permalinks (plain and `?thread_ts=` forms); MCP-enabled `claude` call with
+     `--allowedTools SLACK_ALLOWED_TOOLS` fetches the message + thread via the user's Slack MCP (no in-app
+     auth — same MCP-delegation pattern as Linear); `sourceResolved` guardrail prevents fabrication; Rust
+     sets `source_url` deterministically from the pasted permalink; no id pinned (fully agent-named new
+     branch); resolved Slack link auto-staged on Create; `DEDUCE_SCHEMA_TICKET` renamed `DEDUCE_SCHEMA_SOURCE`
+     (now shared by Linear and Slack). Frontend unchanged (source-neutral seam reused). 41 Rust tests +
+     22 JS tests green; builds clean. **MCP-vs-API split recorded:** the *deduce flow* uses the Slack MCP
+     (on-demand, LLM-mediated, zero in-app auth); the future *unread-messages tile* (sub-project 4/5) will
+     use the Slack Web API + Socket Mode + a Keychain OAuth token as a Rust provider (background, deterministic,
+     push) — the MCP choice here does not bind that tile to the MCP. GUI + live MCP acceptance PENDING human eyeball.
 4. **Auth manager + first integration tile** — auth status page; a read-only,
    token-auth tile first (CircleCI or PR reviews) to prove the provider+panel
    pattern.
@@ -146,10 +156,12 @@ This vision is ~5 subsystems. Build order, each shippable/usable on its own:
    prop, not a wrapper class).
 2. ✅ **Settings format** — resolved: two JSON files — `cockpit.json` (portable
    user config) + `layout.json` (disposable geometry).
-3. **Worktree deduction coupling** (partially resolved) — the agent delegates to the user's
-   existing MCP connections (Linear iteration 1 done); GitHub reuses `gh` CLI (iteration 2 done);
-   Slack follows next. Confirm-before-create is the existing deduce → pre-fill → user presses
-   Create flow.
+3. ✅ **Worktree deduction coupling (resolved — all three source types done)** — Linear delegates to
+   the user's MCP (iteration 1); GitHub reuses `gh` CLI — no MCP (iteration 2); Slack delegates to
+   the Slack MCP (iteration 3, same pattern as Linear). Confirm-before-create is the existing deduce →
+   pre-fill → user presses Create flow. MCP-vs-API split for the future Slack tile: the deduce flow
+   uses the Slack MCP (on-demand/LLM-mediated); the unread-messages tile will use the Slack Web API +
+   Socket Mode + Keychain token as a Rust provider (deferred to sub-project 4/5).
 4. ✅ **Auth is heterogeneous** (realized for GitHub) — Slack/Linear = OAuth; GitHub = reuse `gh`
    (confirmed: `github.rs` calls `gh pr|issue view`, no in-app auth); CircleCI = API token;
    Anthropic = reuse Claude Code auth. The page is a status dashboard over different mechanisms,
