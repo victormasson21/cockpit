@@ -63,16 +63,22 @@ pub fn create_worktree(
     let home = app.path().home_dir().map_err(|e| e.to_string())?;
     let wt = managed_path(&home, &repo_path, &name);
     let wt_str = wt.to_string_lossy().to_string();
-    let args = worktree_add_args(&wt_str, &spec);
-    let out = Command::new("git")
-        .current_dir(&repo_path)
-        .args(&args)
-        .output()
-        .map_err(|e| e.to_string())?;
-    if !out.status.success() {
-        return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
+    // Add the worktree — but for a PR, reuse an existing target dir (idempotent retry after a failed
+    // checkout, e.g. a leftover detached worktree) instead of failing; the PR checkout below brings it
+    // onto the right branch. Non-PR specs keep failing on a colliding path (a "new branch" shouldn't reuse).
+    let reuse = matches!(spec, BranchSpec::Pr { .. }) && wt.exists();
+    if !reuse {
+        let args = worktree_add_args(&wt_str, &spec);
+        let out = Command::new("git")
+            .current_dir(&repo_path)
+            .args(&args)
+            .output()
+            .map_err(|e| e.to_string())?;
+        if !out.status.success() {
+            return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
+        }
     }
-    // PR: check out the PR inside the fresh detached worktree.
+    // PR: check out the PR inside the (fresh or reused) worktree.
     if let BranchSpec::Pr { number, branch } = &spec {
         let n = number.to_string();
         // Primary: `gh pr checkout` sets up a push-tracking branch for an open PR and handles forks.
@@ -93,9 +99,10 @@ pub fn create_worktree(
             if !fetched.status.success() {
                 return Err(String::from_utf8_lossy(&fetched.stderr).trim().to_string());
             }
+            // -B (not -b): create the branch, or reset it to the PR head if a prior attempt left it — idempotent.
             let checked = Command::new("git")
                 .current_dir(&wt)
-                .args(["checkout", "-b", branch, "FETCH_HEAD"])
+                .args(["checkout", "-B", branch, "FETCH_HEAD"])
                 .output()
                 .map_err(|e| format!("failed to run git: {e}"))?;
             if !checked.status.success() {
