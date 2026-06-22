@@ -1,6 +1,6 @@
 // model.test.ts — pure worktree helpers (existing link reducers + source link construction from a deduction).
 import { describe, it, expect } from "vitest";
-import { makeWorktree, addLink, updateLink, removeLink, sourceLinkFrom } from "./model";
+import { makeWorktree, addLink, updateLink, removeLink, sourceLinkFrom, branchSpecFrom, FORM_DEFAULTS } from "./model";
 import type { DeducedWorktree } from "./api";
 
 describe("makeWorktree", () => {
@@ -47,5 +47,29 @@ describe("sourceLinkFrom", () => {
   it("falls back to the url when there is no title", () => {
     expect(sourceLinkFrom({ ...deducedBase, sourceUrl: "https://linear.app/x" }))
       .toEqual({ label: "https://linear.app/x", url: "https://linear.app/x" });
+  });
+});
+
+describe("branchSpecFrom", () => {
+  it("builds a pr spec when prNumber > 0 (pr wins over mode)", () => {
+    expect(branchSpecFrom({ prNumber: 42, mode: "existing", branch: "feat", base: "main" }))
+      .toEqual({ kind: "pr", number: 42, branch: "feat" });
+  });
+  it("builds an existing spec when no pr and mode is existing", () => {
+    expect(branchSpecFrom({ prNumber: 0, mode: "existing", branch: "feat", base: "main" }))
+      .toEqual({ kind: "existing", branch: "feat" });
+  });
+  it("builds a new spec with base otherwise", () => {
+    expect(branchSpecFrom({ prNumber: 0, mode: "new", branch: "feat", base: "develop" }))
+      .toEqual({ kind: "new", branch: "feat", base: "develop" });
+  });
+});
+
+describe("FORM_DEFAULTS", () => {
+  it("provides the fresh-form defaults", () => {
+    expect(FORM_DEFAULTS).toEqual({
+      name: "", repoPath: "", mode: "new",
+      branch: "", base: "main", startCmd: "npm run dev", address: "http://localhost:3000",
+    });
   });
 });
