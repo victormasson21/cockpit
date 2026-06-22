@@ -111,6 +111,11 @@ pub fn detect_slack_ref(prompt: &str) -> Option<String>
   MCP can resolve a permalink.)
 - Slack-looking but non-permalink text (e.g. a bare `slack.com` link, a workspace
   home URL) does not match → falls through to the plain path.
+- **Canonical fixtures** (real shapes, used by the unit tests + the §F smoke):
+  - plain: `https://elderteam.slack.com/archives/C0ADKCM7A4U/p1782139459441759`
+  - thread reply: `https://elderteam.slack.com/archives/C0ADKCM7A4U/p1782140757530969?thread_ts=1782140735.398509&cid=C0ADKCM7A4U`
+  The `?thread_ts=…&cid=…` form both signals a thread and carries `thread_ts`/`cid`
+  (likely the exact keys the MCP needs — see §F item 3).
 
 The `Source` enum gains a `Slack(String)` variant; detection order becomes:
 
