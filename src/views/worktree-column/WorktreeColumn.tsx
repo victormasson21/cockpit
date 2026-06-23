@@ -30,7 +30,7 @@ export function WorktreeColumn({ slotIndex, variant = "full" }: { slotIndex: num
   return (
     <div className="wt-col">
       <div className="wt-col__header">
-        <span className={`wt-col__dot ${attention ? "wt-col__dot--attention" : ""}`} />
+        <span className={attention ? "wt-col__dot wt-col__dot--attention" : "wt-col__dot"} />
         {/* The dropdown title IS the per-slot worktree picker. */}
         <select className="wt-col__picker" value={active?.id ?? ""} onChange={(e) => setSlot(slotIndex, e.target.value || null)}>
           <option value="">Select worktree</option>

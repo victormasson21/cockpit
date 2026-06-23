@@ -29,6 +29,7 @@
   background: var(--surface-raised); color: var(--text-secondary); border: 1px solid var(--border);
   border-radius: var(--radius-sm); padding: 2px 8px; font-size: 11px; cursor: pointer;
 }
+/* Per-kind hooks (.wt-chip--linear, --pr, --issue, --preview, --ci) are intentionally emitted by the component and styled later. */
 .wt-chip:disabled { cursor: default; opacity: 0.8; }
 .wt-chip:not(:disabled):hover { color: var(--text); border-color: var(--accent); }
 .wt-col__path { padding: 0 var(--space-2) var(--space-2); color: var(--text-muted); font-family: var(--font-mono); font-size: 11px; }
