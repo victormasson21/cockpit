@@ -2,7 +2,7 @@
 import { create } from "zustand";
 import type { CockpitConfig, HostConfig, LayoutConfig, Settings, Worktree } from "./types";
 import { saveSettings } from "./api";
-import { initSlots, setSlotAt, assignFirstEmpty, clearWorktree, type Slots } from "../views/slots";
+import { initSlots, setSlotAt, assignNewWorktree, clearWorktree, type Slots } from "../views/slots";
 
 interface SettingsState {
   cockpit: CockpitConfig;
@@ -57,7 +57,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
   },
   // Slots are session-only display state (not persisted): which worktree shows in each of the 3 columns.
   setSlot: (index, id) => set((st) => ({ slots: setSlotAt(st.slots, index, id) })),
-  assignNewWorktreeSlot: (id) => set((st) => ({ slots: assignFirstEmpty(st.slots, id) })),
+  assignNewWorktreeSlot: (id) => set((st) => ({ slots: assignNewWorktree(st.slots, id) })),
   // Known repos the deduce agent may pick from; each carries an optional saved host default. add dedupes by path.
   addKnownRepo: (path) =>
     get().setCockpit((c) =>

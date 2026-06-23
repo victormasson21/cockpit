@@ -1,6 +1,6 @@
 // slots.test.ts — pure slot-reducer behavior for the 3-column Worktrees view.
 import { describe, it, expect } from "vitest";
-import { SLOT_COUNT, initSlots, setSlotAt, assignFirstEmpty, clearWorktree } from "./slots";
+import { SLOT_COUNT, initSlots, setSlotAt, assignNewWorktree, clearWorktree } from "./slots";
 import type { Worktree } from "../settings/types";
 
 const wt = (id: string, status: Worktree["status"] = "ongoing"): Worktree => ({
@@ -20,9 +20,12 @@ describe("slots", () => {
     expect(setSlotAt([null, null, null], 1, "x")).toEqual([null, "x", null]);
     expect(setSlotAt(["x", null, null], 0, null)).toEqual([null, null, null]);
   });
-  it("assignFirstEmpty fills the first null, else returns unchanged", () => {
-    expect(assignFirstEmpty(["a", null, null], "b")).toEqual(["a", "b", null]);
-    expect(assignFirstEmpty(["a", "b", "c"], "d")).toEqual(["a", "b", "c"]);
+  it("assignNewWorktree fills the first empty slot", () => {
+    expect(assignNewWorktree(["a", null, null], "b")).toEqual(["a", "b", null]);
+    expect(assignNewWorktree([null, null, null], "a")).toEqual(["a", null, null]);
+  });
+  it("assignNewWorktree displaces the last slot when all are full", () => {
+    expect(assignNewWorktree(["a", "b", "c"], "d")).toEqual(["a", "b", "d"]);
   });
   it("clearWorktree removes a deleted id from every slot", () => {
     expect(clearWorktree(["a", "b", "a"], "a")).toEqual([null, "b", null]);
