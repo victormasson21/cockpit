@@ -12,7 +12,6 @@ interface SettingsState {
   // Accepts a value or an updater fn; the fn form reads FRESH state at apply time so two
   // setCockpit calls in one tick compose instead of the second clobbering the first with a stale snapshot.
   setCockpit: (c: CockpitConfig | ((prev: CockpitConfig) => CockpitConfig)) => void;
-  setView: (view: string, serialized: unknown) => void;
   addWorktree: (wt: Worktree) => void;
   updateWorktree: (id: string, patch: Partial<Worktree>) => void;
   removeWorktree: (id: string) => void;
@@ -35,17 +34,13 @@ function scheduleSave(get: () => SettingsState) {
 }
 
 export const useSettings = create<SettingsState>((set, get) => ({
-  cockpit: { version: 1, tiles: [], worktrees: [], knownRepos: [], preferences: { theme: "system", defaultView: "main" } },
+  cockpit: { version: 1, tiles: [], worktrees: [], knownRepos: [], preferences: { theme: "system", defaultView: "worktrees" } },
   layout: { version: 1, views: {} },
   loaded: false,
   slots: [null, null, null],
   init: (s) => set({ cockpit: s.cockpit, layout: s.layout, loaded: true, slots: initSlots(s.cockpit.worktrees) }),
   setCockpit: (next) => {
     set((st) => ({ cockpit: typeof next === "function" ? next(st.cockpit) : next }));
-    scheduleSave(get);
-  },
-  setView: (view, serialized) => {
-    set((st) => ({ layout: { ...st.layout, views: { ...st.layout.views, [view]: serialized } } }));
     scheduleSave(get);
   },
   // Functional updaters: each reads the current cockpit at apply time, so they never clobber a

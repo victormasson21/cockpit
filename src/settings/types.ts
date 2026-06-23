@@ -8,7 +8,7 @@ export interface TileInstance<Config = unknown> {
 // Narrower than the Rust side (plain String): TS encodes the valid domain the backend doesn't enforce.
 export interface Preferences {
   theme: "system" | "light" | "dark";
-  defaultView: "main" | "calm";
+  defaultView: "cockpit" | "worktrees" | "calm";
 }
 
 export interface HostConfig { startCmd: string; address: string }
@@ -36,7 +36,7 @@ export interface CockpitConfig {
 
 export interface LayoutConfig {
   version: number;
-  views: Record<string, unknown>; // dockview serialized layout per view
+  views: Record<string, unknown>; // serialized layout per view (kept for round-trip; not written by new shell)
 }
 
 export interface Settings {
