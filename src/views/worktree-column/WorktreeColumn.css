@@ -1,0 +1,37 @@
+/* WorktreeColumn.css — one column: header (dot + picker + gear), chips, path, flex-fill panes, links. */
+.wt-col {
+  flex: 1 1 0; min-width: 0; display: flex; flex-direction: column;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  overflow: hidden;
+}
+.wt-col__header { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2); border-bottom: 1px solid var(--border-subtle); }
+.wt-col__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); flex: 0 0 auto; }
+.wt-col__dot--attention { background: var(--attention); }
+.wt-col__picker {
+  flex: 1; min-width: 0; background: var(--surface-raised); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px 6px; font-size: 13px; font-weight: 600;
+}
+.wt-col__menu { position: relative; }
+.wt-col__gear { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; padding: 2px 4px; border-radius: var(--radius-sm); }
+.wt-col__gear:hover { color: var(--text); background: var(--border-subtle); }
+.wt-col__menu-pop {
+  position: absolute; right: 0; top: 100%; z-index: 10; margin-top: 4px;
+  background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  display: flex; flex-direction: column; min-width: 100px; overflow: hidden;
+}
+.wt-col__menu-pop button { background: none; border: none; color: var(--text); text-align: left; padding: 6px 10px; cursor: pointer; font-size: 12px; }
+.wt-col__menu-pop button:hover { background: var(--border-subtle); }
+.wt-col__danger { color: var(--danger); }
+
+.wt-col__body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.wt-col__chips { display: flex; flex-wrap: wrap; gap: var(--space-1); padding: var(--space-2); }
+.wt-chip {
+  background: var(--surface-raised); color: var(--text-secondary); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 2px 8px; font-size: 11px; cursor: pointer;
+}
+.wt-chip:disabled { cursor: default; opacity: 0.8; }
+.wt-chip:not(:disabled):hover { color: var(--text); border-color: var(--accent); }
+.wt-col__path { padding: 0 var(--space-2) var(--space-2); color: var(--text-muted); font-family: var(--font-mono); font-size: 11px; }
+.wt-col__panes { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.wt-col__empty { padding: var(--space-4); color: var(--text-muted); }
+.wt-attention { color: var(--accent-fg); background: var(--attention); border-radius: var(--radius-sm); padding: 1px 6px; font-size: 10px; font-weight: 700; }
