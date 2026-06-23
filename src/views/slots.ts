@@ -15,10 +15,11 @@ export function setSlotAt(slots: Slots, index: number, id: string | null): Slots
   return slots.map((s, i) => (i === index ? id : s));
 }
 
-// assignFirstEmpty: place a newly-created worktree in the first empty slot; unchanged when all are full.
-export function assignFirstEmpty(slots: Slots, id: string): Slots {
-  const i = slots.indexOf(null);
-  return i === -1 ? slots : setSlotAt(slots, i, id);
+// assignNewWorktree: show a newly-created worktree — fill the first empty slot, or displace the
+// last slot when all are full (the bumped worktree keeps running and stays in the dropdowns).
+export function assignNewWorktree(slots: Slots, id: string): Slots {
+  const empty = slots.indexOf(null);
+  return setSlotAt(slots, empty === -1 ? slots.length - 1 : empty, id);
 }
 
 // clearWorktree: drop a deleted worktree from every slot referencing it.
