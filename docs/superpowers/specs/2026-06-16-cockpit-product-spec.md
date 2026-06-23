@@ -11,6 +11,10 @@ one place, and to surface messages, tasks, jobs, etc. in **customisable tiles**.
 
 ## Main view — three columns
 
+> Updated 2026-06-23: the app now has three named views — **Cockpit · Worktrees · Calm**.
+> The worktree, formerly the right column of "Main", is now the dedicated **Worktrees** view
+> (3 fixed slots). "Cockpit" is the future home for the dashboard tiles below.
+
 - **Left** — permanent tiles: Slack unread, PR reviews to do, CircleCI jobs, …
 - **Right** — the current worktree: multiple terminals (git / local host / Claude
   Code), plus useful links (designs, ticket, preview).
@@ -152,8 +156,11 @@ This vision is ~5 subsystems. Build order, each shippable/usable on its own:
 
 ## Cross-cutting decisions
 
-1. ✅ **Layout engine** — resolved: **dockview** (v6.6.1; themed via the `theme`
-   prop, not a wrapper class).
+1. ⛔️ **Layout engine — reversed.** Originally dockview; **removed 2026-06-23** in favour of
+   hand-built views over a CSS design-token theme. Free-form tiling was never validated and
+   dockview's chrome fought the fixed, designed layouts. See
+   `2026-06-23-worktrees-view-and-theme-design.md`. Targeted resize/reorder can return later as
+   a deliberate feature.
 2. ✅ **Settings format** — resolved: two JSON files — `cockpit.json` (portable
    user config) + `layout.json` (disposable geometry).
 3. ✅ **Worktree deduction coupling (resolved — all three source types done)** — Linear delegates to

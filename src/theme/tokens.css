@@ -1,0 +1,48 @@
+/* tokens.css — single source of theme design tokens (dark) + app baseline; imported once in main.tsx. */
+:root {
+  /* backgrounds */
+  --bg: #0d1117;
+  --surface: #11161d;
+  --surface-raised: #161c24;
+  --overlay: rgba(0, 0, 0, 0.6);
+  /* borders */
+  --border: #232c38;
+  --border-subtle: #1a212b;
+  /* text */
+  --text: #e6edf3;
+  --text-secondary: #9aa7b4;
+  --text-muted: #6b7785;
+  /* accent + semantic */
+  --accent: #2dd4bf;
+  --accent-fg: #04221d;
+  --attention: #f5a623;
+  --danger: #f0556d;
+  /* spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  /* radii */
+  --radius: 8px;
+  --radius-sm: 5px;
+  /* fonts */
+  --font-ui: system-ui, -apple-system, "SF Pro Text", "Segoe UI", sans-serif;
+  --font-mono: "SF Mono", ui-monospace, Menlo, Monaco, "Cascadia Code", monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+button { font-family: inherit; }

@@ -1,40 +1,58 @@
-// App.tsx — app shell: loads settings, registers tiles, and renders the dockview workspace with a Main/Calm view toggle.
+// App.tsx — app shell: loads settings, renders the themed header (view switcher + new-worktree) and the active view.
 import { useEffect, useState } from "react";
 import { loadSettings } from "./settings/api";
 import { useSettings } from "./settings/store";
-import { registerBuiltinTiles } from "./tiles";
-import { Layout } from "./layout/Layout";
+import { WorktreesView } from "./views/WorktreesView";
+import { CockpitView } from "./views/CockpitView";
+import { CalmView } from "./views/CalmView";
+import { NewWorktreeModal } from "./views/NewWorktreeModal";
+import "./App.css";
 
-// Register built-in tile kinds once at module load (before any Layout renders).
-registerBuiltinTiles();
+type View = "cockpit" | "worktrees" | "calm";
+const VIEWS: { id: View; label: string }[] = [
+  { id: "cockpit", label: "Cockpit" },
+  { id: "worktrees", label: "Worktrees" },
+  { id: "calm", label: "Calm" },
+];
+
+// normalizeView: map the persisted defaultView (incl. legacy "main") onto a current view id.
+function normalizeView(v: string): View {
+  return v === "cockpit" || v === "calm" ? v : "worktrees";
+}
 
 function App() {
-  const { loaded, cockpit, init } = useSettings();
-  const [view, setView] = useState<string>("main");
+  const { loaded, init } = useSettings();
+  const [view, setView] = useState<View>("worktrees");
+  const [creating, setCreating] = useState(false);
 
-  // On startup: pull persisted settings from the Rust core, seed the store, and pick the saved default view.
+  // On startup: pull persisted settings from the Rust core, seed the store, pick the saved default view.
   useEffect(() => {
     loadSettings()
-      .then((s) => {
-        init(s);
-        setView(s.cockpit.preferences.defaultView);
-      })
+      .then((s) => { init(s); setView(normalizeView(s.cockpit.preferences.defaultView)); })
       .catch((e) => console.error("load failed", e));
   }, [init]);
 
-  if (!loaded) return <div style={{ padding: 24 }}>Loading…</div>;
+  if (!loaded) return <div className="app__loading">Loading…</div>;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
-      <div style={{ display: "flex", gap: 8, padding: 8, borderBottom: "1px solid #ddd" }}>
-        <button onClick={() => setView("main")} disabled={view === "main"}>Main</button>
-        <button onClick={() => setView("calm")} disabled={view === "calm"}>Calm</button>
-        <span style={{ marginLeft: "auto", opacity: 0.5 }}>{cockpit.tiles.length} tiles</span>
-      </div>
-      {/* position: relative + flex:1 gives Layout's absolute-inset wrapper a sized, positioned ancestor */}
-      <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
-        <Layout key={view} view={view} />
-      </div>
+    <div className="app">
+      <header className="app__header">
+        <div className="app__brand">cockpit <span className="app__version">v0.4</span></div>
+        <nav className="app__segmented">
+          {VIEWS.map((v) => (
+            <button key={v.id} className={`app__seg ${view === v.id ? "app__seg--active" : ""}`} onClick={() => setView(v.id)}>
+              {v.label}
+            </button>
+          ))}
+        </nav>
+        <button className="app__new" onClick={() => setCreating(true)}>+ New worktree</button>
+      </header>
+      <main className="app__body">
+        {view === "cockpit" && <CockpitView />}
+        {view === "worktrees" && <WorktreesView />}
+        {view === "calm" && <CalmView />}
+      </main>
+      {creating && <NewWorktreeModal onClose={() => setCreating(false)} />}
     </div>
   );
 }

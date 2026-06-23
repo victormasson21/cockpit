@@ -1,0 +1,11 @@
+/* Modal.css — scrim + centered panel. */
+.modal__scrim { position: fixed; inset: 0; background: var(--overlay); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.modal__panel {
+  width: min(560px, 92vw); max-height: 88vh; display: flex; flex-direction: column;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
+}
+.modal__header { display: flex; align-items: center; padding: var(--space-3); border-bottom: 1px solid var(--border-subtle); }
+.modal__title { font-weight: 700; }
+.modal__close { margin-left: auto; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; }
+.modal__close:hover { color: var(--text); }
+.modal__content { padding: var(--space-3); overflow: auto; }
