@@ -1,0 +1,5 @@
+/* CockpitView.css — centered placeholder card. */
+.cockpit-view { height: 100%; display: flex; align-items: center; justify-content: center; padding: var(--space-4); }
+.cockpit-view__card { max-width: 420px; text-align: center; color: var(--text-secondary); border: 1px dashed var(--border); border-radius: var(--radius); padding: var(--space-6); }
+.cockpit-view__card h2 { margin: 0 0 var(--space-2); color: var(--text); }
+.cockpit-view__card p { margin: 0; }
