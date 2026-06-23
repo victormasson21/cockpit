@@ -93,8 +93,19 @@ renders them. Getting this one pattern right makes the Nth integration mechanica
 ## As-built notes
 
 - **Stack confirmed in code:** Tauri v2 + React **19** + TS (Vite), Rust core.
-  dockview is **6.6.1** (themed via the `theme={themeLight}` prop, not a CSS
-  class). Zustand for the live store. Vitest (frontend) + `cargo test` (Rust).
+  The UI is **hand-built views over a CSS design-token theme** (`src/theme/tokens.css`) —
+  **dockview was removed** (it fought the fixed, designed layouts; see
+  `docs/superpowers/specs/2026-06-23-worktrees-view-and-theme-design.md`). Zustand for the
+  live store. Vitest (frontend) + `cargo test` (Rust).
+- **Three views (`src/views/`):** `Cockpit` (themed placeholder — Worktrees replaced the old
+  Main view), `Worktrees` (the MVP: 3 fixed column slots, each a `WorktreeColumn` showing one
+  running worktree), and `Calm` (same columns, Claude pane only). The active view + the
+  per-column **slot→worktree assignment** are **session-only** store state (not persisted; on
+  load the first 3 ongoing worktrees auto-fill the slots). Each `WorktreePane` reuses the
+  unchanged `useTerminal` hook and adds a chevron collapse (open panes flex-fill). `+ New
+  worktree` opens `NewWorktreeModal`, which hosts the unchanged `NewWorktreeForm`. Chips
+  (Linear/PR/issue/preview) derive from the worktree model; **CI chip and Claude "Attention"
+  badge are styled stubs** (live detection deferred).
 - **Settings live in** `~/Library/Application Support/com.cockpit.app/`:
   `cockpit.json` (portable user config) + `layout.json` (disposable geometry).
 - **IPC surface** includes `load_settings`, `save_settings` (sub-project 1) plus
