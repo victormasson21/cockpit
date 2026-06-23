@@ -31,11 +31,14 @@ export function WorktreeColumn({ slotIndex, variant = "full" }: { slotIndex: num
     <div className="wt-col">
       <div className="wt-col__header">
         <span className={attention ? "wt-col__dot wt-col__dot--attention" : "wt-col__dot"} />
-        {/* The dropdown title IS the per-slot worktree picker. */}
-        <select className="wt-col__picker" value={active?.id ?? ""} onChange={(e) => setSlot(slotIndex, e.target.value || null)}>
-          <option value="">Select worktree</option>
-          {ongoing.map((w) => (<option key={w.id} value={w.id}>{w.name}</option>))}
-        </select>
+        {/* The dropdown title IS the per-slot worktree picker (styled as a heading + caret, not a boxed select). */}
+        <div className="wt-col__picker-wrap">
+          <select className="wt-col__picker" value={active?.id ?? ""} onChange={(e) => setSlot(slotIndex, e.target.value || null)}>
+            <option value="">Select worktree</option>
+            {ongoing.map((w) => (<option key={w.id} value={w.id}>{w.name}</option>))}
+          </select>
+          <span className="wt-col__caret" aria-hidden>⌄</span>
+        </div>
         {active && (
           <div className="wt-col__menu">
             <button className="wt-col__gear" aria-label="column settings" onClick={() => setMenuOpen((o) => !o)}>⚙</button>
@@ -64,19 +67,20 @@ export function WorktreeColumn({ slotIndex, variant = "full" }: { slotIndex: num
                 ))}
               </div>
               <div className="wt-col__path">
-                {active.repoPath.split("/").pop()} · {active.branch} · {active.worktreePath}
+                {active.repoPath.split("/").pop()} · {active.branch} · {active.worktreePath.split("/").pop()}
               </div>
             </>
           )}
           <div className="wt-col__panes">
             {variant === "full" && (
               <>
-                <WorktreePane title="localhost" worktreeId={active.id} role="host" cwd={active.worktreePath} autostartCmd={active.host.startCmd} />
-                <WorktreePane title="git" worktreeId={active.id} role="git" cwd={active.worktreePath} />
+                <WorktreePane title="localhost" icon={<span className="wt-ico wt-ico--host">●</span>} worktreeId={active.id} role="host" cwd={active.worktreePath} autostartCmd={active.host.startCmd} />
+                <WorktreePane title="git" icon={<span className="wt-ico wt-ico--git">◆</span>} worktreeId={active.id} role="git" cwd={active.worktreePath} />
               </>
             )}
             <WorktreePane
-              title="Claude Code" worktreeId={active.id} role="claude" cwd={active.worktreePath} autostartCmd="claude"
+              title="Claude Code" icon={<span className="wt-ico wt-ico--claude">✳</span>}
+              worktreeId={active.id} role="claude" cwd={active.worktreePath} autostartCmd="claude"
               badge={attention ? <span className="wt-attention">Attention</span> : null}
             />
           </div>

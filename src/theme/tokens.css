@@ -17,6 +17,10 @@
   --accent-fg: #04221d;
   --attention: #f5a623;
   --danger: #f0556d;
+  --ok: #3fb950;
+  --info: #4c8bf5;
+  --pr: #a371f7;
+  --git: #e8743b;
   /* spacing scale */
   --space-1: 4px;
   --space-2: 8px;

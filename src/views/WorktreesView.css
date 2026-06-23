@@ -1,2 +1,2 @@
-/* WorktreesView.css — three equal columns filling the body; shared by the Calm view. */
-.wt-view { display: flex; gap: var(--space-3); height: 100%; padding: var(--space-3); }
+/* WorktreesView.css — three full-bleed equal columns split by dividers; shared by the Calm view. */
+.wt-view { display: flex; height: 100%; }
