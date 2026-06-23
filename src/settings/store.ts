@@ -2,6 +2,7 @@
 import { create } from "zustand";
 import type { CockpitConfig, HostConfig, LayoutConfig, Settings, Worktree } from "./types";
 import { saveSettings } from "./api";
+import { initSlots, setSlotAt, assignFirstEmpty, clearWorktree, type Slots } from "../views/slots";
 
 interface SettingsState {
   cockpit: CockpitConfig;
@@ -18,6 +19,9 @@ interface SettingsState {
   addKnownRepo: (path: string) => void;
   removeKnownRepo: (path: string) => void;
   setRepoHost: (path: string, host: HostConfig) => void;
+  slots: Slots;
+  setSlot: (index: number, id: string | null) => void;
+  assignNewWorktreeSlot: (id: string) => void;
 }
 
 // Debounce disk writes so drags/keystrokes don't thrash the filesystem.
@@ -34,7 +38,8 @@ export const useSettings = create<SettingsState>((set, get) => ({
   cockpit: { version: 1, tiles: [], worktrees: [], knownRepos: [], preferences: { theme: "system", defaultView: "main" } },
   layout: { version: 1, views: {} },
   loaded: false,
-  init: (s) => set({ cockpit: s.cockpit, layout: s.layout, loaded: true }),
+  slots: [null, null, null],
+  init: (s) => set({ cockpit: s.cockpit, layout: s.layout, loaded: true, slots: initSlots(s.cockpit.worktrees) }),
   setCockpit: (next) => {
     set((st) => ({ cockpit: typeof next === "function" ? next(st.cockpit) : next }));
     scheduleSave(get);
@@ -51,8 +56,13 @@ export const useSettings = create<SettingsState>((set, get) => ({
       ...c,
       worktrees: c.worktrees.map((w) => (w.id === id ? { ...w, ...patch } : w)),
     })),
-  removeWorktree: (id) =>
-    get().setCockpit((c) => ({ ...c, worktrees: c.worktrees.filter((w) => w.id !== id) })),
+  removeWorktree: (id) => {
+    get().setCockpit((c) => ({ ...c, worktrees: c.worktrees.filter((w) => w.id !== id) }));
+    set((st) => ({ slots: clearWorktree(st.slots, id) }));
+  },
+  // Slots are session-only display state (not persisted): which worktree shows in each of the 3 columns.
+  setSlot: (index, id) => set((st) => ({ slots: setSlotAt(st.slots, index, id) })),
+  assignNewWorktreeSlot: (id) => set((st) => ({ slots: assignFirstEmpty(st.slots, id) })),
   // Known repos the deduce agent may pick from; each carries an optional saved host default. add dedupes by path.
   addKnownRepo: (path) =>
     get().setCockpit((c) =>

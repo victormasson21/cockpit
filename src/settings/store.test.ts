@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useSettings } from "./store";
 import type { CockpitConfig, Worktree } from "./types";
+import type { Slots } from "../views/slots";
 
 // Mock the IPC layer so the debounced save never reaches Tauri in tests.
 vi.mock("./api", () => ({ saveSettings: vi.fn().mockResolvedValue(undefined) }));
@@ -67,5 +68,38 @@ describe("knownRepos actions", () => {
       startCmd: "pnpm start",
       address: "http://localhost:2000",
     });
+  });
+});
+
+describe("worktree slots (session state)", () => {
+  beforeEach(() => {
+    useSettings.setState({ cockpit: structuredClone(baseCockpit), layout: { version: 1, views: {} }, loaded: true, slots: [null, null, null] });
+  });
+
+  it("init seeds slots from the first 3 ongoing worktrees", () => {
+    const w = (id: string, status: "ongoing" | "completed" = "ongoing"): Worktree => ({ ...sampleWt, id, status });
+    useSettings.getState().init({
+      cockpit: { ...baseCockpit, worktrees: [w("done", "completed"), w("a"), w("b"), w("c"), w("d")] },
+      layout: { version: 1, views: {} },
+    });
+    expect(useSettings.getState().slots).toEqual(["a", "b", "c"]);
+  });
+
+  it("setSlot assigns one slot", () => {
+    useSettings.getState().setSlot(1, "wt-1");
+    expect(useSettings.getState().slots).toEqual([null, "wt-1", null]);
+  });
+
+  it("assignNewWorktreeSlot fills the first empty slot", () => {
+    useSettings.setState({ slots: ["wt-1", null, null] });
+    useSettings.getState().assignNewWorktreeSlot("wt-2");
+    expect(useSettings.getState().slots).toEqual(["wt-1", "wt-2", null]);
+  });
+
+  it("removeWorktree clears it from its slot", () => {
+    useSettings.setState({ cockpit: { ...structuredClone(baseCockpit), worktrees: [sampleWt] }, slots: ["wt-1", null, null] });
+    useSettings.getState().removeWorktree("wt-1");
+    expect(useSettings.getState().slots).toEqual([null, null, null]);
+    expect(useSettings.getState().cockpit.worktrees).toHaveLength(0);
   });
 });
