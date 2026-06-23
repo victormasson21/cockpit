@@ -1,0 +1,20 @@
+/* WorktreePane.css — terminal pane chrome; open panes flex-fill the column's vertical space. */
+.wt-pane { display: flex; flex-direction: column; border-top: 1px solid var(--border-subtle); min-height: 0; }
+.wt-pane--open { flex: 1; }
+.wt-pane--closed { flex: 0 0 auto; }
+.wt-pane--closed .wt-pane__body { display: none; }
+
+.wt-pane__header {
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  background: var(--surface-raised); color: var(--text-secondary);
+  font-size: 11px; user-select: none;
+}
+.wt-pane__title { font-weight: 600; }
+.wt-pane__chevron, .wt-pane__restart {
+  background: none; border: none; color: var(--text-muted); cursor: pointer;
+  font-size: 12px; line-height: 1; padding: 2px 4px; border-radius: var(--radius-sm);
+}
+.wt-pane__chevron:hover, .wt-pane__restart:hover { color: var(--text); background: var(--border-subtle); }
+.wt-pane__restart { margin-left: auto; }
+.wt-pane__body { flex: 1; min-height: 0; padding: var(--space-1); background: var(--bg); }

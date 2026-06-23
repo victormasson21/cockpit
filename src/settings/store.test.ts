@@ -2,7 +2,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useSettings } from "./store";
 import type { CockpitConfig, Worktree } from "./types";
-import type { Slots } from "../views/slots";
 
 // Mock the IPC layer so the debounced save never reaches Tauri in tests.
 vi.mock("./api", () => ({ saveSettings: vi.fn().mockResolvedValue(undefined) }));
