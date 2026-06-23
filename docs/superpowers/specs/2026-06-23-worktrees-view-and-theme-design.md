@@ -129,12 +129,23 @@ Top-to-bottom when a worktree is assigned:
   (Hide / Delete) at top-right.
 - **Chip row:** derived chips (see below).
 - **Path line:** `repo · branch · …/worktreePath` in mono/muted.
-- **Three terminal panes**, each a themed `WorktreePane` (header bar + body)
-  wrapping the unchanged `TerminalPane` + PTY wiring:
+- **Three terminal panes**, each a themed `WorktreePane`. `WorktreePane` calls the
+  unchanged **`useTerminal`** hook directly and owns the themed header bar + the
+  xterm container div — **absorbing today's `TerminalPane`** (its plain title +
+  restart move into the themed header). PTY wiring is untouched:
   - `localhost` (host) — header shows the start command + a restart `↻` control.
   - `git` — header shows just "git" (no ahead/behind badge).
   - `Claude Code` — header shows the **Attention badge** (visual stub; renders off
     this pass — see below).
+  - Every pane header has a **chevron (`⌄`) collapse toggle**. Collapsed → only the
+    header bar shows. **Open panes `flex: 1`** so they always expand to fill the
+    available vertical space and split it evenly among themselves; collapsing a pane
+    gives its space to the others (one open pane fills the whole column). Collapse
+    state is per-column component state keyed by role (default: all open). The xterm
+    stays **mounted but hidden** when collapsed (e.g. `height: 0`/`hidden`, not
+    unmounted) so the existing `ResizeObserver` in `useTerminal` re-fits and
+    `pty_resize`s automatically on re-expand — no new resize logic needed. The PTY
+    itself lives in Rust and is unaffected.
 - **Links** row at the bottom (reused `LinksList`).
 
 When the slot is empty: the column renders only the header with a "Select
@@ -218,6 +229,8 @@ modal closes.
 - `src/tiles/registry.ts`, `src/tiles/registry.test.ts`, `src/tiles/index.ts`
 - `src/tiles/clock/ClockTile.tsx`, `src/tiles/notes/NotesTile.tsx`
 - `src/tiles/worktree/WorktreeTile.tsx` (replaced by `WorktreeColumn`)
+- `src/worktrees/TerminalPane.tsx` (absorbed into `WorktreePane`; `useTerminal`,
+  `ptyId`, `api`, `model` are reused unchanged)
 
 `Settings.layout` / `LayoutConfig` stays in the types and continues to round-trip
 to Rust untouched (we simply stop reading/writing view geometry) — avoids a Rust
