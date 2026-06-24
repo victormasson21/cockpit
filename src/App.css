@@ -19,3 +19,6 @@
 .app__new:hover { filter: brightness(1.08); }
 
 .app__body { flex: 1; min-height: 0; }
+
+/* Group the header create buttons together on the right. */
+.app__actions { display: flex; gap: var(--space-2); }
