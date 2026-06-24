@@ -52,7 +52,11 @@ export function ExistingBranchForm({ onCreated }: { onCreated: (worktreeId: stri
       addWorktree(makeWorktree({ id, name, repoPath, branch, worktreePath, host }));
       onCreated(id);
     } catch (e) {
-      setError(String(e));
+      // The picker already disables in-use branches; this is the safety net if one gets claimed after listing.
+      const msg = String(e);
+      setError(/already checked out/i.test(msg)
+        ? "That branch is already checked out elsewhere — pick a branch that isn't in use."
+        : msg);
     } finally {
       setBusy(false);
     }
@@ -75,7 +79,10 @@ export function ExistingBranchForm({ onCreated }: { onCreated: (worktreeId: stri
         <select className="eb-form__branch" value={branch} onChange={(e) => pickBranch(e.target.value)}>
           <option value="">select branch…</option>
           {branches.map((b) => (
-            <option key={b.name} value={b.name}>{b.name} — {b.lastCommitRelative}</option>
+            // Disable branches already checked out elsewhere — git can't worktree-add them.
+            <option key={b.name} value={b.name} disabled={b.checkedOut}>
+              {b.name} — {b.lastCommitRelative}{b.checkedOut ? " · checked out" : ""}
+            </option>
           ))}
         </select>
       )}
