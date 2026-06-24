@@ -21,7 +21,7 @@ function normalizeView(v: string): View {
 }
 
 function App() {
-  const { loaded, init } = useSettings();
+  const { loaded, init, addScratch } = useSettings();
   const [view, setView] = useState<View>("worktrees");
   const [creating, setCreating] = useState<null | "deduce" | "existing">(null);
 
@@ -52,6 +52,7 @@ function App() {
         <div className="app__actions">
           <button className="app__new" onClick={() => setCreating("deduce")}>+ New worktree</button>
           <button className="app__new" onClick={() => setCreating("existing")}>+ Existing branch</button>
+          <button className="app__new" onClick={() => addScratch()}>+ Terminal</button>
         </div>
       </header>
       <main className="app__body">
