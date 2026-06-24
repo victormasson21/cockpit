@@ -5,12 +5,13 @@ import { useSettings } from "../../settings/store";
 import { makePtyId } from "../../worktrees/ptyId";
 import { resolveSlotEntity } from "../slots";
 import { WorktreeBody } from "./WorktreeBody";
+import { ScratchBody } from "./ScratchBody";
 import "./WorktreeColumn.css";
 
 const WORKTREE_ROLES = ["git", "host", "claude"] as const;
 
 export function SlotColumn({ slotIndex, variant = "full" }: { slotIndex: number; variant?: "full" | "calm" }) {
-  const { cockpit, slots, setSlot, removeWorktree, scratchTerminals } = useSettings();
+  const { cockpit, slots, setSlot, removeWorktree, removeScratch, scratchTerminals } = useSettings();
   const ongoing = cockpit.worktrees.filter((w) => w.status === "ongoing");
   const activeId = slots[slotIndex];
   const entity = resolveSlotEntity(activeId, cockpit.worktrees, scratchTerminals);
@@ -23,6 +24,9 @@ export function SlotColumn({ slotIndex, variant = "full" }: { slotIndex: number;
     if (entity.kind === "worktree") {
       for (const role of WORKTREE_ROLES) await invoke("pty_kill", { ptyId: makePtyId(entity.worktree.id, role) });
       removeWorktree(entity.worktree.id);
+    } else {
+      await invoke("pty_kill", { ptyId: makePtyId(entity.scratch.id, "shell") });
+      removeScratch(entity.scratch.id);
     }
   };
 
@@ -34,8 +38,15 @@ export function SlotColumn({ slotIndex, variant = "full" }: { slotIndex: number;
         <span className={attention ? "wt-col__dot wt-col__dot--attention" : "wt-col__dot"} />
         <div className="wt-col__picker-wrap">
           <select className="wt-col__picker" value={activeId ?? ""} onChange={(e) => setSlot(slotIndex, e.target.value || null)}>
-            <option value="">Select worktree</option>
-            {ongoing.map((w) => (<option key={w.id} value={w.id}>{w.name}</option>))}
+            <option value="">Select…</option>
+            <optgroup label="Worktrees">
+              {ongoing.map((w) => (<option key={w.id} value={w.id}>{w.name}</option>))}
+            </optgroup>
+            {scratchTerminals.length > 0 && (
+              <optgroup label="Scratch">
+                {scratchTerminals.map((s) => (<option key={s.id} value={s.id}>{s.title}</option>))}
+              </optgroup>
+            )}
           </select>
           <span className="wt-col__caret" aria-hidden>⌄</span>
         </div>
@@ -53,11 +64,13 @@ export function SlotColumn({ slotIndex, variant = "full" }: { slotIndex: number;
       </div>
 
       {!entity ? (
-        <div className="wt-col__empty">No worktree in this slot.</div>
+        <div className="wt-col__empty">Nothing in this slot.</div>
       ) : entity.kind === "worktree" ? (
         // Key on the component (not a wrapper div) so the remount preserves the .wt-col → .wt-col__body flex chain.
         <WorktreeBody key={entity.worktree.id} worktree={entity.worktree} variant={variant} />
-      ) : null}
+      ) : (
+        <ScratchBody key={entity.scratch.id} scratchId={entity.scratch.id} />
+      )}
     </div>
   );
 }
