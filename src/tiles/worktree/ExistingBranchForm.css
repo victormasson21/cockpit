@@ -1,0 +1,5 @@
+/* ExistingBranchForm.css — vertical stack mirroring NewWorktreeForm's controls. */
+.eb-form { display: flex; flex-direction: column; gap: var(--space-2); }
+.eb-form select, .eb-form input { font: inherit; }
+.eb-form__hint { color: var(--text-muted); font-size: 0.85em; }
+.eb-form__error { color: var(--attention); font-size: 0.85em; white-space: pre-wrap; }

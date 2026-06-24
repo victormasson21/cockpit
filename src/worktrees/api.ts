@@ -30,3 +30,12 @@ export interface DeducedWorktree {
 // Deduce worktree params from a prompt + the known-repos list; rejects with an inline-displayable error string.
 export const deduceWorktree = (prompt: string, repoPaths: string[]) =>
   invoke<DeducedWorktree>("deduce_worktree", { prompt, repoPaths });
+
+// One local branch row for the existing-branch picker (mirrors Rust BranchInfo).
+export interface BranchInfo {
+  name: string;
+  lastCommitRelative: string;
+}
+
+// List a repo's local branches, most-recently-committed first.
+export const listBranches = (repoPath: string) => invoke<BranchInfo[]>("list_branches", { repoPath });
