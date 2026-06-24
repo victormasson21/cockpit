@@ -13,6 +13,30 @@ pub enum BranchSpec {
     Pr { number: u64, branch: String },
 }
 
+// One local branch + how long ago it was last committed to (for the recency-sorted picker).
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BranchInfo {
+    pub name: String,
+    pub last_commit_relative: String,
+}
+
+// Parse `git for-each-ref` output (one `<name>\t<relative-date>` line per branch) into BranchInfo rows.
+// git already sorted the input by committerdate desc, so we preserve line order. Blank lines are skipped.
+pub fn parse_branch_lines(stdout: &str) -> Vec<BranchInfo> {
+    stdout
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .map(|l| {
+            let mut parts = l.splitn(2, '\t');
+            BranchInfo {
+                name: parts.next().unwrap_or("").to_string(),
+                last_commit_relative: parts.next().unwrap_or("").to_string(),
+            }
+        })
+        .collect()
+}
+
 // Lowercase dash-separated slug so a worktree name maps to a safe directory name.
 pub fn slug(name: &str) -> String {
     name.to_lowercase()
@@ -113,6 +137,25 @@ pub fn create_worktree(
     Ok(wt_str)
 }
 
+// List a repo's local branches, most-recently-committed first, for the "open existing branch" picker.
+#[tauri::command]
+pub fn list_branches(repo_path: String) -> Result<Vec<BranchInfo>, String> {
+    let out = Command::new("git")
+        .current_dir(&repo_path)
+        .args([
+            "for-each-ref",
+            "--sort=-committerdate",
+            "--format=%(refname:short)%09%(committerdate:relative)",
+            "refs/heads/",
+        ])
+        .output()
+        .map_err(|e| e.to_string())?;
+    if !out.status.success() {
+        return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
+    }
+    Ok(parse_branch_lines(&String::from_utf8_lossy(&out.stdout)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -148,5 +191,30 @@ mod tests {
     fn add_args_pr_makes_detached_worktree() {
         let a = worktree_add_args("/wt", &BranchSpec::Pr { number: 42, branch: "feat/x".into() });
         assert_eq!(a, vec!["worktree", "add", "--detach", "/wt"]);
+    }
+
+    #[test]
+    fn parse_branch_lines_splits_tab_and_skips_blanks() {
+        let out = "main\t2 hours ago\nvictor/fix\t3 days ago\n\n";
+        let got = parse_branch_lines(out);
+        assert_eq!(got.len(), 2);
+        assert_eq!(got[0].name, "main");
+        assert_eq!(got[0].last_commit_relative, "2 hours ago");
+        assert_eq!(got[1].name, "victor/fix");
+        assert_eq!(got[1].last_commit_relative, "3 days ago");
+    }
+
+    #[test]
+    fn parse_branch_lines_empty_is_empty() {
+        assert!(parse_branch_lines("").is_empty());
+        assert!(parse_branch_lines("\n  \n").is_empty());
+    }
+
+    #[test]
+    fn parse_branch_lines_tolerates_missing_date() {
+        let got = parse_branch_lines("orphan\n");
+        assert_eq!(got.len(), 1);
+        assert_eq!(got[0].name, "orphan");
+        assert_eq!(got[0].last_commit_relative, "");
     }
 }
