@@ -9,6 +9,7 @@ export interface TileInstance<Config = unknown> {
 export interface Preferences {
   theme: "system" | "light" | "dark";
   defaultView: "cockpit" | "worktrees" | "calm";
+  panes: number; // visible Worktrees/Calm columns (2 or 3)
 }
 
 export interface HostConfig { startCmd: string; address: string }

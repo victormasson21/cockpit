@@ -74,12 +74,19 @@ pub struct Worktree {
     pub status: String,
 }
 
-// User-facing display preferences (theme + which view opens on launch).
+// User-facing display preferences (theme + which view opens on launch + visible Worktrees/Calm panes).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Preferences {
     pub theme: String,
     #[serde(rename = "defaultView")]
     pub default_view: String,
+    // Visible column count for the Worktrees/Calm views (2 or 3); defaults for older files without it.
+    #[serde(default = "default_panes")]
+    pub panes: u32,
+}
+
+fn default_panes() -> u32 {
+    3
 }
 
 // Portable, user-meaningful config (which tiles exist + preferences). Persisted to cockpit.json.
@@ -112,7 +119,7 @@ impl Default for CockpitConfig {
             ],
             worktrees: vec![],
             known_repos: vec![],
-            preferences: Preferences { theme: "system".into(), default_view: "main".into() },
+            preferences: Preferences { theme: "system".into(), default_view: "main".into(), panes: 3 },
         }
     }
 }

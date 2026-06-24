@@ -40,14 +40,14 @@ function scheduleSave(get: () => SettingsState) {
 }
 
 export const useSettings = create<SettingsState>((set, get) => ({
-  cockpit: { version: 1, tiles: [], worktrees: [], knownRepos: [], preferences: { theme: "system", defaultView: "worktrees" } },
+  cockpit: { version: 1, tiles: [], worktrees: [], knownRepos: [], preferences: { theme: "system", defaultView: "worktrees", panes: SLOT_COUNT } },
   layout: { version: 1, views: {} },
   loaded: false,
   slots: [null, null, null],
   slotCount: SLOT_COUNT,
   scratchTerminals: [],
   scratchSeq: 0,
-  init: (s) => set({ cockpit: s.cockpit, layout: s.layout, loaded: true, slots: initSlots(s.cockpit.worktrees) }),
+  init: (s) => set({ cockpit: s.cockpit, layout: s.layout, loaded: true, slots: initSlots(s.cockpit.worktrees), slotCount: s.cockpit.preferences.panes ?? SLOT_COUNT }),
   setCockpit: (next) => {
     set((st) => ({ cockpit: typeof next === "function" ? next(st.cockpit) : next }));
     scheduleSave(get);
@@ -67,7 +67,11 @@ export const useSettings = create<SettingsState>((set, get) => ({
   // Slots are session-only display state (not persisted): which worktree shows in each of the 3 columns.
   setSlot: (index, id) => set((st) => ({ slots: setSlotAt(st.slots, index, id) })),
   // Toggle visible column count; shrinking drops the rightmost panes (entities keep running, slots cleared).
-  setSlotCount: (n) => set((st) => ({ slotCount: n, slots: hideSlotsBeyond(st.slots, n) })),
+  // Persist the choice into preferences so it survives restarts.
+  setSlotCount: (n) => {
+    set((st) => ({ slotCount: n, slots: hideSlotsBeyond(st.slots, n) }));
+    get().setCockpit((c) => ({ ...c, preferences: { ...c.preferences, panes: n } }));
+  },
   assignNewWorktreeSlot: (id) => set((st) => ({ slots: assignNewWorktree(st.slots, id) })),
   // Scratch terminals are session-only single-shell entities; a monotonic seq keeps ids/titles unique across removals.
   addScratch: () => {

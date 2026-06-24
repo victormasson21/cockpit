@@ -11,7 +11,7 @@ const baseCockpit: CockpitConfig = {
   tiles: [{ id: "worktree-1", type: "worktree", config: {} }],
   worktrees: [],
   knownRepos: [],
-  preferences: { theme: "system", defaultView: "worktrees" },
+  preferences: { theme: "system", defaultView: "worktrees", panes: 3 },
 };
 
 const sampleWt: Worktree = {
@@ -116,5 +116,22 @@ describe("worktree slots (session state)", () => {
     const st = useSettings.getState();
     expect(st.scratchTerminals).toEqual([]);
     expect(st.slots).toEqual([null, null, null]);
+  });
+
+  it("init seeds slotCount from preferences.panes", () => {
+    useSettings.getState().init({
+      cockpit: { ...baseCockpit, preferences: { ...baseCockpit.preferences, panes: 2 } },
+      layout: { version: 1, views: {} },
+    });
+    expect(useSettings.getState().slotCount).toBe(2);
+  });
+
+  it("setSlotCount shrinks the visible count, drops the rightmost slot, and persists to preferences", () => {
+    useSettings.setState({ slots: ["a", "b", "c"], slotCount: 3 });
+    useSettings.getState().setSlotCount(2);
+    const st = useSettings.getState();
+    expect(st.slotCount).toBe(2);
+    expect(st.slots).toEqual(["a", "b", null]);
+    expect(st.cockpit.preferences.panes).toBe(2);
   });
 });
