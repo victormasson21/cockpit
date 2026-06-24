@@ -50,9 +50,9 @@ function App() {
           ))}
         </nav>
         <div className="app__actions">
-          <button className="app__new" onClick={() => setCreating("deduce")}>+ New worktree</button>
-          <button className="app__new" onClick={() => setCreating("existing")}>+ Existing branch</button>
-          <button className="app__new" onClick={() => addScratch()}>+ Terminal</button>
+          <button className="app__new" onClick={() => setCreating("deduce")}>Worktree</button>
+          <button className="app__new" onClick={() => setCreating("existing")}>Checkout</button>
+          <button className="app__new" onClick={() => addScratch()}>Terminal</button>
         </div>
       </header>
       <main className="app__body">
