@@ -4,7 +4,6 @@ import { createWorktree, deduceWorktree } from "../../worktrees/api";
 import { makeWorktree, sourceLinkFrom, branchSpecFrom, FORM_DEFAULTS } from "../../worktrees/model";
 import type { WorktreeLink } from "../../settings/types";
 import { useSettings } from "../../settings/store";
-import { KnownReposEditor } from "./KnownReposEditor";
 import "./NewWorktreeForm.css";
 
 export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string) => void }) {
@@ -102,15 +101,13 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
 
   return (
     <div className="nw-form">
-      <KnownReposEditor />
-      <hr className="nw-form__sep" />
       {/* deduce: one prompt -> pre-filled fields (deduce -> preview/confirm -> create) */}
       <textarea placeholder="describe the task (e.g. fix the login bug)" value={prompt} rows={2}
         onChange={(e) => { setPrompt(e.target.value); clearDeduction(); }} />
       <button className="nw-form__deduce" disabled={deducing || !prompt.trim() || cockpit.knownRepos.length === 0} onClick={runDeduce}>
         {deducing ? "deducing…" : "deduce"}
       </button>
-      {cockpit.knownRepos.length === 0 && <div className="nw-form__hint">Add a known repo above to enable deduce.</div>}
+      {cockpit.knownRepos.length === 0 && <div className="nw-form__hint">Add a known repo in Settings (⚙) to enable deduce.</div>}
       {deduceError && <div className="nw-form__error">{deduceError}</div>}
       {banner && (
         <div className="nw-form__banner">

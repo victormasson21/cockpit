@@ -6,7 +6,9 @@ import { WorktreesView } from "./views/WorktreesView";
 import { CockpitView } from "./views/CockpitView";
 import { CalmView } from "./views/CalmView";
 import { NewWorktreeModal } from "./views/NewWorktreeModal";
+import { SettingsModal } from "./views/SettingsModal";
 import { MIN_SLOTS, SLOT_COUNT } from "./views/slots";
+import logoUrl from "./assets/cockpit-radar.svg";
 import "./App.css";
 
 type View = "cockpit" | "worktrees" | "calm";
@@ -25,6 +27,7 @@ function App() {
   const { loaded, init, addScratch, slotCount, setSlotCount } = useSettings();
   const [view, setView] = useState<View>("worktrees");
   const [creating, setCreating] = useState<null | "deduce" | "existing">(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // On startup: pull persisted settings from the Rust core, seed the store, pick the saved default view.
   useEffect(() => {
@@ -39,9 +42,8 @@ function App() {
     <div className="app">
       <header className="app__header">
         <div className="app__brand">
-          <span className="app__logo" aria-hidden />
+          <img className="app__logo" src={logoUrl} alt="" aria-hidden />
           <span className="app__name">cockpit</span>
-          <span className="app__version">v0.4</span>
         </div>
         <nav className="app__segmented">
           {VIEWS.map((v) => (
@@ -69,6 +71,7 @@ function App() {
           <button className="app__new" onClick={() => setCreating("deduce")}>Worktree</button>
           <button className="app__new" onClick={() => setCreating("existing")}>Checkout</button>
           <button className="app__new" onClick={() => addScratch()}>Terminal</button>
+          <button className="app__new" aria-label="settings" onClick={() => setSettingsOpen(true)}>⚙</button>
         </div>
       </header>
       <main className="app__body">
@@ -77,6 +80,7 @@ function App() {
         {view === "calm" && <CalmView />}
       </main>
       {creating && <NewWorktreeModal initialMode={creating} onClose={() => setCreating(null)} />}
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
     </div>
   );
 }

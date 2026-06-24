@@ -70,6 +70,17 @@ pub fn package_manager_from_lockfiles(has_pnpm: bool, has_yarn: bool, has_bun: b
     if has_pnpm { "pnpm" } else if has_yarn { "yarn" } else if has_bun { "bun" } else { "npm" }
 }
 
+// Prepend the package manager's install so a fresh worktree (no node_modules) can run the dev server.
+// Pure + testable: the caller supplies the two filesystem facts (package.json presence, package manager).
+pub fn with_install(start_cmd: &str, has_package_json: bool, pm: &str) -> String {
+    if start_cmd.trim().is_empty()        // nothing to start → nothing to install for
+        || start_cmd.contains("install")  // already has one (saved default / re-deduce) → don't double it
+        || !has_package_json {            // non-JS repo (e.g. cargo) → leave alone
+        return start_cmd.to_string();
+    }
+    format!("{pm} install && {start_cmd}")
+}
+
 // Extract build.devUrl from a tauri.conf.json string — the real dev address for a Tauri app (vite's default is wrong for Tauri).
 pub fn tauri_dev_url(conf_json: &str) -> Option<String> {
     let v: serde_json::Value = serde_json::from_str(conf_json).ok()?;
@@ -423,8 +434,9 @@ pub fn deduce_worktree(prompt: String, repo_paths: Vec<String>) -> Result<Deduce
     }
     let digests: Vec<serde_json::Value> = repo_paths.iter().map(|p| read_repo_digest(p)).collect();
 
-    // One branch point: a GitHub URL, a Linear ref, or a plain prompt.
-    match detect_source(&prompt) {
+    // One branch point: a GitHub URL, a Linear ref, or a plain prompt. Each arm yields the deduced
+    // worktree (or an error); the shared tail below folds the install step into the start command.
+    let result: Result<DeducedWorktree, String> = match detect_source(&prompt) {
         // GitHub: match + fetch in Rust, run the PLAIN agent with the gh context, then override authoritative fields.
         Source::GitHub(r) => {
             // Match the ref to a known local repo first: fail fast (and clearly) if it isn't one, before any gh round-trip.
@@ -505,7 +517,20 @@ pub fn deduce_worktree(prompt: String, repo_paths: Vec<String>) -> Result<Deduce
             }
             Ok(deduced)
         }
-    }
+    };
+    let mut deduced = result?;
+
+    // Shared tail: fold the package manager's install into the start command so a fresh worktree
+    // (no node_modules) can run. Reads the chosen repo's package.json presence + lockfiles.
+    let dir = Path::new(&deduced.repo_path);
+    let has_package_json = dir.join("package.json").exists();
+    let pm = package_manager_from_lockfiles(
+        dir.join("pnpm-lock.yaml").exists(),
+        dir.join("yarn.lock").exists(),
+        dir.join("bun.lockb").exists(),
+    );
+    deduced.start_cmd = with_install(&deduced.start_cmd, has_package_json, pm);
+    Ok(deduced)
 }
 
 #[cfg(test)]
@@ -578,6 +603,24 @@ mod tests {
         assert_eq!(package_manager_from_lockfiles(true, false, false), "pnpm");
         assert_eq!(package_manager_from_lockfiles(false, true, false), "yarn");
         assert_eq!(package_manager_from_lockfiles(false, false, true), "bun");
+    }
+
+    #[test]
+    fn with_install_prepends_for_js_repos_and_leaves_others() {
+        // JS repo: each package manager's install is prefixed.
+        assert_eq!(with_install("pnpm run dev", true, "pnpm"), "pnpm install && pnpm run dev");
+        assert_eq!(with_install("npm run dev", true, "npm"), "npm install && npm run dev");
+        assert_eq!(with_install("yarn dev", true, "yarn"), "yarn install && yarn dev");
+        assert_eq!(with_install("bun dev", true, "bun"), "bun install && bun dev");
+        // Tauri command gets install too (still a JS dep tree).
+        assert_eq!(with_install("pnpm run tauri dev", true, "pnpm"), "pnpm install && pnpm run tauri dev");
+        // Empty start command → unchanged (nothing to start).
+        assert_eq!(with_install("", true, "pnpm"), "");
+        assert_eq!(with_install("   ", true, "pnpm"), "   ");
+        // Already contains an install (saved default / re-deduce) → not doubled.
+        assert_eq!(with_install("pnpm install && pnpm run dev", true, "pnpm"), "pnpm install && pnpm run dev");
+        // Non-JS repo (no package.json) → left alone even with a JS-looking pm default.
+        assert_eq!(with_install("cargo run", false, "npm"), "cargo run");
     }
 
     #[test]
