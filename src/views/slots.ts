@@ -1,7 +1,8 @@
 // slots.ts — pure helpers for the Worktrees view's 3 column slots (session-only; not persisted to disk).
 import type { Worktree } from "../settings/types";
 
-export const SLOT_COUNT = 3;
+export const SLOT_COUNT = 3; // max columns; the slots array is always this length
+export const MIN_SLOTS = 2; // fewest columns the panes toggle allows
 export type Slots = (string | null)[];
 
 // initSlots: on load, auto-fill the slots with the first SLOT_COUNT ongoing worktrees.
@@ -25,6 +26,12 @@ export function assignNewWorktree(slots: Slots, id: string): Slots {
 // clearEntity: drop a deleted entity (worktree or scratch) from every slot referencing it.
 export function clearEntity(slots: Slots, id: string): Slots {
   return slots.map((s) => (s === id ? null : s));
+}
+
+// hideSlotsBeyond: when shrinking the visible column count, null out the now-hidden slots so
+// re-expanding shows empty panes (the dropped entities keep running and stay in the dropdowns).
+export function hideSlotsBeyond(slots: Slots, visibleCount: number): Slots {
+  return slots.map((s, i) => (i < visibleCount ? s : null));
 }
 
 // A scratch terminal: a session-only single-shell entity that can occupy a slot (no repo/branch).

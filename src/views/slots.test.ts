@@ -1,6 +1,6 @@
 // slots.test.ts — pure slot-reducer behavior for the 3-column Worktrees view.
 import { describe, it, expect } from "vitest";
-import { SLOT_COUNT, initSlots, setSlotAt, assignNewWorktree, clearEntity, resolveSlotEntity, type ScratchTerminal } from "./slots";
+import { SLOT_COUNT, MIN_SLOTS, initSlots, setSlotAt, assignNewWorktree, clearEntity, hideSlotsBeyond, resolveSlotEntity, type ScratchTerminal } from "./slots";
 import type { Worktree } from "../settings/types";
 
 const wt = (id: string, status: Worktree["status"] = "ongoing"): Worktree => ({
@@ -40,5 +40,12 @@ describe("slots", () => {
     expect(resolveSlotEntity("scratch-1", [wt("a")], scratch)).toEqual({ kind: "scratch", scratch: scratch[0] });
     expect(resolveSlotEntity("ghost", [wt("a")], scratch)).toBeNull();
   });
-  it("SLOT_COUNT is 3", () => expect(SLOT_COUNT).toBe(3));
+  it("hideSlotsBeyond clears slots past the visible count (re-expand shows empty panes)", () => {
+    expect(hideSlotsBeyond(["a", "b", "c"], 2)).toEqual(["a", "b", null]);
+    expect(hideSlotsBeyond(["a", "b", "c"], 3)).toEqual(["a", "b", "c"]);
+  });
+  it("SLOT_COUNT is 3 and MIN_SLOTS is 2", () => {
+    expect(SLOT_COUNT).toBe(3);
+    expect(MIN_SLOTS).toBe(2);
+  });
 });

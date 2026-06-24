@@ -21,4 +21,10 @@
 .app__body { flex: 1; min-height: 0; }
 
 /* Group the header create buttons together on the right. */
-.app__actions { display: flex; gap: var(--space-2); }
+.app__actions { display: flex; align-items: center; gap: var(--space-2); }
+
+/* Panes toggle (2 / 3) — a compact segmented control mirroring the view switcher. */
+.app__panes { display: flex; gap: 2px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius); padding: 2px; }
+.app__pane { background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px 10px; border-radius: var(--radius-sm); font-size: 13px; }
+.app__pane:hover { color: var(--text); }
+.app__pane--active { background: var(--accent); color: var(--accent-fg); font-weight: 600; }
