@@ -1,5 +1,7 @@
 # Existing-branch + Scratch-terminals Implementation Plan
 
+> Status: ✅ all 7 tasks complete & merged to `main` (2026-06-24); 46 Rust + 43 JS tests green, GUI verified.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Let a Worktrees-view slot be filled two new ways — by checking out an existing branch (still 3 panes) or by a single scratch login-shell — alongside today's deduce flow.

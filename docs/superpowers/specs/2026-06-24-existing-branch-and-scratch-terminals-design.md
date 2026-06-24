@@ -1,6 +1,8 @@
 # Existing-branch + scratch terminals — design
 
-> Status: approved in brainstorming, pending spec review.
+> Status: ✅ implemented & merged to `main` (2026-06-24). GUI + live acceptance verified.
+> One addition beyond this spec during build: `list_branches` also flags already-checked-out branches
+> (via `git worktree list`) so the picker disables them — see CLAUDE.md as-built notes.
 > Builds on `2026-06-23-worktrees-view-and-theme-design.md` (the 3-slot Worktrees view).
 > Stack context lives in `CLAUDE.md`; product vision in `2026-06-16-cockpit-product-spec.md`.
 
