@@ -13,4 +13,4 @@
 /* Mode toggle for the New-worktree modal (Deduce | Existing branch). */
 .nw-modal__modes { display: flex; gap: var(--space-1); margin-bottom: var(--space-3); }
 .nw-modal__mode { font: inherit; padding: var(--space-1) var(--space-2); background: var(--surface-raised); color: var(--text-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
-.nw-modal__mode--active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.nw-modal__mode--active { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
