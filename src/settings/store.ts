@@ -2,7 +2,7 @@
 import { create } from "zustand";
 import type { CockpitConfig, HostConfig, LayoutConfig, Settings, Worktree } from "./types";
 import { saveSettings } from "./api";
-import { initSlots, setSlotAt, assignNewWorktree, clearEntity, type Slots, type ScratchTerminal } from "../views/slots";
+import { initSlots, setSlotAt, assignNewWorktree, clearEntity, hideSlotsBeyond, SLOT_COUNT, type Slots, type ScratchTerminal } from "../views/slots";
 
 interface SettingsState {
   cockpit: CockpitConfig;
@@ -19,6 +19,8 @@ interface SettingsState {
   removeKnownRepo: (path: string) => void;
   setRepoHost: (path: string, host: HostConfig) => void;
   slots: Slots;
+  slotCount: number; // visible columns (MIN_SLOTS..SLOT_COUNT), session-only
+  setSlotCount: (n: number) => void;
   setSlot: (index: number, id: string | null) => void;
   assignNewWorktreeSlot: (id: string) => void;
   scratchTerminals: ScratchTerminal[];
@@ -42,6 +44,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
   layout: { version: 1, views: {} },
   loaded: false,
   slots: [null, null, null],
+  slotCount: SLOT_COUNT,
   scratchTerminals: [],
   scratchSeq: 0,
   init: (s) => set({ cockpit: s.cockpit, layout: s.layout, loaded: true, slots: initSlots(s.cockpit.worktrees) }),
@@ -63,6 +66,8 @@ export const useSettings = create<SettingsState>((set, get) => ({
   },
   // Slots are session-only display state (not persisted): which worktree shows in each of the 3 columns.
   setSlot: (index, id) => set((st) => ({ slots: setSlotAt(st.slots, index, id) })),
+  // Toggle visible column count; shrinking drops the rightmost panes (entities keep running, slots cleared).
+  setSlotCount: (n) => set((st) => ({ slotCount: n, slots: hideSlotsBeyond(st.slots, n) })),
   assignNewWorktreeSlot: (id) => set((st) => ({ slots: assignNewWorktree(st.slots, id) })),
   // Scratch terminals are session-only single-shell entities; a monotonic seq keeps ids/titles unique across removals.
   addScratch: () => {
