@@ -13,6 +13,65 @@ pub enum BranchSpec {
     Pr { number: u64, branch: String },
 }
 
+// One local branch + how long ago it was last committed to (for the recency-sorted picker).
+// `checked_out` flags a branch git won't let us worktree-add (already checked out in the main repo or another
+// worktree); the UI disables those so the user can't pick a branch that would fail at create.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BranchInfo {
+    pub name: String,
+    pub last_commit_relative: String,
+    pub checked_out: bool,
+    pub checked_out_path: Option<String>,
+}
+
+// Parse `git for-each-ref` output (one `<name>\t<relative-date>` line per branch) into BranchInfo rows.
+// git already sorted the input by committerdate desc, so we preserve line order. Blank lines are skipped.
+pub fn parse_branch_lines(stdout: &str) -> Vec<BranchInfo> {
+    stdout
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .map(|l| {
+            let mut parts = l.splitn(2, '\t');
+            BranchInfo {
+                name: parts.next().unwrap_or("").to_string(),
+                last_commit_relative: parts.next().unwrap_or("").to_string(),
+                checked_out: false,
+                checked_out_path: None,
+            }
+        })
+        .collect()
+}
+
+// Parse `git worktree list --porcelain` into (branch-short-name, worktree-path) pairs — one per branch-bearing
+// worktree (detached worktrees have no `branch` line and are skipped). Used to flag already-checked-out branches.
+pub fn parse_worktree_branches(porcelain: &str) -> Vec<(String, String)> {
+    let mut out = Vec::new();
+    let mut cur_path: Option<String> = None;
+    for line in porcelain.lines() {
+        if let Some(p) = line.strip_prefix("worktree ") {
+            cur_path = Some(p.trim().to_string());
+        } else if let Some(b) = line.strip_prefix("branch ") {
+            let short = b.trim().strip_prefix("refs/heads/").unwrap_or(b.trim()).to_string();
+            if let Some(p) = &cur_path {
+                out.push((short, p.clone()));
+            }
+        }
+    }
+    out
+}
+
+// Mark each branch that is currently checked out in some worktree, recording where — a pure join so it's testable.
+pub fn mark_checked_out(mut branches: Vec<BranchInfo>, worktree_branches: &[(String, String)]) -> Vec<BranchInfo> {
+    for b in &mut branches {
+        if let Some((_, path)) = worktree_branches.iter().find(|(name, _)| name == &b.name) {
+            b.checked_out = true;
+            b.checked_out_path = Some(path.clone());
+        }
+    }
+    branches
+}
+
 // Lowercase dash-separated slug so a worktree name maps to a safe directory name.
 pub fn slug(name: &str) -> String {
     name.to_lowercase()
@@ -113,6 +172,38 @@ pub fn create_worktree(
     Ok(wt_str)
 }
 
+// List a repo's local branches, most-recently-committed first, for the "open existing branch" picker.
+#[tauri::command]
+pub fn list_branches(repo_path: String) -> Result<Vec<BranchInfo>, String> {
+    let out = Command::new("git")
+        .current_dir(&repo_path)
+        .args([
+            "for-each-ref",
+            "--sort=-committerdate",
+            "--format=%(refname:short)%09%(committerdate:relative)",
+            "refs/heads/",
+        ])
+        .output()
+        .map_err(|e| e.to_string())?;
+    if !out.status.success() {
+        return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
+    }
+    let branches = parse_branch_lines(&String::from_utf8_lossy(&out.stdout));
+    // Flag branches already checked out elsewhere (git refuses to worktree-add those). A failure here is
+    // non-fatal — we just return the branches unflagged rather than break the whole picker.
+    let wt_out = Command::new("git")
+        .current_dir(&repo_path)
+        .args(["worktree", "list", "--porcelain"])
+        .output()
+        .map_err(|e| e.to_string())?;
+    let worktree_branches = if wt_out.status.success() {
+        parse_worktree_branches(&String::from_utf8_lossy(&wt_out.stdout))
+    } else {
+        Vec::new()
+    };
+    Ok(mark_checked_out(branches, &worktree_branches))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -148,5 +239,58 @@ mod tests {
     fn add_args_pr_makes_detached_worktree() {
         let a = worktree_add_args("/wt", &BranchSpec::Pr { number: 42, branch: "feat/x".into() });
         assert_eq!(a, vec!["worktree", "add", "--detach", "/wt"]);
+    }
+
+    #[test]
+    fn parse_branch_lines_splits_tab_and_skips_blanks() {
+        let out = "main\t2 hours ago\nvictor/fix\t3 days ago\n\n";
+        let got = parse_branch_lines(out);
+        assert_eq!(got.len(), 2);
+        assert_eq!(got[0].name, "main");
+        assert_eq!(got[0].last_commit_relative, "2 hours ago");
+        assert_eq!(got[1].name, "victor/fix");
+        assert_eq!(got[1].last_commit_relative, "3 days ago");
+    }
+
+    #[test]
+    fn parse_branch_lines_empty_is_empty() {
+        assert!(parse_branch_lines("").is_empty());
+        assert!(parse_branch_lines("\n  \n").is_empty());
+    }
+
+    #[test]
+    fn parse_branch_lines_tolerates_missing_date() {
+        let got = parse_branch_lines("orphan\n");
+        assert_eq!(got.len(), 1);
+        assert_eq!(got[0].name, "orphan");
+        assert_eq!(got[0].last_commit_relative, "");
+        assert!(!got[0].checked_out);
+        assert_eq!(got[0].checked_out_path, None);
+    }
+
+    #[test]
+    fn parse_worktree_branches_pairs_branch_with_path_and_skips_detached() {
+        let porcelain = "worktree /repo/main\nHEAD abc123\nbranch refs/heads/ca-v3-form-v1\n\n\
+                         worktree /repo/detached\nHEAD def456\ndetached\n\n\
+                         worktree /repo/feat\nHEAD 789aaa\nbranch refs/heads/feat/login\n";
+        let got = parse_worktree_branches(porcelain);
+        assert_eq!(
+            got,
+            vec![
+                ("ca-v3-form-v1".to_string(), "/repo/main".to_string()),
+                ("feat/login".to_string(), "/repo/feat".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn mark_checked_out_flags_in_use_branches_only() {
+        let branches = parse_branch_lines("ca-v3-form-v1\t2 days ago\nidle-branch\t5 days ago\n");
+        let wt = vec![("ca-v3-form-v1".to_string(), "/repo/main".to_string())];
+        let got = mark_checked_out(branches, &wt);
+        assert!(got[0].checked_out);
+        assert_eq!(got[0].checked_out_path, Some("/repo/main".to_string()));
+        assert!(!got[1].checked_out);
+        assert_eq!(got[1].checked_out_path, None);
     }
 }

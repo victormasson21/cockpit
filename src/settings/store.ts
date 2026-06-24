@@ -2,7 +2,7 @@
 import { create } from "zustand";
 import type { CockpitConfig, HostConfig, LayoutConfig, Settings, Worktree } from "./types";
 import { saveSettings } from "./api";
-import { initSlots, setSlotAt, assignNewWorktree, clearWorktree, type Slots } from "../views/slots";
+import { initSlots, setSlotAt, assignNewWorktree, clearEntity, type Slots, type ScratchTerminal } from "../views/slots";
 
 interface SettingsState {
   cockpit: CockpitConfig;
@@ -21,6 +21,10 @@ interface SettingsState {
   slots: Slots;
   setSlot: (index: number, id: string | null) => void;
   assignNewWorktreeSlot: (id: string) => void;
+  scratchTerminals: ScratchTerminal[];
+  scratchSeq: number;
+  addScratch: () => string;
+  removeScratch: (id: string) => void;
 }
 
 // Debounce disk writes so drags/keystrokes don't thrash the filesystem.
@@ -38,6 +42,8 @@ export const useSettings = create<SettingsState>((set, get) => ({
   layout: { version: 1, views: {} },
   loaded: false,
   slots: [null, null, null],
+  scratchTerminals: [],
+  scratchSeq: 0,
   init: (s) => set({ cockpit: s.cockpit, layout: s.layout, loaded: true, slots: initSlots(s.cockpit.worktrees) }),
   setCockpit: (next) => {
     set((st) => ({ cockpit: typeof next === "function" ? next(st.cockpit) : next }));
@@ -53,11 +59,27 @@ export const useSettings = create<SettingsState>((set, get) => ({
     })),
   removeWorktree: (id) => {
     get().setCockpit((c) => ({ ...c, worktrees: c.worktrees.filter((w) => w.id !== id) }));
-    set((st) => ({ slots: clearWorktree(st.slots, id) }));
+    set((st) => ({ slots: clearEntity(st.slots, id) }));
   },
   // Slots are session-only display state (not persisted): which worktree shows in each of the 3 columns.
   setSlot: (index, id) => set((st) => ({ slots: setSlotAt(st.slots, index, id) })),
   assignNewWorktreeSlot: (id) => set((st) => ({ slots: assignNewWorktree(st.slots, id) })),
+  // Scratch terminals are session-only single-shell entities; a monotonic seq keeps ids/titles unique across removals.
+  addScratch: () => {
+    const n = get().scratchSeq + 1;
+    const id = `scratch-${n}`;
+    set((st) => ({
+      scratchSeq: n,
+      scratchTerminals: [...st.scratchTerminals, { id, title: `Scratch ${n}` }],
+      slots: assignNewWorktree(st.slots, id),
+    }));
+    return id;
+  },
+  removeScratch: (id) =>
+    set((st) => ({
+      scratchTerminals: st.scratchTerminals.filter((s) => s.id !== id),
+      slots: clearEntity(st.slots, id),
+    })),
   // Known repos the deduce agent may pick from; each carries an optional saved host default. add dedupes by path.
   addKnownRepo: (path) =>
     get().setCockpit((c) =>

@@ -2,19 +2,8 @@
 .nw-form { display: grid; gap: var(--space-2); font-size: 13px; color: var(--text); }
 .nw-form strong { color: var(--text); font-weight: 700; }
 
-/* text fields (exclude radios so native radios keep their look) */
-.nw-form input:not([type="radio"]),
-.nw-form textarea {
-  background: var(--surface-raised); color: var(--text);
-  border: 1px solid var(--border); border-radius: var(--radius-sm);
-  padding: 6px 8px; font-family: var(--font-ui); font-size: 13px;
-}
+/* input/textarea/radio styling now lives in the global form-control baseline (theme/tokens.css). */
 .nw-form textarea { resize: vertical; min-height: 44px; }
-.nw-form input::placeholder,
-.nw-form textarea::placeholder { color: var(--text-muted); }
-.nw-form input:not([type="radio"]):focus,
-.nw-form textarea:focus { outline: none; border-color: var(--accent); }
-.nw-form input[type="radio"] { accent-color: var(--accent); }
 .nw-form label { color: var(--text-secondary); display: inline-flex; align-items: center; gap: 4px; }
 
 /* buttons: subtle by default, accent for the primary deduce + create actions */

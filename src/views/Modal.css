@@ -9,3 +9,8 @@
 .modal__close { margin-left: auto; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; }
 .modal__close:hover { color: var(--text); }
 .modal__content { padding: var(--space-3); overflow: auto; }
+
+/* Mode toggle for the New-worktree modal (Deduce | Existing branch). */
+.nw-modal__modes { display: flex; gap: var(--space-1); margin-bottom: var(--space-3); }
+.nw-modal__mode { font: inherit; padding: var(--space-1) var(--space-2); background: var(--surface-raised); color: var(--text-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
+.nw-modal__mode--active { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }

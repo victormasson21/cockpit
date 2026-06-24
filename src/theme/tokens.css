@@ -50,3 +50,31 @@ body {
 }
 
 button { font-family: inherit; }
+
+/* Form controls — themed at the baseline so every form's input/select/textarea aligns automatically,
+   and any future form inherits the look with no extra classes. (xterm's hidden helper textarea is excluded.) */
+input:not([type="radio"]):not([type="checkbox"]),
+select,
+textarea:not(.xterm-helper-textarea) {
+  background-color: var(--surface-raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+}
+/* swap the native select chevron for a themed one drawn in --text-secondary */
+select {
+  appearance: none; -webkit-appearance: none;
+  padding-right: 26px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5' fill='none' stroke='%239aa7b4' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+input:not([type="radio"]):not([type="checkbox"])::placeholder,
+textarea:not(.xterm-helper-textarea)::placeholder { color: var(--text-muted); }
+input:not([type="radio"]):not([type="checkbox"]):focus,
+select:focus,
+textarea:not(.xterm-helper-textarea):focus { outline: none; border-color: var(--accent); }
+input[type="radio"] { accent-color: var(--accent); }

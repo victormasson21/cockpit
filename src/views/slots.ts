@@ -22,7 +22,30 @@ export function assignNewWorktree(slots: Slots, id: string): Slots {
   return setSlotAt(slots, empty === -1 ? slots.length - 1 : empty, id);
 }
 
-// clearWorktree: drop a deleted worktree from every slot referencing it.
-export function clearWorktree(slots: Slots, id: string): Slots {
+// clearEntity: drop a deleted entity (worktree or scratch) from every slot referencing it.
+export function clearEntity(slots: Slots, id: string): Slots {
   return slots.map((s) => (s === id ? null : s));
+}
+
+// A scratch terminal: a session-only single-shell entity that can occupy a slot (no repo/branch).
+export type ScratchTerminal = { id: string; title: string };
+
+// What a slot id resolves to: a worktree, a scratch terminal, or nothing.
+export type SlotEntity =
+  | { kind: "worktree"; worktree: Worktree }
+  | { kind: "scratch"; scratch: ScratchTerminal }
+  | null;
+
+// resolveSlotEntity: look an id up as a worktree first, then a scratch (ids never collide — scratch is `scratch-*`).
+export function resolveSlotEntity(
+  id: string | null,
+  worktrees: Worktree[],
+  scratch: ScratchTerminal[],
+): SlotEntity {
+  if (!id) return null;
+  const w = worktrees.find((x) => x.id === id);
+  if (w) return { kind: "worktree", worktree: w };
+  const s = scratch.find((x) => x.id === id);
+  if (s) return { kind: "scratch", scratch: s };
+  return null;
 }

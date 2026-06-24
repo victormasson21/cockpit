@@ -21,9 +21,9 @@ function normalizeView(v: string): View {
 }
 
 function App() {
-  const { loaded, init } = useSettings();
+  const { loaded, init, addScratch } = useSettings();
   const [view, setView] = useState<View>("worktrees");
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<null | "deduce" | "existing">(null);
 
   // On startup: pull persisted settings from the Rust core, seed the store, pick the saved default view.
   useEffect(() => {
@@ -49,14 +49,18 @@ function App() {
             </button>
           ))}
         </nav>
-        <button className="app__new" onClick={() => setCreating(true)}>+ New worktree</button>
+        <div className="app__actions">
+          <button className="app__new" onClick={() => setCreating("deduce")}>Worktree</button>
+          <button className="app__new" onClick={() => setCreating("existing")}>Checkout</button>
+          <button className="app__new" onClick={() => addScratch()}>Terminal</button>
+        </div>
       </header>
       <main className="app__body">
         {view === "cockpit" && <CockpitView />}
         {view === "worktrees" && <WorktreesView />}
         {view === "calm" && <CalmView />}
       </main>
-      {creating && <NewWorktreeModal onClose={() => setCreating(false)} />}
+      {creating && <NewWorktreeModal initialMode={creating} onClose={() => setCreating(null)} />}
     </div>
   );
 }

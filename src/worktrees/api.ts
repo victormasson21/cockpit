@@ -30,3 +30,15 @@ export interface DeducedWorktree {
 // Deduce worktree params from a prompt + the known-repos list; rejects with an inline-displayable error string.
 export const deduceWorktree = (prompt: string, repoPaths: string[]) =>
   invoke<DeducedWorktree>("deduce_worktree", { prompt, repoPaths });
+
+// One local branch row for the existing-branch picker (mirrors Rust BranchInfo).
+// checkedOut flags a branch git won't let us worktree-add (already checked out somewhere); checkedOutPath says where.
+export interface BranchInfo {
+  name: string;
+  lastCommitRelative: string;
+  checkedOut: boolean;
+  checkedOutPath?: string | null;
+}
+
+// List a repo's local branches, most-recently-committed first.
+export const listBranches = (repoPath: string) => invoke<BranchInfo[]>("list_branches", { repoPath });

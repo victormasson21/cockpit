@@ -72,7 +72,7 @@ describe("knownRepos actions", () => {
 
 describe("worktree slots (session state)", () => {
   beforeEach(() => {
-    useSettings.setState({ cockpit: structuredClone(baseCockpit), layout: { version: 1, views: {} }, loaded: true, slots: [null, null, null] });
+    useSettings.setState({ cockpit: structuredClone(baseCockpit), layout: { version: 1, views: {} }, loaded: true, slots: [null, null, null], scratchTerminals: [], scratchSeq: 0 });
   });
 
   it("init seeds slots from the first 3 ongoing worktrees", () => {
@@ -100,5 +100,21 @@ describe("worktree slots (session state)", () => {
     useSettings.getState().removeWorktree("wt-1");
     expect(useSettings.getState().slots).toEqual([null, null, null]);
     expect(useSettings.getState().cockpit.worktrees).toHaveLength(0);
+  });
+
+  it("addScratch creates a scratch entity and auto-displays it in a slot", () => {
+    const id = useSettings.getState().addScratch();
+    const st = useSettings.getState();
+    expect(id).toBe("scratch-1");
+    expect(st.scratchTerminals).toEqual([{ id: "scratch-1", title: "Scratch 1" }]);
+    expect(st.slots[0]).toBe("scratch-1");
+  });
+
+  it("removeScratch drops the entity and clears its slot", () => {
+    const id = useSettings.getState().addScratch();
+    useSettings.getState().removeScratch(id);
+    const st = useSettings.getState();
+    expect(st.scratchTerminals).toEqual([]);
+    expect(st.slots).toEqual([null, null, null]);
   });
 });

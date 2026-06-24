@@ -19,6 +19,7 @@ pub fn run() {
             pty::pty_resize,
             pty::pty_kill,
             worktree::create_worktree,
+            worktree::list_branches,
             deduce::deduce_worktree
         ])
         .run(tauri::generate_context!())
