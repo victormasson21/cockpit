@@ -6,7 +6,8 @@
   display: flex; align-items: center; gap: var(--space-4);
   padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border); background: var(--surface);
 }
-.app__brand { font-weight: 700; }
+.app__brand { display: flex; align-items: center; gap: var(--space-2); font-weight: 700; }
+.app__logo { width: 18px; height: 18px; border-radius: 50%; background: linear-gradient(135deg, #6e8bff, #a371f7); flex: 0 0 auto; }
 .app__version { color: var(--text-muted); font-weight: 400; font-size: 11px; }
 
 .app__segmented { display: flex; gap: 2px; margin: 0 auto; background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius); padding: 2px; }

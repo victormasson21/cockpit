@@ -1,16 +1,26 @@
-/* WorktreePane.css — terminal pane chrome; open panes flex-fill the column's vertical space. */
-.wt-pane { display: flex; flex-direction: column; border-top: 1px solid var(--border-subtle); min-height: 0; }
+/* WorktreePane.css — terminal pane as a card; open panes flex-fill the column's vertical space. */
+.wt-pane {
+  display: flex; flex-direction: column; min-height: 0;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
+}
 .wt-pane--open { flex: 1; }
 .wt-pane--closed { flex: 0 0 auto; }
 .wt-pane--closed .wt-pane__body { display: none; }
 
 .wt-pane__header {
   display: flex; align-items: center; gap: var(--space-2);
-  padding: var(--space-1) var(--space-2);
+  padding: var(--space-2);
   background: var(--surface-raised); color: var(--text-secondary);
-  font-size: 11px; user-select: none;
+  font-size: 11px; user-select: none; border-bottom: 1px solid var(--border-subtle);
 }
 .wt-pane__title { font-weight: 600; }
+
+/* per-pane leading icon (color set by the modifier the column passes) */
+.wt-ico { font-size: 10px; line-height: 1; flex: 0 0 auto; }
+.wt-ico--host { color: var(--ok); }
+.wt-ico--git { color: var(--git); }
+.wt-ico--claude { color: var(--accent); }
+
 .wt-pane__chevron, .wt-pane__restart {
   background: none; border: none; color: var(--text-muted); cursor: pointer;
   font-size: 12px; line-height: 1; padding: 2px 4px; border-radius: var(--radius-sm);

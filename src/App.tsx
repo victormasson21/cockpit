@@ -37,7 +37,11 @@ function App() {
   return (
     <div className="app">
       <header className="app__header">
-        <div className="app__brand">cockpit <span className="app__version">v0.4</span></div>
+        <div className="app__brand">
+          <span className="app__logo" aria-hidden />
+          <span className="app__name">cockpit</span>
+          <span className="app__version">v0.4</span>
+        </div>
         <nav className="app__segmented">
           {VIEWS.map((v) => (
             <button key={v.id} className={`app__seg ${view === v.id ? "app__seg--active" : ""}`} onClick={() => setView(v.id)}>

@@ -5,6 +5,7 @@ import { makeWorktree, sourceLinkFrom, branchSpecFrom, FORM_DEFAULTS } from "../
 import type { WorktreeLink } from "../../settings/types";
 import { useSettings } from "../../settings/store";
 import { KnownReposEditor } from "./KnownReposEditor";
+import "./NewWorktreeForm.css";
 
 export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string) => void }) {
   const { addWorktree, cockpit, setRepoHost } = useSettings();
@@ -96,23 +97,23 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
   };
 
   if (!open) {
-    return <div style={{ padding: 6 }}><button onClick={() => { resetForm(); setOpen(true); }}>+ new worktree</button></div>;
+    return <div className="nw-form"><button onClick={() => { resetForm(); setOpen(true); }}>+ new worktree</button></div>;
   }
 
   return (
-    <div style={{ padding: 8, borderBottom: "1px solid #eee", fontSize: 12, display: "grid", gap: 4 }}>
+    <div className="nw-form">
       <KnownReposEditor />
-      <hr style={{ width: "100%", border: "none", borderTop: "1px solid #eee", margin: "4px 0" }} />
+      <hr className="nw-form__sep" />
       {/* deduce: one prompt -> pre-filled fields (deduce -> preview/confirm -> create) */}
       <textarea placeholder="describe the task (e.g. fix the login bug)" value={prompt} rows={2}
         onChange={(e) => { setPrompt(e.target.value); clearDeduction(); }} />
-      <button disabled={deducing || !prompt.trim() || cockpit.knownRepos.length === 0} onClick={runDeduce}>
+      <button className="nw-form__deduce" disabled={deducing || !prompt.trim() || cockpit.knownRepos.length === 0} onClick={runDeduce}>
         {deducing ? "deducing…" : "deduce"}
       </button>
-      {cockpit.knownRepos.length === 0 && <div style={{ opacity: 0.6 }}>Add a known repo above to enable deduce.</div>}
-      {deduceError && <div style={{ color: "crimson", whiteSpace: "pre-wrap" }}>{deduceError}</div>}
+      {cockpit.knownRepos.length === 0 && <div className="nw-form__hint">Add a known repo above to enable deduce.</div>}
+      {deduceError && <div className="nw-form__error">{deduceError}</div>}
       {banner && (
-        <div style={{ background: "#eef6ff", border: "1px solid #cfe2ff", borderRadius: 4, padding: 6 }}>
+        <div className="nw-form__banner">
           deduced from "{banner.prompt}" → <strong>{banner.repoPath}</strong><br />
           {banner.reason} — review the fields below and Create.
           {banner.hostFromSaved && <><br />host loaded from this repo's saved default.</>}
@@ -120,7 +121,7 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
           {banner.existingBranch && <><br />will check out existing branch <strong>{banner.branch}</strong>.</>}
         </div>
       )}
-      <hr style={{ width: "100%", border: "none", borderTop: "1px solid #eee", margin: "4px 0" }} />
+      <hr className="nw-form__sep" />
       <input placeholder="name" value={name} onChange={(e) => setName(e.target.value)} />
       <input placeholder="repo path (/Users/…/repo)" value={repoPath} onChange={(e) => setRepoPath(e.target.value)} />
       <div style={{ display: "flex", gap: 6 }}>
@@ -137,9 +138,9 @@ export function NewWorktreeForm({ onCreated }: { onCreated: (worktreeId: string)
           save host as default for this repo
         </button>
       )}
-      {error && <div style={{ color: "crimson", whiteSpace: "pre-wrap" }}>{error}</div>}
+      {error && <div className="nw-form__error">{error}</div>}
       <div style={{ display: "flex", gap: 6 }}>
-        <button disabled={busy || !name || !repoPath || !branch} onClick={submit}>{busy ? "creating…" : "create"}</button>
+        <button className="nw-form__create" disabled={busy || !name || !repoPath || !branch} onClick={submit}>{busy ? "creating…" : "create"}</button>
         <button disabled={busy} onClick={() => { resetForm(); setOpen(false); }}>cancel</button>
       </div>
     </div>
