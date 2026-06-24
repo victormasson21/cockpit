@@ -1,4 +1,4 @@
-/* WorktreeColumn.css — full-bleed column split by a divider: header (dot + heading-picker + gear), chips, path, spaced pane cards, links. */
+/* WorktreeColumn.css — full-bleed column split by a divider: header (branch icon + heading-picker + gear), chips, path, spaced pane cards, links. */
 .wt-col {
   flex: 1 1 0; min-width: 0; display: flex; flex-direction: column;
   border-right: 1px solid var(--border); overflow: hidden;
@@ -6,8 +6,17 @@
 .wt-col:last-child { border-right: none; }
 
 .wt-col__header { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3); }
-.wt-col__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex: 0 0 auto; }
-.wt-col__dot--attention { background: var(--attention); }
+/* glyph to the left of the picker; masked so the alpha-only icon tints with the theme. */
+.wt-col__icon {
+  width: 16.8px; height: 16.8px; flex: 0 0 auto;
+  background: var(--text-secondary);
+  -webkit-mask-position: center; mask-position: center;
+  -webkit-mask-size: contain; mask-size: contain;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+}
+.wt-col__icon--branch { -webkit-mask-image: url("../../assets/icons/branch.png"); mask-image: url("../../assets/icons/branch.png"); }
+.wt-col__icon--terminal { -webkit-mask-image: url("../../assets/icons/terminal.png"); mask-image: url("../../assets/icons/terminal.png"); }
+.wt-col__icon--attention { background: var(--attention); }
 
 /* heading-style picker: native select stripped to a bold title + caret, sized to its content */
 .wt-col__picker-wrap { display: inline-flex; align-items: center; min-width: 0; flex: 0 1 auto; }
@@ -22,8 +31,8 @@
 .wt-col__caret { color: var(--text-muted); font-size: 13px; margin-left: 2px; flex: 0 0 auto; pointer-events: none; }
 
 .wt-col__menu { position: relative; margin-left: auto; flex: 0 0 auto; }
-.wt-col__gear { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; padding: 2px 4px; border-radius: var(--radius-sm); }
-.wt-col__gear:hover { color: var(--text); background: var(--border-subtle); }
+/* SVG-icon size (1em) on top of the shared .icon-btn baseline */
+.wt-col__gear { font-size: 17px; }
 .wt-col__menu-pop {
   position: absolute; right: 0; top: 100%; z-index: 10; margin-top: 4px;
   background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm);
@@ -45,7 +54,12 @@
 .wt-chip--linear::before { background: var(--info); border-radius: 2px; }
 .wt-chip--pr::before { background: var(--pr); }
 .wt-chip--issue::before { background: var(--pr); }
-.wt-chip--preview::before { background: var(--ok); }
+/* preview (localhost) chip: swap the dot for a chrome glyph masked + tinted with the theme. */
+.wt-chip--preview::before {
+  width: 14.4px; height: 14.4px; border-radius: 0; background: var(--text-secondary);
+  -webkit-mask: url("../../assets/icons/chrome.png") center / contain no-repeat;
+  mask: url("../../assets/icons/chrome.png") center / contain no-repeat;
+}
 .wt-chip--ci::before { background: var(--ok); }
 .wt-chip:disabled { cursor: default; opacity: 0.8; }
 .wt-chip:not(:disabled):hover { color: var(--text); border-color: var(--accent); }

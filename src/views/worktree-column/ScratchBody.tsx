@@ -11,7 +11,7 @@ export function ScratchBody({ scratchId }: { scratchId: string }) {
   return (
     <div className="wt-col__body">
       <div className="wt-col__panes">
-        <WorktreePane title="Terminal" icon={<span className="wt-ico wt-ico--host">●</span>} worktreeId={scratchId} role="shell" cwd={home} />
+        <WorktreePane title="Terminal" icon={<span className="wt-ico wt-ico--terminal" aria-hidden />} worktreeId={scratchId} role="shell" cwd={home} />
       </div>
     </div>
   );

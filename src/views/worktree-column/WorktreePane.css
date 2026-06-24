@@ -9,22 +9,27 @@
 
 .wt-pane__header {
   display: flex; align-items: center; gap: var(--space-2);
-  padding: var(--space-2);
+  padding: var(--space-1) var(--space-2);
   background: var(--surface-raised); color: var(--text-secondary);
   font-size: 11px; user-select: none; border-bottom: 1px solid var(--border-subtle);
 }
 .wt-pane__title { font-weight: 600; }
 
-/* per-pane leading icon (color set by the modifier the column passes) */
-.wt-ico { font-size: 10px; line-height: 1; flex: 0 0 auto; }
-.wt-ico--host { color: var(--ok); }
-.wt-ico--git { color: var(--git); }
-.wt-ico--claude { color: var(--accent); }
-
-.wt-pane__chevron, .wt-pane__restart {
-  background: none; border: none; color: var(--text-muted); cursor: pointer;
-  font-size: 12px; line-height: 1; padding: 2px 4px; border-radius: var(--radius-sm);
+/* per-pane leading icon: masked PNG glyph tinted with the theme (alpha-only source). */
+.wt-ico {
+  width: 15.6px; height: 15.6px; flex: 0 0 auto;
+  background: var(--text-secondary);
+  -webkit-mask-position: center; mask-position: center;
+  -webkit-mask-size: contain; mask-size: contain;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
 }
-.wt-pane__chevron:hover, .wt-pane__restart:hover { color: var(--text); background: var(--border-subtle); }
+.wt-ico--chrome { -webkit-mask-image: url("../../assets/icons/chrome.png"); mask-image: url("../../assets/icons/chrome.png"); }
+.wt-ico--branch { -webkit-mask-image: url("../../assets/icons/branch.png"); mask-image: url("../../assets/icons/branch.png"); }
+.wt-ico--claude { -webkit-mask-image: url("../../assets/icons/claude-code.png"); mask-image: url("../../assets/icons/claude-code.png"); }
+.wt-ico--terminal { -webkit-mask-image: url("../../assets/icons/terminal.png"); mask-image: url("../../assets/icons/terminal.png"); }
+
+/* SVG-icon size (1em) + position deltas on top of the shared .icon-btn baseline.
+   Slim the vertical padding (keeping the wide horizontal click area) to keep the header narrow. */
+.wt-pane__restart, .wt-pane__chevron { font-size: 16px; padding-top: 2px; padding-bottom: 2px; }
 .wt-pane__restart { margin-left: auto; }
 .wt-pane__body { flex: 1; min-height: 0; padding: var(--space-1); background: var(--bg); }

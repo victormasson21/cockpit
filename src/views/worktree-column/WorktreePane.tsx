@@ -1,6 +1,7 @@
 // WorktreePane.tsx — one themed terminal pane: header (icon + title + badge slot + restart + chevron collapse) over a PTY-bound xterm.
 import { useState, type ReactNode } from "react";
 import { useTerminal, type UseTerminalArgs } from "../../worktrees/useTerminal";
+import { RestartIcon, ChevronIcon } from "../icons";
 import "./WorktreePane.css";
 
 export function WorktreePane({ title, icon, badge, ...args }: UseTerminalArgs & { title: string; icon?: ReactNode; badge?: ReactNode }) {
@@ -12,9 +13,9 @@ export function WorktreePane({ title, icon, badge, ...args }: UseTerminalArgs & 
         {icon}
         <span className="wt-pane__title">{title}</span>
         {badge}
-        <button className="wt-pane__restart" title="restart" onClick={restart}>↻</button>
-        <button className="wt-pane__chevron" aria-label={open ? "collapse" : "expand"} onClick={() => setOpen((o) => !o)}>
-          {open ? "⌄" : "›"}
+        <button className="icon-btn wt-pane__restart" title="restart" onClick={restart}><RestartIcon /></button>
+        <button className="icon-btn wt-pane__chevron" aria-label={open ? "collapse" : "expand"} onClick={() => setOpen((o) => !o)}>
+          <ChevronIcon open={open} />
         </button>
       </div>
       {/* Kept mounted when collapsed (CSS hides it) so useTerminal's ResizeObserver re-fits + pty_resizes on expand. */}

@@ -16,6 +16,8 @@
 
 .app__new { background: var(--accent); color: var(--accent-fg); border: none; border-radius: var(--radius-sm); padding: 6px 12px; font-weight: 600; cursor: pointer; }
 .app__new:hover { filter: brightness(1.08); }
+/* settings gear: icon variant — flex-centre the SVG, sized a touch larger than the button text */
+.app__new--icon { display: inline-flex; align-items: center; justify-content: center; font-size: 1.3em; line-height: 1; }
 
 .app__body { flex: 1; min-height: 0; }
 

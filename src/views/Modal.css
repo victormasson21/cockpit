@@ -6,8 +6,8 @@
 }
 .modal__header { display: flex; align-items: center; padding: var(--space-3); border-bottom: 1px solid var(--border-subtle); }
 .modal__title { font-weight: 700; }
-.modal__close { margin-left: auto; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; }
-.modal__close:hover { color: var(--text); }
+/* SVG-icon size (1em) + position delta on top of the shared .icon-btn baseline */
+.modal__close { margin-left: auto; font-size: 15px; }
 .modal__content { padding: var(--space-3); overflow: auto; }
 
 /* Mode toggle for the New-worktree modal (Deduce | Existing branch). */

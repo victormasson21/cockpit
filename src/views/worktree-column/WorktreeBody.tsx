@@ -27,12 +27,12 @@ export function WorktreeBody({ worktree, variant }: { worktree: Worktree; varian
       <div className="wt-col__panes">
         {variant === "full" && (
           <>
-            <WorktreePane title="localhost" icon={<span className="wt-ico wt-ico--host">●</span>} worktreeId={worktree.id} role="host" cwd={worktree.worktreePath} autostartCmd={worktree.host.startCmd} />
-            <WorktreePane title="git" icon={<span className="wt-ico wt-ico--git">◆</span>} worktreeId={worktree.id} role="git" cwd={worktree.worktreePath} />
+            <WorktreePane title="localhost" icon={<span className="wt-ico wt-ico--chrome" aria-hidden />} worktreeId={worktree.id} role="host" cwd={worktree.worktreePath} autostartCmd={worktree.host.startCmd} />
+            <WorktreePane title="git" icon={<span className="wt-ico wt-ico--branch" aria-hidden />} worktreeId={worktree.id} role="git" cwd={worktree.worktreePath} />
           </>
         )}
         <WorktreePane
-          title="Claude Code" icon={<span className="wt-ico wt-ico--claude">✳</span>}
+          title="Claude Code" icon={<span className="wt-ico wt-ico--claude" aria-hidden />}
           worktreeId={worktree.id} role="claude" cwd={worktree.worktreePath} autostartCmd="claude"
           badge={attention ? <span className="wt-attention">Attention</span> : null}
         />

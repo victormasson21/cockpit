@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useSettings } from "../../settings/store";
 import { makePtyId } from "../../worktrees/ptyId";
 import { resolveSlotEntity } from "../slots";
+import { GearIcon } from "../icons";
 import { WorktreeBody } from "./WorktreeBody";
 import { ScratchBody } from "./ScratchBody";
 import "./WorktreeColumn.css";
@@ -31,16 +32,21 @@ export function SlotColumn({ slotIndex, variant = "full" }: { slotIndex: number;
   };
 
   const attention = false; // stub: live "Claude is calling" detection deferred to a provider sub-project.
+  const iconKind = entity?.kind === "scratch" ? "terminal" : "branch"; // scratch → terminal glyph; worktree & empty slots → branch.
 
   return (
     <div className="wt-col">
       <div className="wt-col__header">
-        <span className={attention ? "wt-col__dot wt-col__dot--attention" : "wt-col__dot"} />
+        <span className={`wt-col__icon wt-col__icon--${iconKind}${attention ? " wt-col__icon--attention" : ""}`} aria-hidden />
         <div className="wt-col__picker-wrap">
           <select className="wt-col__picker" value={activeId ?? ""} onChange={(e) => setSlot(slotIndex, e.target.value || null)}>
             <option value="">Select…</option>
             <optgroup label="Worktrees">
-              {ongoing.map((w) => (<option key={w.id} value={w.id}>{w.name}</option>))}
+              {ongoing.map((w) => {
+                // Append the repo basename to the title so each slot's origin is obvious at a glance.
+                const repo = w.repoPath.split("/").pop();
+                return (<option key={w.id} value={w.id}>{repo ? `${w.name} · ${repo}` : w.name}</option>);
+              })}
             </optgroup>
             {scratchTerminals.length > 0 && (
               <optgroup label="Scratch">
@@ -52,7 +58,7 @@ export function SlotColumn({ slotIndex, variant = "full" }: { slotIndex: number;
         </div>
         {entity && (
           <div className="wt-col__menu">
-            <button className="wt-col__gear" aria-label="column settings" onClick={() => setMenuOpen((o) => !o)}>⚙</button>
+            <button className="icon-btn wt-col__gear" aria-label="column settings" onClick={() => setMenuOpen((o) => !o)}><GearIcon /></button>
             {menuOpen && (
               <div className="wt-col__menu-pop" onMouseLeave={() => setMenuOpen(false)}>
                 <button onClick={() => { setSlot(slotIndex, null); setMenuOpen(false); }}>Hide</button>

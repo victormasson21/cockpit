@@ -8,6 +8,7 @@ import { CalmView } from "./views/CalmView";
 import { NewWorktreeModal } from "./views/NewWorktreeModal";
 import { SettingsModal } from "./views/SettingsModal";
 import { MIN_SLOTS, SLOT_COUNT } from "./views/slots";
+import { GearIcon } from "./views/icons";
 import logoUrl from "./assets/cockpit-radar.svg";
 import "./App.css";
 
@@ -71,7 +72,7 @@ function App() {
           <button className="app__new" onClick={() => setCreating("deduce")}>Worktree</button>
           <button className="app__new" onClick={() => setCreating("existing")}>Checkout</button>
           <button className="app__new" onClick={() => addScratch()}>Terminal</button>
-          <button className="app__new" aria-label="settings" onClick={() => setSettingsOpen(true)}>⚙</button>
+          <button className="app__new app__new--icon" aria-label="settings" onClick={() => setSettingsOpen(true)}><GearIcon /></button>
         </div>
       </header>
       <main className="app__body">

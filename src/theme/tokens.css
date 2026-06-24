@@ -77,4 +77,13 @@ textarea:not(.xterm-helper-textarea)::placeholder { color: var(--text-muted); }
 input:not([type="radio"]):not([type="checkbox"]):focus,
 select:focus,
 textarea:not(.xterm-helper-textarea):focus { outline: none; border-color: var(--accent); }
+
+/* Icon-only buttons — shared baseline so every glyph button has the same click padding, centered glyph,
+   and hover across the app. (The app top bar's buttons keep their own .app__new padding and opt out.) */
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center; line-height: 1;
+  background: none; border: none; color: var(--text-muted); cursor: pointer;
+  padding: 6px 12px; border-radius: var(--radius-sm); /* vertical ~+40%, horizontal tripled from the prior 4px */
+}
+.icon-btn:hover { color: var(--text); background: var(--border-subtle); }
 input[type="radio"] { accent-color: var(--accent); }
