@@ -1,4 +1,4 @@
-// SlotColumn.tsx — one Worktrees-view column: picker + gear menu over a slot's entity body (worktree today; scratch in Task 6).
+// SlotColumn.tsx — one Worktrees-view column: picker + gear menu over a slot's entity body (a worktree or a scratch terminal).
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useSettings } from "../../settings/store";
