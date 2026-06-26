@@ -52,3 +52,7 @@ under `~/CockpitWorktrees/<repo>/<name>`.
 
 > Learning project: code favours small, readable changes over polish, and files
 > carry concise role comments. See `CLAUDE.md` for conventions.
+
+## Current state
+
+![Cockpit — current state](docs/assets/current-state.png)
