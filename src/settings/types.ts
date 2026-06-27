@@ -15,6 +15,8 @@ export interface Preferences {
 export interface HostConfig { startCmd: string; address: string }
 export interface KnownRepo { path: string; host?: HostConfig }
 export interface WorktreeLink { label: string; url: string }
+export interface SlackIntegration { clientId?: string; watchedChannelIds: string[] }
+export interface Integrations { slack?: SlackIntegration }
 export type WorktreeStatus = "ongoing" | "completed";
 export interface Worktree {
   id: string;
@@ -32,6 +34,7 @@ export interface CockpitConfig {
   tiles: TileInstance[];
   worktrees: Worktree[];
   knownRepos: KnownRepo[];
+  integrations?: Integrations;
   preferences: Preferences;
 }
 
