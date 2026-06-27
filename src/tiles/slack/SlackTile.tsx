@@ -16,6 +16,7 @@ export function SlackTile({ onOpenSettings }: { onOpenSettings: () => void }) {
     let un: (() => void) | undefined;
     slackSnapshot().then(setSnap).catch(() => {});
     listen<SlackSnapshot>("slack://unread", (e) => setSnap(e.payload)).then((u) => (un = u)).catch(() => {});
+    // Refresh when the window regains focus so the tile feels live between polls.
     const onFocus = () => slackRefresh().catch(() => {});
     window.addEventListener("focus", onFocus);
     return () => { un?.(); window.removeEventListener("focus", onFocus); };
