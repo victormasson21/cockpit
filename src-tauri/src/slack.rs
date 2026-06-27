@@ -73,13 +73,15 @@ pub fn conversation_kind(slack_type: &str) -> &'static str {
 pub fn parse_conversation(info: &serde_json::Value, latest: &serde_json::Value) -> Option<UnreadConversation> {
     let id = info.get("id")?.as_str()?.to_string();
     let unread_count = info.get("unread_count_display").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
-    let kind = if info.get("is_im").and_then(|v| v.as_bool()).unwrap_or(false) {
+    // Detect raw kind marker from JSON booleans, then map through conversation_kind for consistent handling.
+    let raw = if info.get("is_im").and_then(|v| v.as_bool()).unwrap_or(false) {
         "im"
     } else if info.get("is_mpim").and_then(|v| v.as_bool()).unwrap_or(false) {
         "mpim"
     } else {
         "channel"
     };
+    let kind = conversation_kind(raw);
     // Channel name from `name`; DM name resolved later via users.info (Task 5) — fall back to id here.
     let name = info.get("name").and_then(|v| v.as_str()).unwrap_or(&id).to_string();
     let latest_text = latest.get("text").and_then(|v| v.as_str()).unwrap_or("").to_string();
@@ -144,5 +146,21 @@ mod tests {
         let row = parse_conversation(&info, &latest).unwrap();
         assert_eq!(row.kind, "im");
         assert_eq!(row.name, "D9"); // DM name resolved later; falls back to id
+    }
+
+    #[test]
+    fn conversation_kind_maps_mpim() {
+        assert_eq!(conversation_kind("mpim"), "mpim");
+        assert_eq!(conversation_kind("im"), "im");
+        assert_eq!(conversation_kind("public_channel"), "channel");
+        assert_eq!(conversation_kind("unknown"), "channel");
+    }
+
+    #[test]
+    fn parse_conversation_marks_mpim_kind() {
+        let info = json!({ "id": "G7", "is_mpim": true, "unread_count_display": 2 });
+        let latest = json!({ "text": "x", "ts": "1700000000.000300" });
+        let row = parse_conversation(&info, &latest).unwrap();
+        assert_eq!(row.kind, "mpim");
     }
 }
