@@ -1,3 +1,4 @@
+mod auth;
 mod commands;
 mod deduce;
 mod github;
@@ -33,6 +34,7 @@ pub fn run() {
             slack::slack_refresh,
             slack::slack_list_conversations,
             slack::slack_init,
+            auth::list_connections,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
