@@ -1,6 +1,6 @@
 //! slack.rs — Slack provider: OAuth + Keychain user token + background unread polling, emitted as a slack://unread event stream.
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicU64};
 use std::sync::{Arc, Mutex};
 use crate::keychain::{KeyringStore, TokenStore};
 
@@ -100,12 +100,6 @@ pub fn parse_conversation(info: &serde_json::Value, latest: &serde_json::Value) 
     })
 }
 
-// Keep only the watched ids, in the order the user listed them (pure → unit-tested).
-pub fn select_watched(all: &[(String, String)], watched: &[String]) -> Vec<String> {
-    let have: std::collections::HashSet<&str> = all.iter().map(|(id, _)| id.as_str()).collect();
-    watched.iter().filter(|w| have.contains(w.as_str())).cloned().collect()
-}
-
 // Session state for the provider. Token + secret are NOT held here — they live in Keychain.
 pub struct SlackState {
     pub client_id: Option<String>,
@@ -125,7 +119,8 @@ impl Default for SlackState {
 pub struct SlackManager {
     pub state: Mutex<SlackState>,
     pub store: Box<dyn TokenStore>,
-    pub stop: Arc<AtomicBool>,
+    // Generation counter: each new poll thread captures a generation; it exits when the counter advances.
+    pub poll_gen: Arc<AtomicU64>,
 }
 
 impl Default for SlackManager {
@@ -133,7 +128,7 @@ impl Default for SlackManager {
         Self {
             state: Mutex::new(SlackState::default()),
             store: Box::new(KeyringStore::new(SLACK_KEYCHAIN_SERVICE)),
-            stop: Arc::new(AtomicBool::new(false)),
+            poll_gen: Arc::new(AtomicU64::new(0)),
         }
     }
 }
@@ -249,7 +244,8 @@ pub fn slack_list_conversations(manager: State<SlackManager>) -> Result<Vec<Conv
 // Forget the token + secret, stop polling, and mark disconnected.
 #[tauri::command]
 pub fn slack_disconnect(manager: State<SlackManager>) -> Result<(), String> {
-    manager.stop.store(true, Ordering::SeqCst);
+    // Bump generation to signal any live poll thread to exit; no new thread is started.
+    manager.poll_gen.fetch_add(1, Ordering::SeqCst);
     manager.store.delete(ACCOUNT_TOKEN).ok();
     let mut st = manager.state.lock().unwrap();
     st.connected = false;
@@ -361,18 +357,19 @@ pub fn poll_once(token: &str, watched: &[String]) -> SlackSnapshot {
     SlackSnapshot { connected: true, error, conversations }
 }
 
-// Background poll loop: every 30s while a token exists and stop isn't set.
+// Background poll loop: every 30s. Each call mints a new generation; any prior poll thread sees the
+// counter advance and exits, guaranteeing at most one active thread at a time.
 pub fn start_polling(app: AppHandle) {
     let manager = app.state::<SlackManager>();
-    manager.stop.store(false, Ordering::SeqCst);
-    let stop = manager.stop.clone();
+    let gen = manager.poll_gen.fetch_add(1, Ordering::SeqCst) + 1;
+    let poll_gen = manager.poll_gen.clone();
     std::thread::spawn(move || {
         loop {
-            if stop.load(Ordering::SeqCst) { return; }
+            if poll_gen.load(Ordering::SeqCst) != gen { return; }
             let manager = app.state::<SlackManager>();
             refresh_now(&app, &manager);
             for _ in 0..30 {
-                if stop.load(Ordering::SeqCst) { return; }
+                if poll_gen.load(Ordering::SeqCst) != gen { return; }
                 std::thread::sleep(std::time::Duration::from_secs(1));
             }
         }
@@ -461,10 +458,4 @@ mod tests {
         assert_eq!(row.kind, "mpim");
     }
 
-    #[test]
-    fn select_watched_keeps_only_watched_ids_in_watched_order() {
-        let all = vec![("C1".to_string(), "a".into()), ("C2".into(), "b".into()), ("D3".into(), "c".into())];
-        assert_eq!(select_watched(&all, &["D3".into(), "C1".into()]), vec!["D3".to_string(), "C1".into()]);
-        assert_eq!(select_watched(&all, &["CX".into()]), Vec::<String>::new());
-    }
 }

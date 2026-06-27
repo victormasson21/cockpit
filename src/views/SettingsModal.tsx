@@ -1,5 +1,4 @@
-// SettingsModal.tsx — manage known repos: add/remove paths + view and hand-edit each repo's saved host default.
-// Absorbs the former inline KnownReposEditor; the host start command is where the install step lives (e.g. `pnpm install && pnpm run dev`).
+// SettingsModal.tsx — Settings panel: Slack Connections (OAuth + watched channels) and Known Repos (add/remove paths + per-repo host defaults).
 import { useState } from "react";
 import { Modal } from "./Modal";
 import { useSettings } from "../settings/store";

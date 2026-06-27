@@ -38,6 +38,7 @@ mod tests {
     #[test]
     fn label_reflects_state() {
         assert_eq!(connection_label(true, Some("U123")), "Connected as U123");
+        assert_eq!(connection_label(true, Some("")), "Connected");
         assert_eq!(connection_label(true, None), "Connected");
         assert_eq!(connection_label(false, None), "Not connected");
     }
