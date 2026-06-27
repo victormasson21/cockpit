@@ -1,6 +1,7 @@
 // App.tsx — app shell: loads settings, renders the themed header (view switcher + new-worktree) and the active view.
 import { useEffect, useState } from "react";
 import { loadSettings } from "./settings/api";
+import { slackInit } from "./tiles/slack/api";
 import { useSettings } from "./settings/store";
 import { WorktreesView } from "./views/WorktreesView";
 import { CockpitView } from "./views/CockpitView";
@@ -33,7 +34,12 @@ function App() {
   // On startup: pull persisted settings from the Rust core, seed the store, pick the saved default view.
   useEffect(() => {
     loadSettings()
-      .then((s) => { init(s); setView(normalizeView(s.cockpit.preferences.defaultView)); })
+      .then((s) => {
+        init(s);
+        setView(normalizeView(s.cockpit.preferences.defaultView));
+        const slack = s.cockpit.integrations?.slack;
+        slackInit(slack?.clientId, slack?.watchedChannelIds ?? []).catch(() => {});
+      })
       .catch((e) => console.error("load failed", e));
   }, [init]);
 
@@ -76,7 +82,7 @@ function App() {
         </div>
       </header>
       <main className="app__body">
-        {view === "cockpit" && <CockpitView />}
+        {view === "cockpit" && <CockpitView onOpenSettings={() => setSettingsOpen(true)} />}
         {view === "worktrees" && <WorktreesView />}
         {view === "calm" && <CalmView />}
       </main>

@@ -74,6 +74,22 @@ pub struct Worktree {
     pub status: String,
 }
 
+// Per-integration persisted config (non-secret only). Slack secrets live in Keychain, never here.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SlackIntegration {
+    #[serde(rename = "clientId", default, skip_serializing_if = "Option::is_none")]
+    pub client_id: Option<String>,
+    #[serde(rename = "watchedChannelIds", default)]
+    pub watched_channel_ids: Vec<String>,
+}
+
+// Container so future tiles add sibling fields without touching CockpitConfig's shape twice.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct Integrations {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slack: Option<SlackIntegration>,
+}
+
 // User-facing display preferences (theme + which view opens on launch + visible Worktrees/Calm panes).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Preferences {
@@ -98,6 +114,8 @@ pub struct CockpitConfig {
     pub worktrees: Vec<Worktree>,
     #[serde(default, rename = "knownRepos")]
     pub known_repos: Vec<KnownRepo>,
+    #[serde(default)]
+    pub integrations: Integrations,
     pub preferences: Preferences,
 }
 
@@ -119,6 +137,7 @@ impl Default for CockpitConfig {
             ],
             worktrees: vec![],
             known_repos: vec![],
+            integrations: Integrations::default(),
             preferences: Preferences { theme: "system".into(), default_view: "main".into(), panes: 3 },
         }
     }
@@ -268,5 +287,21 @@ mod tests {
         // host is omitted entirely when None (skip_serializing_if)
         let bare = KnownRepo { path: "/b".into(), host: None };
         assert!(!serde_json::to_string(&bare).unwrap().contains("host"));
+    }
+
+    #[test]
+    fn cockpit_without_integrations_field_still_loads() {
+        let json = r#"{"version":1,"tiles":[],"worktrees":[],"preferences":{"theme":"system","defaultView":"main"}}"#;
+        let cfg: CockpitConfig = serde_json::from_str(json).unwrap();
+        assert!(cfg.integrations.slack.is_none());
+    }
+
+    #[test]
+    fn slack_integration_round_trips() {
+        let json = r#"{"version":1,"tiles":[],"worktrees":[],"integrations":{"slack":{"clientId":"123.456","watchedChannelIds":["C1","D2"]}},"preferences":{"theme":"system","defaultView":"main"}}"#;
+        let cfg: CockpitConfig = serde_json::from_str(json).unwrap();
+        let slack = cfg.integrations.slack.unwrap();
+        assert_eq!(slack.client_id.as_deref(), Some("123.456"));
+        assert_eq!(slack.watched_channel_ids, vec!["C1", "D2"]);
     }
 }

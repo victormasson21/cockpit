@@ -1,9 +1,9 @@
-// SettingsModal.tsx — manage known repos: add/remove paths + view and hand-edit each repo's saved host default.
-// Absorbs the former inline KnownReposEditor; the host start command is where the install step lives (e.g. `pnpm install && pnpm run dev`).
+// SettingsModal.tsx — Settings panel: Slack Connections (OAuth + watched channels) and Known Repos (add/remove paths + per-repo host defaults).
 import { useState } from "react";
 import { Modal } from "./Modal";
 import { useSettings } from "../settings/store";
 import type { HostConfig } from "../settings/types";
+import { SlackConnections } from "../tiles/slack/SlackConnections";
 
 // Merge a partial host edit onto the current host, seeding the missing half so HostConfig stays complete
 // (both startCmd and address are always present). Pure so the seeding rule is unit-tested without a DOM.
@@ -32,6 +32,8 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
   return (
     <Modal title="Settings" onClose={onClose}>
       <div style={{ display: "grid", gap: 12 }}>
+        <SlackConnections />
+        <hr style={{ width: "100%", border: "none", borderTop: "1px solid var(--border-subtle)" }} />
         <strong style={{ fontSize: 13 }}>Known repos</strong>
         {repos.length === 0 && <div style={{ opacity: 0.6, fontSize: 12 }}>Add a repo path so deduction can pick one.</div>}
         {repos.map((r) => (
