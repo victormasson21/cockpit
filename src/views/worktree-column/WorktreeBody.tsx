@@ -18,6 +18,8 @@ export function WorktreeBody({ worktree, variant }: { worktree: Worktree; varian
                 {c.label}
               </button>
             ))}
+            {/* user links live in the same row as the derived chips, with + link at the end. */}
+            <LinksList worktreeId={worktree.id} links={worktree.links} />
           </div>
           <div className="wt-col__path">
             {worktree.repoPath.split("/").pop()} · {worktree.branch} · {worktree.worktreePath.split("/").pop()}
@@ -37,7 +39,6 @@ export function WorktreeBody({ worktree, variant }: { worktree: Worktree; varian
           badge={attention ? <span className="wt-attention">Attention</span> : null}
         />
       </div>
-      {variant === "full" && <LinksList worktreeId={worktree.id} links={worktree.links} />}
     </div>
   );
 }

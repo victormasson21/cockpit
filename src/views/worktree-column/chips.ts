@@ -1,7 +1,7 @@
 // chips.ts — derive display chips for a worktree column from existing model data only (no live providers).
 import type { Worktree, WorktreeLink } from "../../settings/types";
 
-export type ChipKind = "linear" | "pr" | "issue" | "preview" | "ci";
+export type ChipKind = "linear" | "pr" | "issue" | "localhost";
 export interface Chip { kind: ChipKind; label: string; url?: string }
 
 // findLink: first link whose URL contains the needle (case-insensitive), for chip click-through.
@@ -9,7 +9,7 @@ function findLink(links: WorktreeLink[], needle: string): string | undefined {
   return links.find((l) => l.url.toLowerCase().includes(needle))?.url;
 }
 
-// worktreeChips: linear (from name) / pr / issue (from name+branch) / preview (from host) + a static CI stub.
+// worktreeChips: linear (from name) / pr / issue (from name+branch) / localhost (from host.address).
 export function worktreeChips(w: Worktree): Chip[] {
   const chips: Chip[] = [];
 
@@ -23,11 +23,11 @@ export function worktreeChips(w: Worktree): Chip[] {
   if (pr) chips.push({ kind: "pr", label: `PR #${pr[1]}`, url: findLink(w.links, "/pull/") });
   else if (issue) chips.push({ kind: "issue", label: `Issue #${issue[1]}`, url: findLink(w.links, "/issues/") });
 
+  // localhost: opens host.address — the same dev URL the host terminal serves below.
   if (w.host.address) {
     const port = w.host.address.match(/:(\d+)/);
-    chips.push({ kind: "preview", label: port ? `Preview :${port[1]}` : "Preview", url: w.host.address });
+    chips.push({ kind: "localhost", label: port ? `localhost:${port[1]}` : "localhost", url: w.host.address });
   }
 
-  chips.push({ kind: "ci", label: "CI" }); // stub: real CI integration deferred to a provider sub-project.
   return chips;
 }

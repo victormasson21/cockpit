@@ -54,15 +54,27 @@
 .wt-chip--linear::before { background: var(--info); border-radius: 2px; }
 .wt-chip--pr::before { background: var(--pr); }
 .wt-chip--issue::before { background: var(--pr); }
-/* preview (localhost) chip: swap the dot for a chrome glyph masked + tinted with the theme. */
-.wt-chip--preview::before {
+/* localhost chip: swap the dot for a chrome glyph masked + tinted with the theme. */
+.wt-chip--localhost::before {
   width: 14.4px; height: 14.4px; border-radius: 0; background: var(--text-secondary);
   -webkit-mask: url("../../assets/icons/chrome.png") center / contain no-repeat;
   mask: url("../../assets/icons/chrome.png") center / contain no-repeat;
 }
-.wt-chip--ci::before { background: var(--ok); }
+.wt-chip--link::before { background: var(--text-muted); }
 .wt-chip:disabled { cursor: default; opacity: 0.8; }
 .wt-chip:not(:disabled):hover { color: var(--text); border-color: var(--accent); }
+
+/* user-link chips: an open-on-click label plus inline edit/remove affordances. */
+.wt-linkchip { display: inline-flex; align-items: center; gap: 4px; padding-right: 4px; }
+.wt-linkchip__open { background: none; border: none; color: inherit; font: inherit; cursor: pointer; padding: 0; }
+.wt-linkchip__act { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0 2px; font-size: 11px; line-height: 1; }
+.wt-linkchip__act:hover { color: var(--text); }
+.wt-linkchip__edit { display: inline-flex; align-items: center; gap: 4px; }
+.wt-linkchip__edit::before { display: none; }
+.wt-linkchip__edit input { width: 70px; font-size: 11px; padding: 1px 4px; }
+.wt-linkchip__edit input.wt-linkchip__url { width: 130px; }
+.wt-chip--add { color: var(--text-secondary); }
+.wt-chip--add::before { display: none; }
 
 .wt-col__path { padding: 0 var(--space-3) var(--space-2); color: var(--text-muted); font-family: var(--font-mono); font-size: 11px; }
 .wt-col__panes { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--space-2); padding: 0 var(--space-3) var(--space-2); }

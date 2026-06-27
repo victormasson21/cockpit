@@ -28,15 +28,15 @@ describe("worktreeChips", () => {
   it("derives an Issue chip from issue-<N>", () => {
     expect(chip({ ...base, name: "issue-12 thing" }, "issue")?.label).toBe("Issue #12");
   });
-  it("derives a preview chip with the port from host.address", () => {
-    const c = chip(base, "preview");
-    expect(c?.label).toBe("Preview :5173");
+  it("derives a localhost chip with the port from host.address", () => {
+    const c = chip(base, "localhost");
+    expect(c?.label).toBe("localhost:5173");
     expect(c?.url).toBe("http://localhost:5173");
   });
-  it("omits the preview chip when host.address is empty", () => {
-    expect(kinds({ ...base, host: { startCmd: "x", address: "" } })).not.toContain("preview");
+  it("omits the localhost chip when host.address is empty", () => {
+    expect(kinds({ ...base, host: { startCmd: "x", address: "" } })).not.toContain("localhost");
   });
-  it("always includes a static CI stub chip", () => {
-    expect(kinds(base)).toContain("ci");
+  it("never includes a CI stub chip", () => {
+    expect(kinds(base)).not.toContain("ci");
   });
 });
