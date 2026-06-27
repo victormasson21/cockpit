@@ -1,0 +1,47 @@
+// TodoTile.tsx — local 3-state to-do list (todo/in_progress/done), persisted via the store.
+import { useState } from "react";
+import { Tile } from "../Tile";
+import { useSettings } from "../../settings/store";
+import { groupByState } from "./todo";
+import type { TodoState } from "../../settings/types";
+import "./todo.css";
+
+const SECTIONS: { state: TodoState; label: string }[] = [
+  { state: "todo", label: "TODO" },
+  { state: "in_progress", label: "IN PROGRESS" },
+  { state: "done", label: "DONE" },
+];
+// Status glyph per state; clicking it cycles to the next state.
+const GLYPH: Record<TodoState, string> = { todo: "○", in_progress: "◐", done: "✅" };
+
+export function TodoTile() {
+  const { cockpit, addTodo, cycleTodo, removeTodo } = useSettings();
+  const [draft, setDraft] = useState("");
+  const groups = groupByState(cockpit.todos);
+
+  const add = () => { const t = draft.trim(); if (!t) return; addTodo(t); setDraft(""); };
+
+  return (
+    <Tile title="TO DO" icon={<span>☑</span>}>
+      <div className="todo">
+        {cockpit.todos.length === 0 && <div className="todo__empty">No todos yet</div>}
+        {SECTIONS.map(({ state, label }) =>
+          groups[state].length === 0 ? null : (
+            <div key={state} className="todo__section">
+              <div className="todo__section-label">{label}</div>
+              {groups[state].map((t) => (
+                <div key={t.id} className={`todo__row todo__row--${t.state}`}>
+                  <button className="todo__glyph" aria-label="cycle state" onClick={() => cycleTodo(t.id)}>{GLYPH[t.state]}</button>
+                  <span className="todo__text">{t.text}</span>
+                  <button className="todo__del" aria-label="delete" onClick={() => removeTodo(t.id)}>✕</button>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+        <input className="todo__add" placeholder="Add a to-do…" value={draft}
+          onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} />
+      </div>
+    </Tile>
+  );
+}

@@ -2,6 +2,7 @@
 import { create } from "zustand";
 import type { CockpitConfig, HostConfig, LayoutConfig, Settings, Worktree } from "./types";
 import { saveSettings } from "./api";
+import { nextState } from "../tiles/todo/todo";
 import { initSlots, setSlotAt, assignNewWorktree, clearEntity, hideSlotsBeyond, SLOT_COUNT, type Slots, type ScratchTerminal } from "../views/slots";
 
 interface SettingsState {
@@ -15,6 +16,9 @@ interface SettingsState {
   addWorktree: (wt: Worktree) => void;
   updateWorktree: (id: string, patch: Partial<Worktree>) => void;
   removeWorktree: (id: string) => void;
+  addTodo: (text: string) => void;
+  cycleTodo: (id: string) => void;
+  removeTodo: (id: string) => void;
   addKnownRepo: (path: string) => void;
   removeKnownRepo: (path: string) => void;
   setRepoHost: (path: string, host: HostConfig) => void;
@@ -42,7 +46,7 @@ function scheduleSave(get: () => SettingsState) {
 }
 
 export const useSettings = create<SettingsState>((set, get) => ({
-  cockpit: { version: 1, tiles: [], worktrees: [], knownRepos: [], integrations: {}, preferences: { theme: "system", defaultView: "worktrees", panes: SLOT_COUNT } },
+  cockpit: { version: 1, tiles: [], worktrees: [], knownRepos: [], integrations: {}, todos: [], preferences: { theme: "system", defaultView: "worktrees", panes: SLOT_COUNT } },
   layout: { version: 1, views: {} },
   loaded: false,
   slots: [null, null, null],
@@ -66,6 +70,13 @@ export const useSettings = create<SettingsState>((set, get) => ({
     get().setCockpit((c) => ({ ...c, worktrees: c.worktrees.filter((w) => w.id !== id) }));
     set((st) => ({ slots: clearEntity(st.slots, id) }));
   },
+  // To-do items persist in cockpit.json; ids are random so they survive restarts without a counter.
+  addTodo: (text) =>
+    get().setCockpit((c) => ({ ...c, todos: [...c.todos, { id: crypto.randomUUID(), text, state: "todo" }] })),
+  cycleTodo: (id) =>
+    get().setCockpit((c) => ({ ...c, todos: c.todos.map((t) => (t.id === id ? { ...t, state: nextState(t.state) } : t)) })),
+  removeTodo: (id) =>
+    get().setCockpit((c) => ({ ...c, todos: c.todos.filter((t) => t.id !== id) })),
   // Slots are session-only display state (not persisted): which worktree shows in each of the 3 columns.
   setSlot: (index, id) => set((st) => ({ slots: setSlotAt(st.slots, index, id) })),
   // Toggle visible column count; shrinking drops the rightmost panes (entities keep running, slots cleared).

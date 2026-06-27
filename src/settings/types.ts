@@ -17,6 +17,8 @@ export interface KnownRepo { path: string; host?: HostConfig }
 export interface WorktreeLink { label: string; url: string }
 export interface SlackIntegration { clientId?: string; watchedChannelIds: string[] }
 export interface Integrations { slack?: SlackIntegration }
+export type TodoState = "todo" | "in_progress" | "done";
+export interface TodoItem { id: string; text: string; state: TodoState }
 export type WorktreeStatus = "ongoing" | "completed";
 export interface Worktree {
   id: string;
@@ -35,6 +37,7 @@ export interface CockpitConfig {
   worktrees: Worktree[];
   knownRepos: KnownRepo[];
   integrations?: Integrations;
+  todos: TodoItem[];
   preferences: Preferences;
 }
 

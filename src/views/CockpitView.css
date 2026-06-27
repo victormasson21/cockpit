@@ -2,7 +2,6 @@
 .cockpit-view { display: flex; gap: 12px; padding: 12px; height: 100%; box-sizing: border-box; }
 .cockpit-view__tiles { width: 280px; flex: 0 0 280px; display: flex; flex-direction: column; gap: 10px; }
 .cockpit-view__tiles-label { font-size: 11px; letter-spacing: 0.08em; opacity: 0.5; }
-.cockpit-view__center { flex: 1; display: flex; align-items: center; justify-content: center; }
-.cockpit-view__card { max-width: 420px; text-align: center; color: var(--text-secondary); border: 1px dashed var(--border); border-radius: var(--radius); padding: var(--space-6); }
-.cockpit-view__card h2 { margin: 0 0 var(--space-2); color: var(--text); }
-.cockpit-view__card p { margin: 0; }
+.cockpit-view__center { flex: 1; display: flex; gap: var(--space-3); align-items: flex-start; }
+.cockpit-view__center > :first-child { flex: 2; }
+.cockpit-view__center > :last-child { flex: 1; }

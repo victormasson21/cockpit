@@ -11,6 +11,7 @@ const baseCockpit: CockpitConfig = {
   tiles: [{ id: "worktree-1", type: "worktree", config: {} }],
   worktrees: [],
   knownRepos: [],
+  todos: [],
   preferences: { theme: "system", defaultView: "worktrees", panes: 3 },
 };
 
