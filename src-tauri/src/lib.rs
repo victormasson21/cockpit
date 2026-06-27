@@ -12,6 +12,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(pty::PtyManager::default())
+        .manage(slack::SlackManager::default())
         .invoke_handler(tauri::generate_handler![
             commands::load_settings,
             commands::save_settings,
@@ -22,7 +23,16 @@ pub fn run() {
             pty::pty_kill,
             worktree::create_worktree,
             worktree::list_branches,
-            deduce::deduce_worktree
+            deduce::deduce_worktree,
+            slack::slack_set_credentials,
+            slack::slack_set_watched,
+            slack::slack_connect,
+            slack::slack_disconnect,
+            slack::slack_status,
+            slack::slack_snapshot,
+            slack::slack_refresh,
+            slack::slack_list_conversations,
+            slack::slack_init,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -174,6 +174,226 @@ pub fn exchange_code(client_id: &str, client_secret: &str, code: &str, redirect_
     Ok((token, user_id))
 }
 
+use tauri::{AppHandle, Emitter, Manager, State};
+use std::sync::atomic::Ordering;
+
+// Lightweight status for the Settings UI (does the app know creds? is a token live?).
+#[derive(Debug, Clone, Serialize)]
+pub struct SlackStatus {
+    pub connected: bool,
+    #[serde(rename = "userName", skip_serializing_if = "Option::is_none")]
+    pub user_name: Option<String>,
+    #[serde(rename = "hasCredentials")]
+    pub has_credentials: bool,
+}
+
+// One row for the watched-channels picker.
+#[derive(Debug, Clone, Serialize)]
+pub struct ConversationMeta {
+    pub id: String,
+    pub name: String,
+    pub kind: String,
+}
+
+const REDIRECT_PORT_RANGE: std::ops::Range<u16> = 9000..9010;
+
+// Store client_id in session state; persist client_secret to Keychain when provided.
+#[tauri::command]
+pub fn slack_set_credentials(manager: State<SlackManager>, client_id: String, client_secret: Option<String>) -> Result<(), String> {
+    if let Some(secret) = client_secret.filter(|s| !s.is_empty()) {
+        manager.store.set(ACCOUNT_SECRET, &secret)?;
+    }
+    manager.state.lock().unwrap().client_id = Some(client_id);
+    Ok(())
+}
+
+// Update the watched set and immediately re-poll so the tile reflects the new selection.
+#[tauri::command]
+pub fn slack_set_watched(app: AppHandle, manager: State<SlackManager>, ids: Vec<String>) -> Result<(), String> {
+    manager.state.lock().unwrap().watched = ids;
+    refresh_now(&app, &manager);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn slack_status(manager: State<SlackManager>) -> SlackStatus {
+    let st = manager.state.lock().unwrap();
+    let has_credentials = st.client_id.is_some() && manager.store.get(ACCOUNT_SECRET).ok().flatten().is_some();
+    SlackStatus { connected: st.connected, user_name: st.user_name.clone(), has_credentials }
+}
+
+#[tauri::command]
+pub fn slack_snapshot(manager: State<SlackManager>) -> SlackSnapshot {
+    manager.state.lock().unwrap().last.clone()
+}
+
+// List the user's conversations for the picker (names resolved best-effort).
+#[tauri::command]
+pub fn slack_list_conversations(manager: State<SlackManager>) -> Result<Vec<ConversationMeta>, String> {
+    let token = manager.store.get(ACCOUNT_TOKEN)?.ok_or("not connected")?;
+    let resp = api_get(&token, "users.conversations", &[("types", "public_channel,private_channel,im,mpim"), ("limit", "200")])?;
+    let mut out = vec![];
+    if let Some(arr) = resp.get("channels").and_then(|v| v.as_array()) {
+        for c in arr {
+            let id = c.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let kind = if c.get("is_im").and_then(|v| v.as_bool()).unwrap_or(false) { "im" }
+                else if c.get("is_mpim").and_then(|v| v.as_bool()).unwrap_or(false) { "mpim" }
+                else { "channel" };
+            let name = c.get("name").and_then(|v| v.as_str()).unwrap_or(&id).to_string();
+            out.push(ConversationMeta { id, name, kind: kind.to_string() });
+        }
+    }
+    Ok(out)
+}
+
+// Forget the token + secret, stop polling, and mark disconnected.
+#[tauri::command]
+pub fn slack_disconnect(manager: State<SlackManager>) -> Result<(), String> {
+    manager.stop.store(true, Ordering::SeqCst);
+    manager.store.delete(ACCOUNT_TOKEN).ok();
+    let mut st = manager.state.lock().unwrap();
+    st.connected = false;
+    st.user_name = None;
+    st.last = SlackSnapshot::default();
+    Ok(())
+}
+
+// Start OAuth: bind a loopback callback server, return the authorize URL for the frontend to open.
+#[tauri::command]
+pub fn slack_connect(app: AppHandle, manager: State<SlackManager>) -> Result<String, String> {
+    let client_id = manager.state.lock().unwrap().client_id.clone().ok_or("set client_id first")?;
+    let client_secret = manager.store.get(ACCOUNT_SECRET)?.ok_or("set client_secret first")?;
+    // Bind the first free port in our small range so the redirect_uri is predictable for the Slack app config.
+    let server = REDIRECT_PORT_RANGE
+        .filter_map(|p| tiny_http::Server::http(("127.0.0.1", p)).ok().map(|s| (p, s)))
+        .next()
+        .ok_or("no free loopback port in 9000-9009")?;
+    let (port, server) = server;
+    let redirect_uri = format!("http://localhost:{port}/callback");
+    let url = authorize_url(&client_id, &redirect_uri);
+
+    // Background thread: wait for the redirect, exchange the code, store token, start polling.
+    let app2 = app.clone();
+    std::thread::spawn(move || {
+        // ~2 min budget: tiny_http recv_timeout loop.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
+        while std::time::Instant::now() < deadline {
+            match server.recv_timeout(std::time::Duration::from_secs(2)) {
+                Ok(Some(req)) => {
+                    let code = parse_callback_code(req.url());
+                    let body = match &code {
+                        Ok(_) => "Connected to Slack. You can close this tab.",
+                        Err(_) => "Slack connection failed. You can close this tab.",
+                    };
+                    let _ = req.respond(tiny_http::Response::from_string(body));
+                    if let Ok(code) = code {
+                        finish_connect(&app2, &client_id, &client_secret, &code, &redirect_uri);
+                    }
+                    return;
+                }
+                Ok(None) => continue,
+                Err(_) => return,
+            }
+        }
+    });
+    Ok(url)
+}
+
+// Exchange code → token, persist, hydrate state, emit slack://connected, start polling.
+fn finish_connect(app: &AppHandle, client_id: &str, client_secret: &str, code: &str, redirect_uri: &str) {
+    let manager = app.state::<SlackManager>();
+    match exchange_code(client_id, client_secret, code, redirect_uri) {
+        Ok((token, user_id)) => {
+            if manager.store.set(ACCOUNT_TOKEN, &token).is_err() {
+                let _ = app.emit("slack://connected", serde_json::json!({ "connected": false, "error": "keychain write failed" }));
+                return;
+            }
+            {
+                let mut st = manager.state.lock().unwrap();
+                st.connected = true;
+                st.user_name = Some(user_id.clone());
+            }
+            let _ = app.emit("slack://connected", serde_json::json!({ "connected": true, "userName": user_id }));
+            start_polling(app.clone());
+        }
+        Err(e) => {
+            let _ = app.emit("slack://connected", serde_json::json!({ "connected": false, "error": e }));
+        }
+    }
+}
+
+// Force a one-shot poll (used by slack_refresh / slack_set_watched / on-focus).
+fn refresh_now(app: &AppHandle, manager: &SlackManager) {
+    let token = match manager.store.get(ACCOUNT_TOKEN) { Ok(Some(t)) => t, _ => return };
+    let watched = manager.state.lock().unwrap().watched.clone();
+    let snap = poll_once(&token, &watched);
+    manager.state.lock().unwrap().last = snap.clone();
+    let _ = app.emit("slack://unread", snap);
+}
+
+#[tauri::command]
+pub fn slack_refresh(app: AppHandle, manager: State<SlackManager>) -> Result<(), String> {
+    refresh_now(&app, &manager);
+    Ok(())
+}
+
+// Poll each watched conversation: info (unread + name) + history (latest message).
+pub fn poll_once(token: &str, watched: &[String]) -> SlackSnapshot {
+    let mut conversations = vec![];
+    let mut error = None;
+    for id in watched {
+        let info = match api_get(token, "conversations.info", &[("channel", id)]) {
+            Ok(v) => v.get("channel").cloned().unwrap_or(serde_json::Value::Null),
+            Err(e) => { error = Some(e); continue; }
+        };
+        let latest = api_get(token, "conversations.history", &[("channel", id), ("limit", "1")])
+            .ok()
+            .and_then(|v| v.get("messages").and_then(|m| m.as_array()).and_then(|a| a.first().cloned()))
+            .unwrap_or(serde_json::Value::Null);
+        if let Some(row) = parse_conversation(&info, &latest) {
+            if row.unread_count > 0 {
+                conversations.push(row);
+            }
+        }
+    }
+    // Newest first by Slack ts (string compare is correct for fixed-width epoch.micros).
+    conversations.sort_by(|a, b| b.latest_ts.cmp(&a.latest_ts));
+    SlackSnapshot { connected: true, error, conversations }
+}
+
+// Background poll loop: every 30s while a token exists and stop isn't set.
+pub fn start_polling(app: AppHandle) {
+    let manager = app.state::<SlackManager>();
+    manager.stop.store(false, Ordering::SeqCst);
+    let stop = manager.stop.clone();
+    std::thread::spawn(move || {
+        loop {
+            if stop.load(Ordering::SeqCst) { return; }
+            let manager = app.state::<SlackManager>();
+            refresh_now(&app, &manager);
+            for _ in 0..30 {
+                if stop.load(Ordering::SeqCst) { return; }
+                std::thread::sleep(std::time::Duration::from_secs(1));
+            }
+        }
+    });
+}
+
+// Hydrate the provider from persisted config at startup; start polling if a token already exists.
+#[tauri::command]
+pub fn slack_init(app: AppHandle, manager: State<SlackManager>, client_id: Option<String>, watched_channel_ids: Vec<String>) -> Result<(), String> {
+    {
+        let mut st = manager.state.lock().unwrap();
+        st.client_id = client_id;
+        st.watched = watched_channel_ids;
+    }
+    if manager.store.get(ACCOUNT_TOKEN)?.is_some() {
+        manager.state.lock().unwrap().connected = true;
+        start_polling(app.clone());
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
