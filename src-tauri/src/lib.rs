@@ -4,6 +4,7 @@ mod github;
 mod keychain;
 mod pty;
 mod settings;
+mod slack;
 mod worktree;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
