@@ -18,6 +18,8 @@ interface SettingsState {
   addKnownRepo: (path: string) => void;
   removeKnownRepo: (path: string) => void;
   setRepoHost: (path: string, host: HostConfig) => void;
+  setSlackClientId: (clientId: string) => void;
+  setSlackWatched: (ids: string[]) => void;
   slots: Slots;
   slotCount: number; // visible columns (MIN_SLOTS..SLOT_COUNT), session-only
   setSlotCount: (n: number) => void;
@@ -101,4 +103,9 @@ export const useSettings = create<SettingsState>((set, get) => ({
       ...c,
       knownRepos: c.knownRepos.map((r) => (r.path === path ? { ...r, host } : r)),
     })),
+  // Functional updaters for Slack integration config: preserve both clientId + watchedChannelIds on each write.
+  setSlackClientId: (clientId) =>
+    get().setCockpit((c) => ({ ...c, integrations: { ...c.integrations, slack: { ...c.integrations?.slack, watchedChannelIds: c.integrations?.slack?.watchedChannelIds ?? [], clientId } } })),
+  setSlackWatched: (ids) =>
+    get().setCockpit((c) => ({ ...c, integrations: { ...c.integrations, slack: { ...c.integrations?.slack, clientId: c.integrations?.slack?.clientId, watchedChannelIds: ids } } })),
 }));
