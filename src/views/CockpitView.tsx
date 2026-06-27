@@ -1,6 +1,8 @@
-// CockpitView.tsx — dashboard view: left TILES column (Slack today) + center placeholder. Worktree column lands later.
+// CockpitView.tsx — dashboard view: left TILES column (Slack) + center local widgets (To Do, Timer). Worktree column lands later.
 import "./CockpitView.css";
 import { SlackTile } from "../tiles/slack/SlackTile";
+import { TodoTile } from "../tiles/todo/TodoTile";
+import { TimerTile } from "../tiles/timer/TimerTile";
 
 export function CockpitView({ onOpenSettings }: { onOpenSettings: () => void }) {
   return (
@@ -10,10 +12,8 @@ export function CockpitView({ onOpenSettings }: { onOpenSettings: () => void }) 
         <SlackTile onOpenSettings={onOpenSettings} />
       </aside>
       <div className="cockpit-view__center">
-        <div className="cockpit-view__card">
-          <h2>Cockpit</h2>
-          <p>To-do / timer / tickets land here in a later sub-project.</p>
-        </div>
+        <TodoTile />
+        <TimerTile />
       </div>
     </div>
   );
