@@ -1,7 +1,4 @@
-/* slack.css — minimal styling for the Slack unread tile, over the shared theme tokens. */
-.slack-tile { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border-subtle); border-radius: 8px; overflow: hidden; }
-.slack-tile__head { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-bottom: 1px solid var(--border-subtle); }
-.slack-tile__title { font-size: 11px; letter-spacing: 0.08em; opacity: 0.7; }
+/* slack.css — Slack-tile body styling (chrome lives in Tile.css). */
 .slack-tile__gear { background: none; border: none; cursor: pointer; color: inherit; opacity: 0.6; }
 .slack-tile__list { list-style: none; margin: 0; padding: 0; }
 .slack-tile__row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer; border-bottom: 1px solid var(--border-subtle); }

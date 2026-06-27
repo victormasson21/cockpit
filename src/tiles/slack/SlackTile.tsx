@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { Tile } from "../Tile";
 import { slackSnapshot, slackRefresh } from "./api";
 import type { SlackSnapshot } from "./types";
 import { relativeTime } from "./time";
@@ -15,7 +16,6 @@ export function SlackTile({ onOpenSettings }: { onOpenSettings: () => void }) {
     let un: (() => void) | undefined;
     slackSnapshot().then(setSnap).catch(() => {});
     listen<SlackSnapshot>("slack://unread", (e) => setSnap(e.payload)).then((u) => (un = u)).catch(() => {});
-    // Refresh when the window regains focus so the tile feels live between polls.
     const onFocus = () => slackRefresh().catch(() => {});
     window.addEventListener("focus", onFocus);
     return () => { un?.(); window.removeEventListener("focus", onFocus); };
@@ -23,13 +23,10 @@ export function SlackTile({ onOpenSettings }: { onOpenSettings: () => void }) {
 
   const rows = sortByRecency(snap.conversations);
   const now = Date.now();
+  const gear = <button className="slack-tile__gear" aria-label="slack settings" onClick={onOpenSettings}>⚙</button>;
 
   return (
-    <section className="slack-tile">
-      <header className="slack-tile__head">
-        <span className="slack-tile__title">SLACK</span>
-        <button className="slack-tile__gear" aria-label="slack settings" onClick={onOpenSettings}>⚙</button>
-      </header>
+    <Tile title="SLACK" actions={gear}>
       {!snap.connected ? (
         <button className="slack-tile__cta" onClick={onOpenSettings}>Connect Slack in Settings</button>
       ) : rows.length === 0 ? (
@@ -51,6 +48,6 @@ export function SlackTile({ onOpenSettings }: { onOpenSettings: () => void }) {
           ))}
         </ul>
       )}
-    </section>
+    </Tile>
   );
 }
