@@ -186,9 +186,39 @@ Slot entities (worktree | scratch), `SlotColumn`/`WorktreeBody`/`ScratchBody`, t
 `Worktree · Checkout · Terminal` header, and the global form-control theme baseline. 46 Rust tests + 43 JS
 tests green; Rust + Vite builds clean. **GUI + live acceptance verified.**
 
+✅ **Sub-project 4 (auth manager + Slack unread tile) — code complete & merged to `main`. First real provider+panel instance.**
+The deferred `slack.rs` Rust provider swap point is now built (the deduce flow still uses the Slack MCP; this is a
+separate in-app provider). **Keychain** (`src-tauri/src/keychain.rs`): generic `TokenStore` trait + `KeyringStore`
+(real, `keyring` v3 `apple-native`) + a `#[cfg(test)]` `MemoryStore` fake; service `com.cockpit.app.slack`, accounts
+`user_token`/`client_secret`. **Slack provider** (`src-tauri/src/slack.rs`): browser OAuth via a transient `tiny_http`
+loopback server on ports 9000-9009 (`oauth.v2.access` → **`xoxp` user token**, stored in Keychain), a blocking `ureq`
+Web API client, and a background poll thread (~30s + on-window-focus `slack_refresh`) emitting `slack://unread`
+snapshots. **At-most-one poll thread** is guaranteed by a generation counter (`poll_gen: Arc<AtomicU64>`): each
+`start_polling` takes `fetch_add(1)+1` and exits when the counter moves on; `slack_disconnect` bumps it to stop the
+live thread. **Mutex discipline:** the state guard is cloned-then-dropped before every network call (verified). 9
+commands (`slack_set_credentials/_set_watched/_connect/_disconnect/_status/_snapshot/_refresh/_list_conversations/_init`)
++ `auth::list_connections` (a connections registry seam SP5 reuses; the single-service UI reads `slack_status` directly).
+**Secrets never touch JSON** — `cockpit.json` holds only `integrations.slack = { clientId?, watchedChannelIds }`
+(`#[serde(default)]`, back-compat); the `xoxp` token + `client_secret` live in Keychain only; no third-party server
+(talks directly to Slack). **Frontend** (`src/tiles/slack/`): `SlackTile` (Cockpit-view left TILES column; subscribes
+to `slack://unread`, first paint from `slack_snapshot`, states: disconnected CTA / "All caught up" / rows / error;
+row click → `openUrl` Slack deep link), pure `time.ts`/`rows.ts` helpers (tested), `SlackConnections` (Settings →
+Connections: credentials, connect/disconnect, watched-channels picker; buttons themed via the `nw-form` idiom).
+`App.tsx` hydrates the provider via `slack_init` after settings load (starts polling if a token already exists). One-time
+user setup: register your own Slack app, add User Token Scopes + redirect `http://localhost:9000-9009/callback`, paste
+client id/secret. 60 Rust + 53 JS tests green; builds warning-free. Spec: `docs/superpowers/specs/2026-06-27-slack-tile-and-auth-manager-design.md`;
+plan: `docs/superpowers/plans/2026-06-27-slack-tile-and-auth-manager.md`.
+**PENDING human live/GUI smoke** (needs a real Slack app): verify the OAuth round-trip, **pin the unread Web API field
+paths** (`conversations.info` `unread_count_display`/`last_read` + `conversations.history` latest — documented but
+unverified, see the in-code NOTE in `parse_conversation`), confirm the tile renders watched unread + preview + relative
+time and the row links out. **Deferred follow-ups:** resolve a display name (status shows raw `U…` id); add a CSRF
+`state` param to the OAuth flow (SP5 Linear OAuth will copy this template); Socket Mode realtime push (polling-only by
+design — see spec "Why polling, not Socket Mode"); a few hardcoded CSS values; skip per-conversation `info` errors for
+stale watched ids.
+
 **Next / resuming work — read `docs/ROADMAP.md` first.** It is the single prioritized backlog, split into
-**main build sub-projects** (the big sequential arc — sub-project 4 onward: auth manager + first read-only
-integration tile, then further integration tiles) and **smaller iterations** (scoped polish/enhancements). When
+**main build sub-projects** (the big sequential arc — sub-project 5 onward: Linear tile, then GitHub/Calendar
+tiles, reusing the SP4 provider+panel + Keychain seam) and **smaller iterations** (scoped polish/enhancements). When
 the user says "let's continue" (or similar), open `docs/ROADMAP.md` and present its current items grouped that
 way — main sub-projects first, then smaller iterations — before proposing what to pick up.
 Product vision: `docs/superpowers/specs/2026-06-16-cockpit-product-spec.md`.

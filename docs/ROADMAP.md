@@ -14,19 +14,30 @@
 
 The heart — terminals + worktrees — is done. The product arc from here is the **provider + panel** pattern: read-only integration tiles added one at a time (Slack first, per the product vision), each a Rust-side provider streaming events + a React panel rendering them.
 
-1. **Sub-project 4 — Auth manager + first read-only integration tile.** The pattern's first real instance and the highest-leverage next step. Build: macOS **Keychain** token storage (Rust), an auth/connection manager, and the **first read-only panel** (Slack unread messages — the product's "Slack first"). This is where the deferred `slack.rs` / `linear.rs` Rust provider swap points land (today those sources are resolved via the Claude CLI's MCP during deduce; this gives them a real in-app provider). Establishes the provider+panel seam every later tile reuses. Spec stub: `docs/superpowers/specs/2026-06-16-cockpit-product-spec.md`.
+> ✅ **Sub-project 4 — Auth manager + Slack unread tile — done & merged.** The pattern's first real instance:
+> macOS Keychain token store (`keychain.rs`), Slack browser-OAuth + polling provider (`slack.rs`) emitting
+> `slack://unread`, connections registry (`auth.rs`), Cockpit-view tile column + `SlackTile` + Settings → Connections.
+> Moved to `CLAUDE.md` "Status". **Live/GUI smoke still pending human** (needs a real Slack app — pins the unread
+> endpoint fields). Its deferred follow-ups are captured under "Smaller iterations → Integrations / Slack" below.
 
-2. **Sub-project 5 — Linear tile.** Second provider+panel instance: assigned/active issues. Validates that the Nth integration is mechanical. Reuses the auth manager from SP4.
+1. **Sub-project 5 — Linear tile.** Next up. Second provider+panel instance: assigned/active issues. Validates that the Nth integration is mechanical. **Reuses SP4's `keychain.rs` + `auth.rs` connections registry wholesale** (Linear is also OAuth). The deferred `linear.rs` Rust provider swap point lands here (today Linear is resolved via the Claude CLI's MCP only during deduce).
 
-3. **Sub-project 6 — GitHub tile.** PRs awaiting your review + notifications, via the already-authenticated `gh` CLI or the API. Reuses the pattern.
+2. **Sub-project 6 — GitHub tile.** PRs awaiting your review + notifications, via the already-authenticated `gh` CLI or the API. Reuses the pattern.
 
-4. **Sub-project 7 — Calendar tile.** Today's events / next meeting. Last of the initially-scoped panels.
+3. **Sub-project 7 — Calendar tile.** Today's events / next meeting. Last of the initially-scoped panels.
 
-5. **Live worktree & Claude signals (provider).** Substantial, mostly-backend chunk that can slot in whenever it earns priority: detect Claude "**Attention**" from PTY output (currently a styled stub), git **ahead/behind** (stub), and **CI** status (stub chip). Drives the column status dot, the ahead/behind badge, and the CI chip with real data; unlocks the DONE/PAUSED Claude pane states. Provider-flavoured enough to be its own cycle.
+4. **Live worktree & Claude signals (provider).** Substantial, mostly-backend chunk that can slot in whenever it earns priority: detect Claude "**Attention**" from PTY output (currently a styled stub), git **ahead/behind** (stub), and **CI** status (stub chip). Drives the column status dot, the ahead/behind badge, and the CI chip with real data; unlocks the DONE/PAUSED Claude pane states. Provider-flavoured enough to be its own cycle.
 
 ---
 
 ## Smaller iterations (scoped, ~1 PR each)
+
+### Integrations / Slack (SP4 follow-ups)
+- **Live/GUI smoke + pin the unread endpoint.** The one outstanding SP4 item: connect a real Slack app and verify the OAuth round-trip; confirm/adjust the `conversations.info` (`unread_count_display`/`last_read`) + `conversations.history` field paths against a live token (see the in-code NOTE in `parse_conversation`); confirm the tile renders watched unread + preview + relative time and rows link out.
+- **CSRF `state` in the Slack OAuth flow.** `authorize_url` omits a `state` param. Low risk for an ephemeral loopback, but add a random `state` + callback check — SP5's Linear OAuth will copy this template, so harden it once.
+- **Resolve a Slack display name.** Status shows the raw user id ("Connected as U0123ABC"); a `users.info` lookup after token exchange would show a real name.
+- **Socket Mode realtime push.** Polling-only by design (see spec "Why polling, not Socket Mode"); revisit only if ~30s + focus-refresh proves too stale.
+- **Slack tile polish.** Skip per-conversation `conversations.info` errors for stale watched ids (a left channel shouldn't set the snapshot error every poll); replace a few hardcoded `slack.css` values with `--radius`/`--space-*` tokens.
 
 ### Worktrees & Checkout
 - **Remote-branch checkout.** Let the Checkout picker offer remote-only branches (a teammate's pushed branch you don't have locally) — needs tracking-branch logic (`git worktree add -b <name> <path> origin/<name>`). Deferred from the existing-branch iteration.
