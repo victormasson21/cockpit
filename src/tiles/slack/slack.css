@@ -1,0 +1,16 @@
+/* slack.css — minimal styling for the Slack unread tile, over the shared theme tokens. */
+.slack-tile { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border-subtle); border-radius: 8px; overflow: hidden; }
+.slack-tile__head { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-bottom: 1px solid var(--border-subtle); }
+.slack-tile__title { font-size: 11px; letter-spacing: 0.08em; opacity: 0.7; }
+.slack-tile__gear { background: none; border: none; cursor: pointer; color: inherit; opacity: 0.6; }
+.slack-tile__list { list-style: none; margin: 0; padding: 0; }
+.slack-tile__row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer; border-bottom: 1px solid var(--border-subtle); }
+.slack-tile__row:hover { background: var(--surface-raised); }
+.slack-tile__icon { width: 16px; text-align: center; opacity: 0.6; }
+.slack-tile__body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.slack-tile__name { font-size: 12px; font-weight: 600; }
+.slack-tile__preview { font-size: 11px; opacity: 0.6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slack-tile__meta { display: flex; align-items: center; gap: 6px; }
+.slack-tile__time { font-size: 10px; opacity: 0.5; }
+.slack-tile__badge { font-size: 10px; background: var(--accent); color: var(--accent-fg); border-radius: 8px; padding: 0 6px; min-width: 16px; text-align: center; }
+.slack-tile__cta, .slack-tile__empty { padding: 14px 10px; font-size: 12px; opacity: 0.7; text-align: center; background: none; border: none; cursor: pointer; color: inherit; }

@@ -76,7 +76,7 @@ function App() {
         </div>
       </header>
       <main className="app__body">
-        {view === "cockpit" && <CockpitView />}
+        {view === "cockpit" && <CockpitView onOpenSettings={() => setSettingsOpen(true)} />}
         {view === "worktrees" && <WorktreesView />}
         {view === "calm" && <CalmView />}
       </main>
