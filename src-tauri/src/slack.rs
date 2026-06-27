@@ -1,5 +1,8 @@
 //! slack.rs — Slack provider: OAuth + Keychain user token + background unread polling, emitted as a slack://unread event stream.
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, Mutex};
+use crate::keychain::{KeyringStore, TokenStore};
 
 pub const SLACK_KEYCHAIN_SERVICE: &str = "com.cockpit.app.slack";
 pub const ACCOUNT_TOKEN: &str = "user_token";
@@ -97,6 +100,80 @@ pub fn parse_conversation(info: &serde_json::Value, latest: &serde_json::Value) 
     })
 }
 
+// Keep only the watched ids, in the order the user listed them (pure → unit-tested).
+pub fn select_watched(all: &[(String, String)], watched: &[String]) -> Vec<String> {
+    let have: std::collections::HashSet<&str> = all.iter().map(|(id, _)| id.as_str()).collect();
+    watched.iter().filter(|w| have.contains(w.as_str())).cloned().collect()
+}
+
+// Session state for the provider. Token + secret are NOT held here — they live in Keychain.
+pub struct SlackState {
+    pub client_id: Option<String>,
+    pub watched: Vec<String>,
+    pub connected: bool,
+    pub user_name: Option<String>,
+    pub last: SlackSnapshot,
+}
+
+impl Default for SlackState {
+    fn default() -> Self {
+        Self { client_id: None, watched: vec![], connected: false, user_name: None, last: SlackSnapshot::default() }
+    }
+}
+
+// Tauri-managed provider handle (mirrors PtyManager).
+pub struct SlackManager {
+    pub state: Mutex<SlackState>,
+    pub store: Box<dyn TokenStore>,
+    pub stop: Arc<AtomicBool>,
+}
+
+impl Default for SlackManager {
+    fn default() -> Self {
+        Self {
+            state: Mutex::new(SlackState::default()),
+            store: Box::new(KeyringStore::new(SLACK_KEYCHAIN_SERVICE)),
+            stop: Arc::new(AtomicBool::new(false)),
+        }
+    }
+}
+
+// One authenticated GET to the Slack Web API; treats `ok:false` as an error.
+pub fn api_get(token: &str, method: &str, params: &[(&str, &str)]) -> Result<serde_json::Value, String> {
+    let mut req = ureq::get(&format!("https://slack.com/api/{method}"))
+        .set("Authorization", &format!("Bearer {token}"));
+    for (k, v) in params {
+        req = req.query(k, v);
+    }
+    let resp: serde_json::Value = req.call().map_err(|e| e.to_string())?.into_json().map_err(|e| e.to_string())?;
+    if resp.get("ok").and_then(|v| v.as_bool()).unwrap_or(false) {
+        Ok(resp)
+    } else {
+        Err(resp.get("error").and_then(|v| v.as_str()).unwrap_or("slack api error").to_string())
+    }
+}
+
+// Exchange an OAuth code for the user token; returns (user_token, user_name-ish display).
+pub fn exchange_code(client_id: &str, client_secret: &str, code: &str, redirect_uri: &str) -> Result<(String, String), String> {
+    let resp: serde_json::Value = ureq::post("https://slack.com/api/oauth.v2.access")
+        .send_form(&[
+            ("client_id", client_id),
+            ("client_secret", client_secret),
+            ("code", code),
+            ("redirect_uri", redirect_uri),
+        ])
+        .map_err(|e| e.to_string())?
+        .into_json()
+        .map_err(|e| e.to_string())?;
+    if !resp.get("ok").and_then(|v| v.as_bool()).unwrap_or(false) {
+        return Err(resp.get("error").and_then(|v| v.as_str()).unwrap_or("oauth failed").to_string());
+    }
+    let token = resp.get("authed_user").and_then(|u| u.get("access_token")).and_then(|v| v.as_str())
+        .ok_or("no user access_token in oauth response")?.to_string();
+    let user_id = resp.get("authed_user").and_then(|u| u.get("id")).and_then(|v| v.as_str()).unwrap_or("").to_string();
+    Ok((token, user_id))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -162,5 +239,12 @@ mod tests {
         let latest = json!({ "text": "x", "ts": "1700000000.000300" });
         let row = parse_conversation(&info, &latest).unwrap();
         assert_eq!(row.kind, "mpim");
+    }
+
+    #[test]
+    fn select_watched_keeps_only_watched_ids_in_watched_order() {
+        let all = vec![("C1".to_string(), "a".into()), ("C2".into(), "b".into()), ("D3".into(), "c".into())];
+        assert_eq!(select_watched(&all, &["D3".into(), "C1".into()]), vec!["D3".to_string(), "C1".into()]);
+        assert_eq!(select_watched(&all, &["CX".into()]), Vec::<String>::new());
     }
 }
