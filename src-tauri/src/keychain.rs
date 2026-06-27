@@ -1,5 +1,8 @@
 //! keychain.rs — generic secure token store; provider-agnostic so every integration reuses it.
+// HashMap/Mutex back the test-only MemoryStore; gated so non-test builds don't warn on unused imports.
+#[cfg(test)]
 use std::collections::HashMap;
+#[cfg(test)]
 use std::sync::Mutex;
 
 // One secret store scoped to a service name; accounts are arbitrary keys (e.g. "user_token").
@@ -43,12 +46,14 @@ impl TokenStore for KeyringStore {
     }
 }
 
-// In-memory store for unit tests (and a safe fallback off macOS).
+// In-memory store for unit tests (test-only today; promote out of cfg(test) if a non-macOS fallback is ever needed).
+#[cfg(test)]
 #[derive(Default)]
 pub struct MemoryStore {
     map: Mutex<HashMap<String, String>>,
 }
 
+#[cfg(test)]
 impl TokenStore for MemoryStore {
     fn set(&self, account: &str, secret: &str) -> Result<(), String> {
         self.map.lock().unwrap().insert(account.into(), secret.into());
