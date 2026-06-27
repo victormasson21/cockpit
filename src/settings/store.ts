@@ -42,7 +42,7 @@ function scheduleSave(get: () => SettingsState) {
 }
 
 export const useSettings = create<SettingsState>((set, get) => ({
-  cockpit: { version: 1, tiles: [], worktrees: [], knownRepos: [], integrations: {}, preferences: { theme: "system", defaultView: "worktrees", panes: SLOT_COUNT } },
+  cockpit: { version: 1, tiles: [], worktrees: [], knownRepos: [], integrations: {}, todos: [], preferences: { theme: "system", defaultView: "worktrees", panes: SLOT_COUNT } },
   layout: { version: 1, views: {} },
   loaded: false,
   slots: [null, null, null],

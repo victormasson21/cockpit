@@ -90,6 +90,14 @@ pub struct Integrations {
     pub slack: Option<SlackIntegration>,
 }
 
+// One to-do item: stable id + text + lifecycle state ("todo" | "in_progress" | "done"; TS narrows the domain).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct TodoItem {
+    pub id: String,
+    pub text: String,
+    pub state: String,
+}
+
 // User-facing display preferences (theme + which view opens on launch + visible Worktrees/Calm panes).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Preferences {
@@ -116,6 +124,8 @@ pub struct CockpitConfig {
     pub known_repos: Vec<KnownRepo>,
     #[serde(default)]
     pub integrations: Integrations,
+    #[serde(default)]
+    pub todos: Vec<TodoItem>,
     pub preferences: Preferences,
 }
 
@@ -138,6 +148,7 @@ impl Default for CockpitConfig {
             worktrees: vec![],
             known_repos: vec![],
             integrations: Integrations::default(),
+            todos: vec![],
             preferences: Preferences { theme: "system".into(), default_view: "main".into(), panes: 3 },
         }
     }
@@ -303,5 +314,22 @@ mod tests {
         let slack = cfg.integrations.slack.unwrap();
         assert_eq!(slack.client_id.as_deref(), Some("123.456"));
         assert_eq!(slack.watched_channel_ids, vec!["C1", "D2"]);
+    }
+
+    #[test]
+    fn cockpit_without_todos_field_still_loads() {
+        let json = r#"{"version":1,"tiles":[],"worktrees":[],"preferences":{"theme":"system","defaultView":"main"}}"#;
+        let cfg: CockpitConfig = serde_json::from_str(json).unwrap();
+        assert!(cfg.todos.is_empty());
+    }
+
+    #[test]
+    fn todos_round_trip() {
+        let json = r#"{"version":1,"tiles":[],"worktrees":[],"todos":[{"id":"t1","text":"ship it","state":"in_progress"}],"preferences":{"theme":"system","defaultView":"main"}}"#;
+        let cfg: CockpitConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(cfg.todos.len(), 1);
+        assert_eq!(cfg.todos[0].id, "t1");
+        assert_eq!(cfg.todos[0].text, "ship it");
+        assert_eq!(cfg.todos[0].state, "in_progress");
     }
 }
