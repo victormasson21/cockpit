@@ -61,6 +61,30 @@ pub fn parse_worktree_branches(porcelain: &str) -> Vec<(String, String)> {
     out
 }
 
+// Dirtiness probe result for the teardown confirm dialog: does the worktree dir exist, and does it
+// have uncommitted changes? `exists: false` lets Delete proceed straight to git's prune fallback.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorktreeStatus {
+    pub exists: bool,
+    pub dirty: bool,
+}
+
+// Build `git worktree remove [--force] <path>` argv (pure; tested without invoking git).
+pub fn worktree_remove_args(worktree_path: &str, force: bool) -> Vec<String> {
+    let mut v = vec!["worktree".into(), "remove".into()];
+    if force {
+        v.push("--force".into());
+    }
+    v.push(worktree_path.into());
+    v
+}
+
+// Build `git branch -D <branch>` argv — force-delete (handles unmerged branches; the UI already confirmed).
+pub fn delete_branch_args(branch: &str) -> Vec<String> {
+    vec!["branch".into(), "-D".into(), branch.into()]
+}
+
 // Mark each branch that is currently checked out in some worktree, recording where — a pure join so it's testable.
 pub fn mark_checked_out(mut branches: Vec<BranchInfo>, worktree_branches: &[(String, String)]) -> Vec<BranchInfo> {
     for b in &mut branches {
@@ -204,6 +228,72 @@ pub fn list_branches(repo_path: String) -> Result<Vec<BranchInfo>, String> {
     Ok(mark_checked_out(branches, &worktree_branches))
 }
 
+// Probe a worktree for uncommitted changes (for the Delete/Wipe confirm dialog). Missing dir → not
+// dirty (Delete still proceeds); a git error on an existing dir → dirty (safe default: force the user
+// to acknowledge force-removal rather than silently risk losing data).
+#[tauri::command]
+pub fn worktree_status(worktree_path: String) -> Result<WorktreeStatus, String> {
+    if !Path::new(&worktree_path).exists() {
+        return Ok(WorktreeStatus { exists: false, dirty: false });
+    }
+    let out = Command::new("git")
+        .current_dir(&worktree_path)
+        .args(["status", "--porcelain"])
+        .output()
+        .map_err(|e| e.to_string())?;
+    let dirty = if out.status.success() {
+        !String::from_utf8_lossy(&out.stdout).trim().is_empty()
+    } else {
+        true // existing dir but git can't read it: treat as dirty so the dialog forces force-removal.
+    };
+    Ok(WorktreeStatus { exists: true, dirty })
+}
+
+// Remove the git worktree (Delete/Wipe). `force` allows removing a dirty worktree. If `git worktree
+// remove` fails but the dir is already gone (manually deleted), fall back to `git worktree prune` to
+// deregister the stale `.git/worktrees/<ref>` entry — the core of the stuck-branch bug fix.
+#[tauri::command]
+pub fn remove_worktree(repo_path: String, worktree_path: String, force: bool) -> Result<(), String> {
+    let args = worktree_remove_args(&worktree_path, force);
+    let out = Command::new("git")
+        .current_dir(&repo_path)
+        .args(&args)
+        .output()
+        .map_err(|e| e.to_string())?;
+    if out.status.success() {
+        return Ok(());
+    }
+    // Fallback: the dir is gone, so remove can't operate — prune the dangling registration instead.
+    if !Path::new(&worktree_path).exists() {
+        let pruned = Command::new("git")
+            .current_dir(&repo_path)
+            .args(["worktree", "prune"])
+            .output()
+            .map_err(|e| e.to_string())?;
+        if pruned.status.success() {
+            return Ok(());
+        }
+        return Err(String::from_utf8_lossy(&pruned.stderr).trim().to_string());
+    }
+    Err(String::from_utf8_lossy(&out.stderr).trim().to_string())
+}
+
+// Force-delete a branch (Wipe). Must run AFTER the worktree is removed — git refuses to delete a
+// branch still checked out in a worktree.
+#[tauri::command]
+pub fn delete_branch(repo_path: String, branch: String) -> Result<(), String> {
+    let args = delete_branch_args(&branch);
+    let out = Command::new("git")
+        .current_dir(&repo_path)
+        .args(&args)
+        .output()
+        .map_err(|e| e.to_string())?;
+    if !out.status.success() {
+        return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -239,6 +329,21 @@ mod tests {
     fn add_args_pr_makes_detached_worktree() {
         let a = worktree_add_args("/wt", &BranchSpec::Pr { number: 42, branch: "feat/x".into() });
         assert_eq!(a, vec!["worktree", "add", "--detach", "/wt"]);
+    }
+
+    #[test]
+    fn remove_args_plain() {
+        assert_eq!(worktree_remove_args("/wt", false), vec!["worktree", "remove", "/wt"]);
+    }
+
+    #[test]
+    fn remove_args_force() {
+        assert_eq!(worktree_remove_args("/wt", true), vec!["worktree", "remove", "--force", "/wt"]);
+    }
+
+    #[test]
+    fn delete_branch_args_builds_force_delete() {
+        assert_eq!(delete_branch_args("victor/fix"), vec!["branch", "-D", "victor/fix"]);
     }
 
     #[test]

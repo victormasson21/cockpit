@@ -42,3 +42,14 @@ export interface BranchInfo {
 
 // List a repo's local branches, most-recently-committed first.
 export const listBranches = (repoPath: string) => invoke<BranchInfo[]>("list_branches", { repoPath });
+
+// Worktree teardown (Delete/Wipe): probe dirtiness, remove the git worktree, force-delete a branch.
+// `exists: false` means the dir is already gone — Delete still proceeds (remove_worktree prunes).
+export interface WorktreeStatus { exists: boolean; dirty: boolean }
+export const worktreeStatus = (worktreePath: string) =>
+  invoke<WorktreeStatus>("worktree_status", { worktreePath });
+// Named removeWorktreeGit to avoid colliding with the store's model-only removeWorktree.
+export const removeWorktreeGit = (repoPath: string, worktreePath: string, force: boolean) =>
+  invoke<void>("remove_worktree", { repoPath, worktreePath, force });
+export const deleteBranch = (repoPath: string, branch: string) =>
+  invoke<void>("delete_branch", { repoPath, branch });
