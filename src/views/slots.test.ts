@@ -1,6 +1,6 @@
 // slots.test.ts — pure slot-reducer behavior for the 3-column Worktrees view.
 import { describe, it, expect } from "vitest";
-import { SLOT_COUNT, MIN_SLOTS, initSlots, setSlotAt, assignNewWorktree, clearEntity, hideSlotsBeyond, resolveSlotEntity, type ScratchTerminal } from "./slots";
+import { SLOT_COUNT, MIN_SLOTS, initSlots, setSlotAt, assignNewWorktree, fillFreeSlot, clearEntity, hideSlotsBeyond, resolveSlotEntity, type ScratchTerminal } from "./slots";
 import type { Worktree } from "../settings/types";
 
 const wt = (id: string, status: Worktree["status"] = "ongoing"): Worktree => ({
@@ -43,6 +43,18 @@ describe("slots", () => {
   it("hideSlotsBeyond clears slots past the visible count (re-expand shows empty panes)", () => {
     expect(hideSlotsBeyond(["a", "b", "c"], 2)).toEqual(["a", "b", null]);
     expect(hideSlotsBeyond(["a", "b", "c"], 3)).toEqual(["a", "b", "c"]);
+  });
+  it("assignNewWorktree evicts the last VISIBLE slot when full", () => {
+    // visibleCount 2 → only slots 0,1 are visible; full visible range evicts index 1
+    expect(assignNewWorktree(["a", "b", null], "d", 2)).toEqual(["a", "d", null]);
+    // visibleCount 3 (default) keeps the old behavior
+    expect(assignNewWorktree(["a", "b", "c"], "d", 3)).toEqual(["a", "b", "d"]);
+    expect(assignNewWorktree(["a", "b", "c"], "d")).toEqual(["a", "b", "d"]);
+  });
+  it("fillFreeSlot fills the first empty slot in range, else leaves slots unchanged", () => {
+    expect(fillFreeSlot(["a", null, null], "b", 3)).toEqual(["a", "b", null]);
+    expect(fillFreeSlot(["a", "b", "c"], "d", 3)).toEqual(["a", "b", "c"]); // full → unchanged
+    expect(fillFreeSlot(["a", "b", null], "d", 2)).toEqual(["a", "b", null]); // slot 2 not visible → unchanged
   });
   it("SLOT_COUNT is 3 and MIN_SLOTS is 2", () => {
     expect(SLOT_COUNT).toBe(3);

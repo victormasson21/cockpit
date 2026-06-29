@@ -26,7 +26,7 @@ function normalizeView(v: string): View {
 }
 
 function App() {
-  const { loaded, init, addScratch, slotCount, setSlotCount } = useSettings();
+  const { loaded, init, addScratch, placeNewEntity, slotCount, setSlotCount } = useSettings();
   const [view, setView] = useState<View>("worktrees");
   const [creating, setCreating] = useState<null | "deduce" | "existing">(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -77,7 +77,7 @@ function App() {
           )}
           <button className="app__new" onClick={() => setCreating("deduce")}>Worktree</button>
           <button className="app__new" onClick={() => setCreating("existing")}>Checkout</button>
-          <button className="app__new" onClick={() => addScratch()}>Terminal</button>
+          <button className="app__new" onClick={() => placeNewEntity(addScratch(), view)}>Terminal</button>
           <button className="app__new app__new--icon" aria-label="settings" onClick={() => setSettingsOpen(true)}><GearIcon /></button>
         </div>
       </header>
@@ -86,7 +86,7 @@ function App() {
         {view === "worktrees" && <WorktreesView />}
         {view === "calm" && <CalmView />}
       </main>
-      {creating && <NewWorktreeModal initialMode={creating} onClose={() => setCreating(null)} />}
+      {creating && <NewWorktreeModal initialMode={creating} view={view} onClose={() => setCreating(null)} />}
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
     </div>
   );

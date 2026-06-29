@@ -3,7 +3,7 @@ import { create } from "zustand";
 import type { CockpitConfig, HostConfig, LayoutConfig, Settings, Worktree } from "./types";
 import { saveSettings } from "./api";
 import { nextState } from "../tiles/todo/todo";
-import { initSlots, setSlotAt, assignNewWorktree, clearEntity, hideSlotsBeyond, SLOT_COUNT, type Slots, type ScratchTerminal } from "../views/slots";
+import { initSlots, setSlotAt, assignNewWorktree, fillFreeSlot, clearEntity, hideSlotsBeyond, SLOT_COUNT, type Slots, type ScratchTerminal } from "../views/slots";
 
 interface SettingsState {
   cockpit: CockpitConfig;
@@ -28,7 +28,8 @@ interface SettingsState {
   slotCount: number; // visible columns (MIN_SLOTS..SLOT_COUNT), session-only
   setSlotCount: (n: number) => void;
   setSlot: (index: number, id: string | null) => void;
-  assignNewWorktreeSlot: (id: string) => void;
+  setCockpitWorktree: (id: string | null) => void;
+  placeNewEntity: (id: string, view: "cockpit" | "worktrees" | "calm") => void;
   scratchTerminals: ScratchTerminal[];
   scratchSeq: number;
   addScratch: () => string;
@@ -67,7 +68,11 @@ export const useSettings = create<SettingsState>((set, get) => ({
       worktrees: c.worktrees.map((w) => (w.id === id ? { ...w, ...patch } : w)),
     })),
   removeWorktree: (id) => {
-    get().setCockpit((c) => ({ ...c, worktrees: c.worktrees.filter((w) => w.id !== id) }));
+    get().setCockpit((c) => ({
+      ...c,
+      worktrees: c.worktrees.filter((w) => w.id !== id),
+      cockpitWorktreeId: c.cockpitWorktreeId === id ? undefined : c.cockpitWorktreeId,
+    }));
     set((st) => ({ slots: clearEntity(st.slots, id) }));
   },
   // To-do items persist in cockpit.json; ids are random so they survive restarts without a counter.
@@ -85,23 +90,29 @@ export const useSettings = create<SettingsState>((set, get) => ({
     set((st) => ({ slotCount: n, slots: hideSlotsBeyond(st.slots, n) }));
     get().setCockpit((c) => ({ ...c, preferences: { ...c.preferences, panes: n } }));
   },
-  assignNewWorktreeSlot: (id) => set((st) => ({ slots: assignNewWorktree(st.slots, id) })),
-  // Scratch terminals are session-only single-shell entities; a monotonic seq keeps ids/titles unique across removals.
+  // Persisted Cockpit-view right-column slot (omit from JSON when cleared).
+  setCockpitWorktree: (id) => get().setCockpit((c) => ({ ...c, cockpitWorktreeId: id ?? undefined })),
+  // View-dependent placement of a newly-created worktree/scratch (see spec).
+  placeNewEntity: (id, view) => {
+    if (view === "cockpit") {
+      get().setCockpit((c) => ({ ...c, cockpitWorktreeId: id }));
+      set((st) => ({ slots: fillFreeSlot(st.slots, id, st.slotCount) }));
+    } else {
+      set((st) => ({ slots: assignNewWorktree(st.slots, id, st.slotCount) }));
+    }
+  },
+  // Scratch terminals are session-only single-shell entities; a monotonic seq keeps ids/titles unique.
+  // Creation only — placement into a slot is placeNewEntity's job (view-dependent).
   addScratch: () => {
     const n = get().scratchSeq + 1;
     const id = `scratch-${n}`;
-    set((st) => ({
-      scratchSeq: n,
-      scratchTerminals: [...st.scratchTerminals, { id, title: `Scratch ${n}` }],
-      slots: assignNewWorktree(st.slots, id),
-    }));
+    set((st) => ({ scratchSeq: n, scratchTerminals: [...st.scratchTerminals, { id, title: `Scratch ${n}` }] }));
     return id;
   },
-  removeScratch: (id) =>
-    set((st) => ({
-      scratchTerminals: st.scratchTerminals.filter((s) => s.id !== id),
-      slots: clearEntity(st.slots, id),
-    })),
+  removeScratch: (id) => {
+    get().setCockpit((c) => ({ ...c, cockpitWorktreeId: c.cockpitWorktreeId === id ? undefined : c.cockpitWorktreeId }));
+    set((st) => ({ scratchTerminals: st.scratchTerminals.filter((s) => s.id !== id), slots: clearEntity(st.slots, id) }));
+  },
   // Known repos the deduce agent may pick from; each carries an optional saved host default. add dedupes by path.
   addKnownRepo: (path) =>
     get().setCockpit((c) =>

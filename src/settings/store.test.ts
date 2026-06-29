@@ -90,10 +90,39 @@ describe("worktree slots (session state)", () => {
     expect(useSettings.getState().slots).toEqual([null, "wt-1", null]);
   });
 
-  it("assignNewWorktreeSlot fills the first empty slot", () => {
-    useSettings.setState({ slots: ["wt-1", null, null] });
-    useSettings.getState().assignNewWorktreeSlot("wt-2");
+  it("placeNewEntity on worktrees view fills the first empty slot; cockpit untouched", () => {
+    useSettings.setState({ slots: ["wt-1", null, null], slotCount: 3 });
+    useSettings.getState().placeNewEntity("wt-2", "worktrees");
     expect(useSettings.getState().slots).toEqual(["wt-1", "wt-2", null]);
+    expect(useSettings.getState().cockpit.cockpitWorktreeId).toBeUndefined();
+  });
+
+  it("placeNewEntity on worktrees view evicts the last visible slot when full", () => {
+    useSettings.setState({ slots: ["a", "b", "c"], slotCount: 3 });
+    useSettings.getState().placeNewEntity("d", "worktrees");
+    expect(useSettings.getState().slots).toEqual(["a", "b", "d"]);
+  });
+
+  it("placeNewEntity on cockpit view sets the cockpit slot and fills a free Worktrees slot", () => {
+    useSettings.setState({ slots: ["wt-1", null, null], slotCount: 3, cockpit: structuredClone(baseCockpit) });
+    useSettings.getState().placeNewEntity("wt-9", "cockpit");
+    expect(useSettings.getState().cockpit.cockpitWorktreeId).toBe("wt-9");
+    expect(useSettings.getState().slots).toEqual(["wt-1", "wt-9", null]);
+  });
+
+  it("placeNewEntity on cockpit view leaves the Worktrees view unchanged when full (no eviction)", () => {
+    useSettings.setState({ slots: ["a", "b", "c"], slotCount: 3, cockpit: structuredClone(baseCockpit) });
+    useSettings.getState().placeNewEntity("wt-9", "cockpit");
+    expect(useSettings.getState().cockpit.cockpitWorktreeId).toBe("wt-9");
+    expect(useSettings.getState().slots).toEqual(["a", "b", "c"]);
+  });
+
+  it("setCockpitWorktree sets and clears the persisted slot", () => {
+    useSettings.setState({ cockpit: structuredClone(baseCockpit) });
+    useSettings.getState().setCockpitWorktree("wt-5");
+    expect(useSettings.getState().cockpit.cockpitWorktreeId).toBe("wt-5");
+    useSettings.getState().setCockpitWorktree(null);
+    expect(useSettings.getState().cockpit.cockpitWorktreeId).toBeUndefined();
   });
 
   it("removeWorktree clears it from its slot", () => {
@@ -103,20 +132,29 @@ describe("worktree slots (session state)", () => {
     expect(useSettings.getState().cockpit.worktrees).toHaveLength(0);
   });
 
-  it("addScratch creates a scratch entity and auto-displays it in a slot", () => {
+  it("removeWorktree clears it from the cockpit slot too", () => {
+    useSettings.setState({ cockpit: { ...structuredClone(baseCockpit), worktrees: [sampleWt], cockpitWorktreeId: "wt-1" }, slots: ["wt-1", null, null] });
+    useSettings.getState().removeWorktree("wt-1");
+    expect(useSettings.getState().cockpit.cockpitWorktreeId).toBeUndefined();
+  });
+
+  it("addScratch creates a scratch entity without assigning a slot", () => {
     const id = useSettings.getState().addScratch();
     const st = useSettings.getState();
     expect(id).toBe("scratch-1");
     expect(st.scratchTerminals).toEqual([{ id: "scratch-1", title: "Scratch 1" }]);
-    expect(st.slots[0]).toBe("scratch-1");
+    expect(st.slots).toEqual([null, null, null]); // placement is placeNewEntity's job now
   });
 
-  it("removeScratch drops the entity and clears its slot", () => {
+  it("removeScratch drops the entity and clears its slot (and the cockpit slot)", () => {
     const id = useSettings.getState().addScratch();
+    useSettings.getState().setSlot(0, id);
+    useSettings.getState().setCockpitWorktree(id);
     useSettings.getState().removeScratch(id);
     const st = useSettings.getState();
     expect(st.scratchTerminals).toEqual([]);
     expect(st.slots).toEqual([null, null, null]);
+    expect(st.cockpit.cockpitWorktreeId).toBeUndefined();
   });
 
   it("init seeds slotCount from preferences.panes", () => {
