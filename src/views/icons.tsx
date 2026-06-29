@@ -68,13 +68,12 @@ export function BinIcon() {
   );
 }
 
-// Broom: diagonal handle into a flared brush head with bristles (Wipe — sweeps the branch away too).
-export function BroomIcon() {
+// Ghost: domed body with a wavy hem + two eyes (Wipe — the worktree and branch vanish without a trace).
+export function GhostIcon() {
   return (
     <svg viewBox="0 0 16 16" {...base} aria-hidden="true">
-      <path d="M13.5 2.5 7 9" />
-      <path d="M8.2 7.3 4 11.5l.6 1.8 6-2.4z" />
-      <path d="M5.2 12.2l.4 1.3M7 11.5l.4 1.4M8.8 10.8l.4 1.3" />
+      <path d="M3.2 13V7.5a4.8 4.8 0 0 1 9.6 0V13l-1.6-1.2L9.6 13 8 11.8 6.4 13 4.8 11.8z" />
+      <path d="M6.3 7h.01M9.7 7h.01" />
     </svg>
   );
 }

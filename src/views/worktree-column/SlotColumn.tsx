@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useSettings } from "../../settings/store";
 import { makePtyId } from "../../worktrees/ptyId";
 import { resolveSlotEntity } from "../slots";
-import { GearIcon, CloseIcon, PauseIcon, BinIcon, BroomIcon } from "../icons";
+import { GearIcon, CloseIcon, PauseIcon, BinIcon, GhostIcon } from "../icons";
 import { WorktreeBody } from "./WorktreeBody";
 import { ScratchBody } from "./ScratchBody";
 import { TeardownConfirm } from "./TeardownConfirm";
@@ -72,7 +72,7 @@ export function SlotColumn({ value, onSelect, variant = "full" }: { value: strin
                   <>
                     <button onClick={pauseActive}><PauseIcon />Pause</button>
                     <button className="wt-col__danger" onClick={() => { setConfirm("delete"); setMenuOpen(false); }}><BinIcon />Delete</button>
-                    <button className="wt-col__danger" onClick={() => { setConfirm("wipe"); setMenuOpen(false); }}><BroomIcon />Wipe</button>
+                    <button className="wt-col__danger" onClick={() => { setConfirm("wipe"); setMenuOpen(false); }}><GhostIcon />Wipe</button>
                   </>
                 ) : (
                   <button className="wt-col__danger" onClick={deleteScratch}><BinIcon />Delete</button>
