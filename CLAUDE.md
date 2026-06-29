@@ -117,9 +117,11 @@ renders them. Getting this one pattern right makes the Nth integration mechanica
   newest); spawns a login shell; `host` and `claude` roles autostart their
   commands on first attach.
 - **Git provider** (`src-tauri/src/worktree.rs`): runs real `git worktree add`
-  for existing or new branches; managed root is `~/CockpitWorktrees/<repo>/<name>`;
-  remove drops the model and kills PTYs but does **not** delete the directory on
-  disk (preserves in-progress work).
+  for existing or new branches; managed root is `~/CockpitWorktrees/<repo>/<name>`.
+  Teardown is real git cleanup now (see the four-action teardown note below): `remove_worktree`
+  runs `git worktree remove [--force]` (with a `git worktree prune` fallback when the dir is
+  already gone), `delete_branch` runs `git branch -D` (local only — never touches the remote),
+  and `worktree_status` probes `git status --porcelain` for the dirty-confirm dialog.
 - **Worktree composite tile** lives in `src/tiles/worktree/`: dropdown of recent
   worktrees, collapsible create-form, 3 xterm.js terminals (host / git / claude),
   editable links, status toggle. The `worktrees` array in `cockpit.json` is the
@@ -236,6 +238,29 @@ a free slot else replaces the last *visible* slot, Cockpit untouched. New pure h
 `visibleCount`-aware `assignNewWorktree`; `removeWorktree`/`removeScratch` clear `cockpitWorktreeId` too; `addScratch` is
 create-only (placement is `placeNewEntity`'s job). Right column is `500px` wide. GUI-approved. Spec/plan:
 `docs/superpowers/{specs,plans}/2026-06-29-cockpit-worktree-column*`.
+
+✅ **Worktree teardown actions (Close/Pause/Delete/Wipe) — complete & merged to `main`. Fixes a major bug.** The
+slot column's old `Hide`/`Delete` never ran `git worktree remove`, so git's `.git/worktrees/<ref>` registration
+survived and the branch stayed checked out there — uncheckoutable anywhere else. The gear menu now has **four
+cumulative actions**, each removing one more attached thing: **Close** (unassign slot) ⊂ **Pause** (+ kill the 3
+PTYs; keep model/dir/branch, re-selectable) ⊂ **Delete** (+ `git worktree remove [--force]` + drop model; **branch
+kept**) ⊂ **Wipe** (+ `git branch -D` — **local branch only, remote untouched**). Scratch entities get only
+Close + Delete (no git). **Delete/Wipe open `TeardownConfirm`** (reuses `<Modal>`), which probes dirtiness via
+`worktree_status` (`git status --porcelain`; missing dir → `{exists:false,dirty:false}`, git error on an existing
+dir → `dirty:true` safe default), warns if dirty, and **force-removes only on confirm** (Confirm disabled until the
+probe returns; scrim-dismiss blocked while busy). Three new Rust commands in `worktree.rs` (`worktree_status`,
+`remove_worktree`, `delete_branch`) with pure tested arg-builders (`worktree_remove_args`, `delete_branch_args`);
+`remove_worktree` falls back to `git worktree prune` when the dir is already gone (deregisters the stale entry — the
+core fix). Frontend: typed `api.ts` wrappers (`removeWorktreeGit` named to avoid colliding with the store's
+model-only `removeWorktree`), a **dependency-injected `teardownWorktree` helper** in `src/worktrees/teardown.ts`
+(no React — unit-tested for ordering [PTYs killed before remove] and error handling [remove failure keeps the model
+& propagates; branch-delete failure is a non-fatal warning, model still dropped]). **Icons:** new shared SVG glyphs
+in `views/icons.tsx` — Close ✕ · Pause ∥ · Delete 🗑 (Bin) · Wipe 👻 (Ghost); the menu rows gained roomy clickable
+padding. **`GearIcon` was an 8-ray sun, not a cog** — replaced with a true toothed gear (this was the "brightness
+icon" across the top banner + slot column); the Slack tile's unicode `⚙` switched to the same shared `GearIcon` so
+all three settings affordances match. **Wrap-up:** force-removed 5 pre-existing orphaned worktrees (branches
+preserved) so we start clean. 67 Rust + 74 JS tests green; builds clean. **GUI-approved.** Spec:
+`docs/superpowers/specs/2026-06-29-worktree-teardown-actions-design.md`.
 
 **Next / resuming work — read `docs/ROADMAP.md` first.** It is the single prioritized backlog, split into
 **main build sub-projects** (the big sequential arc — sub-project 5 onward: Linear tile, then GitHub/Calendar
