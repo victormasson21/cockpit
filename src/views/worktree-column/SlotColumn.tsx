@@ -11,10 +11,10 @@ import "./WorktreeColumn.css";
 
 const WORKTREE_ROLES = ["git", "host", "claude"] as const;
 
-export function SlotColumn({ slotIndex, variant = "full" }: { slotIndex: number; variant?: "full" | "calm" }) {
-  const { cockpit, slots, setSlot, removeWorktree, removeScratch, scratchTerminals } = useSettings();
+export function SlotColumn({ value, onSelect, variant = "full" }: { value: string | null; onSelect: (id: string | null) => void; variant?: "full" | "calm" }) {
+  const { cockpit, removeWorktree, removeScratch, scratchTerminals } = useSettings();
   const ongoing = cockpit.worktrees.filter((w) => w.status === "ongoing");
-  const activeId = slots[slotIndex];
+  const activeId = value;
   const entity = resolveSlotEntity(activeId, cockpit.worktrees, scratchTerminals);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -39,7 +39,7 @@ export function SlotColumn({ slotIndex, variant = "full" }: { slotIndex: number;
       <div className="wt-col__header">
         <span className={`wt-col__icon wt-col__icon--${iconKind}${attention ? " wt-col__icon--attention" : ""}`} aria-hidden />
         <div className="wt-col__picker-wrap">
-          <select className="wt-col__picker" value={activeId ?? ""} onChange={(e) => setSlot(slotIndex, e.target.value || null)}>
+          <select className="wt-col__picker" value={activeId ?? ""} onChange={(e) => onSelect(e.target.value || null)}>
             <option value="">Select…</option>
             <optgroup label="Worktrees">
               {ongoing.map((w) => {
@@ -61,7 +61,7 @@ export function SlotColumn({ slotIndex, variant = "full" }: { slotIndex: number;
             <button className="icon-btn wt-col__gear" aria-label="column settings" onClick={() => setMenuOpen((o) => !o)}><GearIcon /></button>
             {menuOpen && (
               <div className="wt-col__menu-pop" onMouseLeave={() => setMenuOpen(false)}>
-                <button onClick={() => { setSlot(slotIndex, null); setMenuOpen(false); }}>Hide</button>
+                <button onClick={() => { onSelect(null); setMenuOpen(false); }}>Hide</button>
                 <button className="wt-col__danger" onClick={deleteActive}>Delete</button>
               </div>
             )}

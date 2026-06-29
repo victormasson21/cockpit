@@ -4,11 +4,13 @@ import { useSettings } from "../settings/store";
 import "./WorktreesView.css";
 
 export function WorktreesView() {
+  const slots = useSettings((s) => s.slots);
   const slotCount = useSettings((s) => s.slotCount);
+  const setSlot = useSettings((s) => s.setSlot);
   return (
     <div className="wt-view">
       {Array.from({ length: slotCount }, (_, i) => (
-        <SlotColumn key={i} slotIndex={i} />
+        <SlotColumn key={i} value={slots[i]} onSelect={(id) => setSlot(i, id)} />
       ))}
     </div>
   );
