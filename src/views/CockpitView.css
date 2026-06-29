@@ -5,5 +5,5 @@
 .cockpit-view__center { flex: 1; display: flex; gap: var(--space-3); align-items: flex-start; }
 .cockpit-view__center > :first-child { flex: 2; }
 .cockpit-view__center > :last-child { flex: 1; }
-.cockpit-view__worktree { flex: 0 0 440px; display: flex; flex-direction: column; min-height: 0; }
+.cockpit-view__worktree { flex: 0 0 500px; display: flex; flex-direction: column; min-height: 0; }
 .cockpit-view__worktree > * { flex: 1; min-height: 0; }
