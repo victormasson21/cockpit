@@ -7,28 +7,33 @@ import { resolveSlotEntity } from "../slots";
 import { GearIcon } from "../icons";
 import { WorktreeBody } from "./WorktreeBody";
 import { ScratchBody } from "./ScratchBody";
+import { TeardownConfirm } from "./TeardownConfirm";
+import { killWorktreePtys } from "../../worktrees/teardown";
 import "./WorktreeColumn.css";
 
-const WORKTREE_ROLES = ["git", "host", "claude"] as const;
-
 export function SlotColumn({ value, onSelect, variant = "full" }: { value: string | null; onSelect: (id: string | null) => void; variant?: "full" | "calm" }) {
-  const { cockpit, removeWorktree, removeScratch, scratchTerminals } = useSettings();
+  const { cockpit, removeScratch, scratchTerminals } = useSettings();
   const ongoing = cockpit.worktrees.filter((w) => w.status === "ongoing");
   const activeId = value;
   const entity = resolveSlotEntity(activeId, cockpit.worktrees, scratchTerminals);
   const [menuOpen, setMenuOpen] = useState(false);
+  // Delete/Wipe open a confirmation dialog (worktree only); state is local to each column instance.
+  const [confirm, setConfirm] = useState<"delete" | "wipe" | null>(null);
 
-  // deleteActive: stop the entity's PTY(s), then drop the model (the store also clears it from this slot).
-  const deleteActive = async () => {
-    if (!entity) return;
+  // Pause: kill the worktree's processes and unassign the slot; keep model + dir + branch (re-selectable).
+  const pauseActive = async () => {
+    if (entity?.kind !== "worktree") return;
     setMenuOpen(false);
-    if (entity.kind === "worktree") {
-      for (const role of WORKTREE_ROLES) await invoke("pty_kill", { ptyId: makePtyId(entity.worktree.id, role) });
-      removeWorktree(entity.worktree.id);
-    } else {
-      await invoke("pty_kill", { ptyId: makePtyId(entity.scratch.id, "shell") });
-      removeScratch(entity.scratch.id);
-    }
+    await killWorktreePtys(entity.worktree.id);
+    onSelect(null);
+  };
+
+  // Scratch Delete: stop the single shell PTY, then drop the session-only entity (the store clears the slot).
+  const deleteScratch = async () => {
+    if (entity?.kind !== "scratch") return;
+    setMenuOpen(false);
+    await invoke("pty_kill", { ptyId: makePtyId(entity.scratch.id, "shell") });
+    removeScratch(entity.scratch.id);
   };
 
   const attention = false; // stub: live "Claude is calling" detection deferred to a provider sub-project.
@@ -61,8 +66,17 @@ export function SlotColumn({ value, onSelect, variant = "full" }: { value: strin
             <button className="icon-btn wt-col__gear" aria-label="column settings" onClick={() => setMenuOpen((o) => !o)}><GearIcon /></button>
             {menuOpen && (
               <div className="wt-col__menu-pop" onMouseLeave={() => setMenuOpen(false)}>
-                <button onClick={() => { onSelect(null); setMenuOpen(false); }}>Hide</button>
-                <button className="wt-col__danger" onClick={deleteActive}>Delete</button>
+                {/* Close ⊂ Pause ⊂ Delete ⊂ Wipe — each removes one more attached thing. Scratch has no git. */}
+                <button onClick={() => { onSelect(null); setMenuOpen(false); }}>Close</button>
+                {entity.kind === "worktree" ? (
+                  <>
+                    <button onClick={pauseActive}>Pause</button>
+                    <button className="wt-col__danger" onClick={() => { setConfirm("delete"); setMenuOpen(false); }}>Delete</button>
+                    <button className="wt-col__danger" onClick={() => { setConfirm("wipe"); setMenuOpen(false); }}>Wipe</button>
+                  </>
+                ) : (
+                  <button className="wt-col__danger" onClick={deleteScratch}>Delete</button>
+                )}
               </div>
             )}
           </div>
@@ -76,6 +90,17 @@ export function SlotColumn({ value, onSelect, variant = "full" }: { value: strin
         <WorktreeBody key={entity.worktree.id} worktree={entity.worktree} variant={variant} />
       ) : (
         <ScratchBody key={entity.scratch.id} scratchId={entity.scratch.id} />
+      )}
+
+      {confirm && entity?.kind === "worktree" && (
+        <TeardownConfirm
+          worktree={entity.worktree}
+          action={confirm}
+          onClose={() => setConfirm(null)}
+          // removeWorktree (inside teardown) already clears the slot; onSelect(null) covers the
+          // Cockpit single-column case too. A branch-delete warning is non-fatal — log it.
+          onDone={(warning) => { setConfirm(null); onSelect(null); if (warning) console.error(warning); }}
+        />
       )}
     </div>
   );
