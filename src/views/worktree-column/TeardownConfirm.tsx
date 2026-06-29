@@ -47,7 +47,7 @@ export function TeardownConfirm({ worktree, action, onClose, onDone }: {
       </p>
       {status === null && <p className="tc__line">Checking for uncommitted changes…</p>}
       {status?.dirty && <p className="tc__warn">This worktree has uncommitted changes — they will be lost (force remove).</p>}
-      {action === "wipe" && <p className="tc__warn">The branch <code>{worktree.branch}</code> will be permanently deleted.</p>}
+      {action === "wipe" && <p className="tc__warn">The local branch <code>{worktree.branch}</code> will be deleted. (The remote is left untouched.)</p>}
       {action === "delete" && <p className="tc__line">The branch is kept; only the worktree is removed.</p>}
       {error && <div className="tc__error">{error}</div>}
       <div className="tc__actions">

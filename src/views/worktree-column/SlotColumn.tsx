@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useSettings } from "../../settings/store";
 import { makePtyId } from "../../worktrees/ptyId";
 import { resolveSlotEntity } from "../slots";
-import { GearIcon } from "../icons";
+import { GearIcon, CloseIcon, PauseIcon, BinIcon, BroomIcon } from "../icons";
 import { WorktreeBody } from "./WorktreeBody";
 import { ScratchBody } from "./ScratchBody";
 import { TeardownConfirm } from "./TeardownConfirm";
@@ -67,15 +67,15 @@ export function SlotColumn({ value, onSelect, variant = "full" }: { value: strin
             {menuOpen && (
               <div className="wt-col__menu-pop" onMouseLeave={() => setMenuOpen(false)}>
                 {/* Close ⊂ Pause ⊂ Delete ⊂ Wipe — each removes one more attached thing. Scratch has no git. */}
-                <button onClick={() => { onSelect(null); setMenuOpen(false); }}>Close</button>
+                <button onClick={() => { onSelect(null); setMenuOpen(false); }}><CloseIcon />Close</button>
                 {entity.kind === "worktree" ? (
                   <>
-                    <button onClick={pauseActive}>Pause</button>
-                    <button className="wt-col__danger" onClick={() => { setConfirm("delete"); setMenuOpen(false); }}>Delete</button>
-                    <button className="wt-col__danger" onClick={() => { setConfirm("wipe"); setMenuOpen(false); }}>Wipe</button>
+                    <button onClick={pauseActive}><PauseIcon />Pause</button>
+                    <button className="wt-col__danger" onClick={() => { setConfirm("delete"); setMenuOpen(false); }}><BinIcon />Delete</button>
+                    <button className="wt-col__danger" onClick={() => { setConfirm("wipe"); setMenuOpen(false); }}><BroomIcon />Wipe</button>
                   </>
                 ) : (
-                  <button className="wt-col__danger" onClick={deleteScratch}>Delete</button>
+                  <button className="wt-col__danger" onClick={deleteScratch}><BinIcon />Delete</button>
                 )}
               </div>
             )}

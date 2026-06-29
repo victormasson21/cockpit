@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Tile } from "../Tile";
+import { GearIcon } from "../../views/icons";
 import { slackSnapshot, slackRefresh } from "./api";
 import type { SlackSnapshot } from "./types";
 import { relativeTime } from "./time";
@@ -24,7 +25,7 @@ export function SlackTile({ onOpenSettings }: { onOpenSettings: () => void }) {
 
   const rows = sortByRecency(snap.conversations);
   const now = Date.now();
-  const gear = <button className="slack-tile__gear" aria-label="slack settings" onClick={onOpenSettings}>⚙</button>;
+  const gear = <button className="slack-tile__gear" aria-label="slack settings" onClick={onOpenSettings}><GearIcon /></button>;
 
   return (
     <Tile title="SLACK" actions={gear}>
