@@ -126,6 +126,9 @@ pub struct CockpitConfig {
     pub integrations: Integrations,
     #[serde(default)]
     pub todos: Vec<TodoItem>,
+    // The Cockpit view's single right-column worktree slot (persisted; the Worktrees-view slots are session-only).
+    #[serde(rename = "cockpitWorktreeId", default, skip_serializing_if = "Option::is_none")]
+    pub cockpit_worktree_id: Option<String>,
     pub preferences: Preferences,
 }
 
@@ -149,6 +152,7 @@ impl Default for CockpitConfig {
             known_repos: vec![],
             integrations: Integrations::default(),
             todos: vec![],
+            cockpit_worktree_id: None,
             preferences: Preferences { theme: "system".into(), default_view: "main".into(), panes: 3 },
         }
     }
@@ -331,5 +335,19 @@ mod tests {
         assert_eq!(cfg.todos[0].id, "t1");
         assert_eq!(cfg.todos[0].text, "ship it");
         assert_eq!(cfg.todos[0].state, "in_progress");
+    }
+
+    #[test]
+    fn cockpit_without_cockpit_worktree_id_still_loads() {
+        let json = r#"{"version":1,"tiles":[],"worktrees":[],"preferences":{"theme":"system","defaultView":"main"}}"#;
+        let cfg: CockpitConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(cfg.cockpit_worktree_id, None);
+    }
+
+    #[test]
+    fn cockpit_worktree_id_round_trips() {
+        let json = r#"{"version":1,"tiles":[],"worktrees":[],"cockpitWorktreeId":"wt-3","preferences":{"theme":"system","defaultView":"main"}}"#;
+        let cfg: CockpitConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(cfg.cockpit_worktree_id.as_deref(), Some("wt-3"));
     }
 }
