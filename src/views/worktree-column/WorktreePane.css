@@ -7,6 +7,13 @@
 .wt-pane--closed { flex: 0 0 auto; }
 .wt-pane--closed .wt-pane__body { display: none; }
 
+/* needs-attention: warm reddish border + glow (a Claude/scratch pane waiting for you). */
+.wt-pane--attention {
+  border-color: var(--attention-warm);
+  box-shadow: 0 0 0 1px var(--attention-warm),
+              0 0 24px 5px rgba(var(--attention-warm-rgb), 0.45);
+}
+
 .wt-pane__header {
   display: flex; align-items: center; gap: var(--space-2);
   padding: var(--space-1) var(--space-2);

@@ -36,7 +36,10 @@ export function SlotColumn({ value, onSelect, variant = "full" }: { value: strin
     removeScratch(entity.scratch.id);
   };
 
-  const attention = false; // stub: live "Claude is calling" detection deferred to a provider sub-project.
+  // Tint the column icon when this slot's attention-bearing pane (worktree's claude / scratch's shell) bells.
+  const attnPtyId = entity?.kind === "worktree" ? makePtyId(entity.worktree.id, "claude")
+    : entity?.kind === "scratch" ? makePtyId(entity.scratch.id, "shell") : null;
+  const attention = useSettings((s) => (attnPtyId ? Boolean(s.attention[attnPtyId]) : false));
   const iconKind = entity?.kind === "scratch" ? "terminal" : "branch"; // scratch → terminal glyph; worktree & empty slots → branch.
 
   return (

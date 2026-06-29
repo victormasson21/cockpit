@@ -34,6 +34,10 @@ interface SettingsState {
   scratchSeq: number;
   addScratch: () => string;
   removeScratch: (id: string) => void;
+  // Session-only "needs attention" set, keyed by ptyId (presence = highlight). Not persisted.
+  attention: Record<string, true>;
+  markAttention: (ptyId: string) => void;
+  clearAttention: (ptyId: string) => void;
 }
 
 // Debounce disk writes so drags/keystrokes don't thrash the filesystem.
@@ -54,6 +58,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
   slotCount: SLOT_COUNT,
   scratchTerminals: [],
   scratchSeq: 0,
+  attention: {},
   init: (s) => set({ cockpit: s.cockpit, layout: s.layout, loaded: true, slots: initSlots(s.cockpit.worktrees), slotCount: s.cockpit.preferences.panes ?? SLOT_COUNT }),
   setCockpit: (next) => {
     set((st) => ({ cockpit: typeof next === "function" ? next(st.cockpit) : next }));
@@ -113,6 +118,15 @@ export const useSettings = create<SettingsState>((set, get) => ({
     get().setCockpit((c) => ({ ...c, cockpitWorktreeId: c.cockpitWorktreeId === id ? undefined : c.cockpitWorktreeId }));
     set((st) => ({ scratchTerminals: st.scratchTerminals.filter((s) => s.id !== id), slots: clearEntity(st.slots, id) }));
   },
+  // Attention highlight (session-only): a pane bells -> mark; user focuses/types in it -> clear.
+  markAttention: (ptyId) => set((st) => ({ attention: { ...st.attention, [ptyId]: true } })),
+  // No-op (same object) when absent, so clearing an unmarked pane never triggers a re-render.
+  clearAttention: (ptyId) =>
+    set((st) => {
+      if (!st.attention[ptyId]) return st;
+      const { [ptyId]: _, ...rest } = st.attention;
+      return { attention: rest };
+    }),
   // Known repos the deduce agent may pick from; each carries an optional saved host default. add dedupes by path.
   addKnownRepo: (path) =>
     get().setCockpit((c) =>
