@@ -16,7 +16,7 @@
 }
 .wt-col__icon--branch { -webkit-mask-image: url("../../assets/icons/branch.png"); mask-image: url("../../assets/icons/branch.png"); }
 .wt-col__icon--terminal { -webkit-mask-image: url("../../assets/icons/terminal.png"); mask-image: url("../../assets/icons/terminal.png"); }
-.wt-col__icon--attention { background: var(--attention); }
+.wt-col__icon--attention { background: var(--attention-warm); }
 
 /* heading-style picker: native select stripped to a bold title + caret, sized to its content */
 .wt-col__picker-wrap { display: inline-flex; align-items: center; min-width: 0; flex: 0 1 auto; }
@@ -86,7 +86,7 @@
 .wt-col__path { padding: 0 var(--space-3) var(--space-2); color: var(--text-muted); font-family: var(--font-mono); font-size: 11px; }
 .wt-col__panes { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--space-2); padding: 0 var(--space-3) var(--space-2); }
 .wt-col__empty { padding: var(--space-4); color: var(--text-muted); }
-.wt-attention { color: var(--accent-fg); background: var(--attention); border-radius: var(--radius-sm); padding: 1px 6px; font-size: 10px; font-weight: 700; }
+.wt-attention { color: var(--bg); background: var(--attention-warm); border-radius: var(--radius-sm); padding: 1px 6px; font-size: 10px; font-weight: 700; }
 
 /* Teardown confirm dialog (rendered inside <Modal>): identity line, dirty/wipe warnings, actions row. */
 .tc__line { color: var(--text-secondary); font-size: 13px; margin: 0 0 var(--space-2); }

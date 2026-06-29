@@ -6,7 +6,6 @@ import { WorktreePane } from "./WorktreePane";
 import { LinksList } from "../../tiles/worktree/LinksList";
 
 export function WorktreeBody({ worktree, variant }: { worktree: Worktree; variant: "full" | "calm" }) {
-  const attention = false; // stub: live "Claude is calling" detection deferred to a provider sub-project.
   return (
     // Re-keyed by id upstream so switching the picker remounts panes (detach old, attach new) without killing PTYs.
     <div className="wt-col__body">
@@ -33,10 +32,10 @@ export function WorktreeBody({ worktree, variant }: { worktree: Worktree; varian
             <WorktreePane title="git" icon={<span className="wt-ico wt-ico--branch" aria-hidden />} worktreeId={worktree.id} role="git" cwd={worktree.worktreePath} />
           </>
         )}
+        {/* attention highlight (border/glow + badge) is owned by WorktreePane via the live store. */}
         <WorktreePane
           title="Claude Code" icon={<span className="wt-ico wt-ico--claude" aria-hidden />}
           worktreeId={worktree.id} role="claude" cwd={worktree.worktreePath} autostartCmd="claude"
-          badge={attention ? <span className="wt-attention">Attention</span> : null}
         />
       </div>
     </div>

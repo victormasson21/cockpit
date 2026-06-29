@@ -14,8 +14,26 @@ The terminals are the heart; integrations are panels around them.
 - **Smart new-worktree** — describe what you want to work on; Cockpit deduces the
   repo, branch, start command and dev URL. Paste a **Linear ticket**, **GitHub
   PR/issue**, or **Slack permalink** and it resolves the source and stages a link.
+- **Attention highlight** — when Claude Code (in a worktree's Claude pane or a scratch
+  terminal) rings the terminal bell to ask for you, the pane lights up with a warm glow
+  until you type a response. Requires a one-time Claude setup (below).
 - **Panel system** — an extensible provider/panel pattern so integrations can be
   added one at a time without re-architecting.
+
+## Claude Code setup
+
+The attention highlight detects Claude Code's **terminal bell**. For it to fire, set the
+notification channel in `~/.claude/settings.json` (one-time, applies to all your Claude
+sessions):
+
+```json
+{ "preferredNotifChannel": "terminal_bell" }
+```
+
+Claude then writes a bell (`\x07`) when it needs you (permission prompts / input needed);
+Cockpit highlights that pane. Note Claude rings after a short idle interval, not the
+instant a prompt appears — so expect a brief delay. Without this setting (default
+`"auto"`), Claude sends no bell in Cockpit's terminal and no pane will highlight.
 
 ## Stack
 

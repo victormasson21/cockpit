@@ -16,6 +16,8 @@
   --accent: #2dd4bf;
   --accent-fg: #04221d;
   --attention: #f5a623;
+  --attention-warm: #ef7a5f;          /* warm coral-red for the "needs attention" pane glow: "look here", not "error" */
+  --attention-warm-rgb: 239, 122, 95; /* same colour as rgb channels, for the glow's box-shadow alpha */
   --danger: #f0556d;
   --ok: #3fb950;
   --info: #4c8bf5;
