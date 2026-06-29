@@ -7,11 +7,10 @@ import { useSettings } from "../settings/store";
 
 type Mode = "deduce" | "existing";
 
-export function NewWorktreeModal({ initialMode = "deduce", onClose }: { initialMode?: Mode; onClose: () => void }) {
-  // TODO(Task 5): thread the real active view via prop; "worktrees" is a temporary shim so the build stays green.
+export function NewWorktreeModal({ initialMode = "deduce", view, onClose }: { initialMode?: Mode; view: "cockpit" | "worktrees" | "calm"; onClose: () => void }) {
   const { placeNewEntity } = useSettings();
   const [mode, setMode] = useState<Mode>(initialMode);
-  const created = (id: string) => { placeNewEntity(id, "worktrees"); onClose(); };
+  const created = (id: string) => { placeNewEntity(id, view); onClose(); };
   return (
     <Modal title="New worktree" onClose={onClose}>
       {/* Mode toggle — the header button sets the initial mode; this lets the user switch without reopening. */}
