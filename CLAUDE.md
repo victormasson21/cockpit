@@ -216,6 +216,27 @@ time and the row links out. **Deferred follow-ups:** resolve a display name (sta
 design — see spec "Why polling, not Socket Mode"); a few hardcoded CSS values; skip per-conversation `info` errors for
 stale watched ids.
 
+✅ **To Do + Timer tiles (+ shared `<Tile>` shell) — complete & merged to `main`.** A reusable **`<Tile>`** chrome shell
+(`src/tiles/Tile.tsx` — header `icon · TITLE · actions` over a bordered body; `SlackTile` was refactored onto it) now
+backs all tiles. Two local, no-auth **center-column** widgets: a **Timer** (`src/tiles/timer/` — a session-only countdown,
+25-min default, Start/Pause/Reset, `formatTime` tested; nothing persisted) and a **To Do** list (`src/tiles/todo/` —
+3-state items `todo → in_progress → done` that **cycle on click and wrap**, sections hidden when empty, add/delete;
+`nextState`/`groupByState` tested). To Do **persists** in `cockpit.json` via a new `todos: TodoItem[]` field
+(`{ id, text, state }`, ids `crypto.randomUUID()`, `#[serde(default)]` back-compat); store actions `addTodo`/`cycleTodo`/`removeTodo`.
+Spec/plan: `docs/superpowers/{specs,plans}/2026-06-27-todo-and-timer-tiles*`.
+
+✅ **Cockpit worktree column — complete & merged to `main`.** The Cockpit view's **right column** is now a worktree pane,
+reusing `SlotColumn` (its selection was refactored to be **prop-driven** — `value` + `onSelect` — so one component backs
+the Worktrees view's session slots, the Calm view, and the Cockpit view's **persisted** slot). New persisted
+`cockpitWorktreeId` field in `cockpit.json` (`#[serde(default)]`, omitted when cleared); store action `setCockpitWorktree`.
+Empty until assigned (the existing `SlotColumn` empty body). **View-dependent placement** (`placeNewEntity(id, view)`, the
+active `view` threaded from `App` into the Terminal button + `NewWorktreeModal`): creating on the **Cockpit** view sets the
+right-column slot (replace) + fills a free Worktrees slot if any (no eviction); creating on the **Worktrees/Calm** view fills
+a free slot else replaces the last *visible* slot, Cockpit untouched. New pure helper `fillFreeSlot` (no-eviction) +
+`visibleCount`-aware `assignNewWorktree`; `removeWorktree`/`removeScratch` clear `cockpitWorktreeId` too; `addScratch` is
+create-only (placement is `placeNewEntity`'s job). Right column is `500px` wide. GUI-approved. Spec/plan:
+`docs/superpowers/{specs,plans}/2026-06-29-cockpit-worktree-column*`.
+
 **Next / resuming work — read `docs/ROADMAP.md` first.** It is the single prioritized backlog, split into
 **main build sub-projects** (the big sequential arc — sub-project 5 onward: Linear tile, then GitHub/Calendar
 tiles, reusing the SP4 provider+panel + Keychain seam) and **smaller iterations** (scoped polish/enhancements). When
