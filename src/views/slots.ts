@@ -16,11 +16,19 @@ export function setSlotAt(slots: Slots, index: number, id: string | null): Slots
   return slots.map((s, i) => (i === index ? id : s));
 }
 
-// assignNewWorktree: show a newly-created worktree — fill the first empty slot, or displace the
-// last slot when all are full (the bumped worktree keeps running and stays in the dropdowns).
-export function assignNewWorktree(slots: Slots, id: string): Slots {
-  const empty = slots.indexOf(null);
-  return setSlotAt(slots, empty === -1 ? slots.length - 1 : empty, id);
+// assignNewWorktree: show a newly-created worktree — fill the first empty slot within the visible
+// range, or displace the LAST VISIBLE slot when the visible range is full (the bumped worktree keeps
+// running and stays in the dropdowns). visibleCount defaults to the whole array for legacy callers.
+export function assignNewWorktree(slots: Slots, id: string, visibleCount: number = slots.length): Slots {
+  const empty = slots.slice(0, visibleCount).indexOf(null);
+  return setSlotAt(slots, empty === -1 ? visibleCount - 1 : empty, id);
+}
+
+// fillFreeSlot: place a worktree only if the visible range has a free slot; otherwise leave slots
+// untouched (NO eviction). Used by the Cockpit-view placement branch.
+export function fillFreeSlot(slots: Slots, id: string, visibleCount: number): Slots {
+  const empty = slots.slice(0, visibleCount).indexOf(null);
+  return empty === -1 ? slots : setSlotAt(slots, empty, id);
 }
 
 // clearEntity: drop a deleted entity (worktree or scratch) from every slot referencing it.
