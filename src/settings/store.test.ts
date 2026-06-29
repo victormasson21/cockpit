@@ -146,13 +146,15 @@ describe("worktree slots (session state)", () => {
     expect(st.slots).toEqual([null, null, null]); // placement is placeNewEntity's job now
   });
 
-  it("removeScratch drops the entity and clears its slot", () => {
+  it("removeScratch drops the entity and clears its slot (and the cockpit slot)", () => {
     const id = useSettings.getState().addScratch();
     useSettings.getState().setSlot(0, id);
+    useSettings.getState().setCockpitWorktree(id);
     useSettings.getState().removeScratch(id);
     const st = useSettings.getState();
     expect(st.scratchTerminals).toEqual([]);
     expect(st.slots).toEqual([null, null, null]);
+    expect(st.cockpit.cockpitWorktreeId).toBeUndefined();
   });
 
   it("init seeds slotCount from preferences.panes", () => {
