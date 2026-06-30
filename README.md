@@ -14,11 +14,19 @@ The terminals are the heart; integrations are panels around them.
 - **Smart new-worktree** — describe what you want to work on; Cockpit deduces the
   repo, branch, start command and dev URL. Paste a **Linear ticket**, **GitHub
   PR/issue**, or **Slack permalink** and it resolves the source and stages a link.
+- **Worktree teardown** — a gear menu on each slot offers four cumulative actions:
+  **Close** (unassign the slot) → **Pause** (also kill its terminals, keep the branch) →
+  **Delete** (also `git worktree remove`, branch kept) → **Wipe** (also `git branch -D`,
+  local only). Delete/Wipe confirm first and warn if the worktree is dirty.
 - **Attention highlight** — when Claude Code (in a worktree's Claude pane or a scratch
   terminal) rings the terminal bell to ask for you, the pane lights up with a warm glow
   until you type a response. Requires a one-time Claude setup (below).
-- **Panel system** — an extensible provider/panel pattern so integrations can be
-  added one at a time without re-architecting.
+- **Tiles** — a **Slack unread** tile (watched channels, with preview + relative time;
+  click a row to jump to Slack), plus local **To Do** and **Timer** widgets, all built
+  on a shared `<Tile>` shell.
+- **Panel system** — an extensible provider/panel pattern so integrations (Slack first,
+  then Linear/GitHub/Calendar) can be added one at a time without re-architecting.
+  Tokens live in the macOS Keychain; connect integrations in **Settings → Connections**.
 
 ## Claude Code setup
 
@@ -34,6 +42,17 @@ Claude then writes a bell (`\x07`) when it needs you (permission prompts / input
 Cockpit highlights that pane. Note Claude rings after a short idle interval, not the
 instant a prompt appears — so expect a brief delay. Without this setting (default
 `"auto"`), Claude sends no bell in Cockpit's terminal and no pane will highlight.
+
+## Slack tile setup
+
+The Slack unread tile talks directly to Slack with your own app (no third-party server;
+the token is stored in the macOS Keychain). One-time setup:
+
+1. Create a Slack app at [api.slack.com/apps](https://api.slack.com/apps).
+2. Add the **User Token Scopes** the tile needs (read channels/messages) and a redirect
+   URL of `http://localhost:9000/callback` (Cockpit's loopback OAuth uses ports 9000–9009).
+3. In Cockpit, open **Settings → Connections**, paste the app's client id/secret, then
+   **Connect** to run the OAuth round-trip and pick the channels to watch.
 
 ## Stack
 
