@@ -1,6 +1,6 @@
 /* CockpitView.css — three-column layout: fixed-width left tiles column · flex center widgets · fixed-width right worktree column. */
 .cockpit-view { display: flex; gap: 12px; padding: 12px; height: 100%; box-sizing: border-box; }
-.cockpit-view__tiles { width: 280px; flex: 0 0 280px; display: flex; flex-direction: column; gap: 10px; }
+.cockpit-view__tiles { width: 500px; flex: 0 0 500px; display: flex; flex-direction: column; gap: 10px; }
 .cockpit-view__tiles-label { font-size: 11px; letter-spacing: 0.08em; opacity: 0.5; }
 .cockpit-view__center { flex: 1; display: flex; gap: var(--space-3); align-items: flex-start; }
 .cockpit-view__center > :first-child { flex: 2; }
