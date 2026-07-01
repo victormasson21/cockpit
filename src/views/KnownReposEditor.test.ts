@@ -1,6 +1,6 @@
-// SettingsModal.test.ts — the host-merge rule that keeps a HostConfig complete as fields are edited one at a time.
+// KnownReposEditor.test.ts — the host-merge rule that keeps a HostConfig complete as fields are edited one at a time.
 import { describe, it, expect } from "vitest";
-import { mergeHost } from "./SettingsModal";
+import { mergeHost } from "./KnownReposEditor";
 
 describe("mergeHost", () => {
   it("seeds both fields when there is no existing host", () => {

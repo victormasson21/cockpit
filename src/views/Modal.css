@@ -4,6 +4,8 @@
   width: min(560px, 92vw); max-height: 88vh; display: flex; flex-direction: column;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
 }
+/* Wide variant for the Settings modal's nav-rail + pane layout. */
+.modal__panel--wide { width: min(720px, 94vw); }
 .modal__header { display: flex; align-items: center; padding: var(--space-3); border-bottom: 1px solid var(--border-subtle); }
 .modal__title { font-weight: 700; }
 /* SVG-icon size (1em) + position delta on top of the shared .icon-btn baseline */

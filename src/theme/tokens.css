@@ -51,7 +51,21 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-button { font-family: inherit; }
+/* Button baseline — themed at the baseline like the inputs below, so every button inherits the dark
+   look with no extra classes. Bespoke buttons (.icon-btn, .app__new, .wt-col__picker) set their own
+   background/border and override this by specificity. */
+button {
+  font-family: inherit;
+  background: var(--surface-raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: 0.5; cursor: default; }
 
 /* Form controls — themed at the baseline so every form's input/select/textarea aligns automatically,
    and any future form inherits the look with no extra classes. (xterm's hidden helper textarea is excluded.) */
@@ -89,3 +103,23 @@ textarea:not(.xterm-helper-textarea):focus { outline: none; border-color: var(--
 }
 .icon-btn:hover { color: var(--text); background: var(--border-subtle); }
 input[type="radio"] { accent-color: var(--accent); }
+
+/* Checkboxes — themed at the baseline to match the inputs: surfaced box + border, accent fill + drawn tick when
+   checked. appearance:none is required to restyle the box (accent-color alone can't reshape it), so we draw the tick. */
+input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none;
+  width: 16px; height: 16px; flex: 0 0 auto; margin: 0;
+  background-color: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+input[type="checkbox"]:checked {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  /* dark (--accent-fg) tick centered in the accent box, matching text-on-accent elsewhere */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2 5 8.5 9.5 3.5' fill='none' stroke='%2304221d' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+}
+input[type="checkbox"]:focus { outline: none; border-color: var(--accent); }

@@ -1,0 +1,16 @@
+/* SettingsModal.css — two-column settings layout: left nav rail + active pane. */
+.settings { display: grid; grid-template-columns: 150px 1fr; gap: var(--space-4); align-items: start; }
+
+/* left rail: one item per pane, active gets the accent (mirrors the app segmented-control idiom). */
+.settings__nav { display: flex; flex-direction: column; gap: 2px; }
+.settings__nav-item {
+  background: none; border: none; color: var(--text-secondary);
+  text-align: left; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm);
+  font-size: 13px; cursor: pointer;
+}
+.settings__nav-item:hover { color: var(--text); background: var(--border-subtle); }
+.settings__nav-item--active { background: var(--accent); color: var(--accent-fg); font-weight: 600; }
+.settings__nav-item--active:hover { background: var(--accent); color: var(--accent-fg); }
+
+/* right side: the active pane fills the remaining width. */
+.settings__pane { min-width: 0; }
