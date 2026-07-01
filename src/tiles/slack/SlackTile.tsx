@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Tile } from "../Tile";
-import { GearIcon } from "../../views/icons";
+import { GearIcon, RestartIcon } from "../../views/icons";
 import { slackSnapshot, slackRefresh } from "./api";
 import type { SlackSnapshot } from "./types";
 import { relativeTime } from "./time";
@@ -12,6 +12,14 @@ import "./slack.css";
 
 export function SlackTile({ onOpenSettings }: { onOpenSettings: () => void }) {
   const [snap, setSnap] = useState<SlackSnapshot>({ connected: false, conversations: [] });
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Manual refresh: trigger a poll now; the fresh snapshot arrives via the slack://unread listener.
+  const refresh = async () => {
+    setRefreshing(true);
+    try { await slackRefresh(); } catch { /* ignore */ }
+    setRefreshing(false);
+  };
 
   useEffect(() => {
     let un: (() => void) | undefined;
@@ -25,10 +33,15 @@ export function SlackTile({ onOpenSettings }: { onOpenSettings: () => void }) {
 
   const rows = sortByRecency(snap.conversations);
   const now = Date.now();
-  const gear = <button className="slack-tile__gear" aria-label="slack settings" onClick={onOpenSettings}><GearIcon /></button>;
+  const actions = (
+    <>
+      <button className={`slack-tile__gear${refreshing ? " slack-tile__gear--spin" : ""}`} aria-label="refresh slack" disabled={!snap.connected || refreshing} onClick={refresh}><RestartIcon /></button>
+      <button className="slack-tile__gear" aria-label="slack settings" onClick={onOpenSettings}><GearIcon /></button>
+    </>
+  );
 
   return (
-    <Tile title="SLACK" actions={gear}>
+    <Tile title="SLACK" actions={actions}>
       {!snap.connected ? (
         <button className="slack-tile__cta" onClick={onOpenSettings}>Connect Slack in Settings</button>
       ) : rows.length === 0 ? (

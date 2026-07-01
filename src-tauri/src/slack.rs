@@ -1,5 +1,6 @@
 //! slack.rs — Slack provider: OAuth + Keychain user token + background unread polling, emitted as a slack://unread event stream.
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64};
 use std::sync::{Arc, Mutex};
 use crate::keychain::{KeyringStore, TokenStore};
@@ -73,10 +74,12 @@ pub fn conversation_kind(slack_type: &str) -> &'static str {
     }
 }
 
-// Build a row from a conversations.info object + its recent history messages (newest first).
-// Unread is computed from `last_read`: Slack's conversations.info does NOT return
-// unread_count/unread_count_display, so we count messages strictly newer than last_read.
-pub fn parse_conversation(info: &serde_json::Value, messages: &[serde_json::Value]) -> Option<UnreadConversation> {
+// Build a row from a conversations.info object + its history messages (newest first). The caller
+// fetches history with oldest=last_read, so `messages` already IS the unread set; the ts>last_read
+// filter here is a defensive re-check (Slack's conversations.info gives no reliable unread count).
+// `im_name` is the pre-resolved partner display name for a 1:1 DM (from users.info, cached by the
+// caller); None falls back to the id. Channels/mpim ignore it and use the conversation's own `name`.
+pub fn parse_conversation(info: &serde_json::Value, messages: &[serde_json::Value], im_name: Option<&str>) -> Option<UnreadConversation> {
     let id = info.get("id")?.as_str()?.to_string();
     // `last_read` is the ts of the newest message the user has read; anything after it is unread.
     // ts is fixed-width "epoch.micros" so lexicographic string comparison is correct.
@@ -94,8 +97,13 @@ pub fn parse_conversation(info: &serde_json::Value, messages: &[serde_json::Valu
         "channel"
     };
     let kind = conversation_kind(raw);
-    // Channel name from `name`; DM name resolved later via users.info (Task 5) — fall back to id here.
-    let name = info.get("name").and_then(|v| v.as_str()).unwrap_or(&id).to_string();
+    // 1:1 DM → resolved partner name (else id); channel/mpim → the conversation's own `name`
+    // (group DMs carry Slack's synthetic "mpdm-…" name, used as-is).
+    let name = if raw == "im" {
+        im_name.map(|s| s.to_string()).unwrap_or_else(|| id.clone())
+    } else {
+        info.get("name").and_then(|v| v.as_str()).unwrap_or(&id).to_string()
+    };
     // Newest message (messages[0]) drives the preview text/ts.
     let latest = messages.first();
     let latest_text = latest.and_then(|m| m.get("text")).and_then(|v| v.as_str()).unwrap_or("").to_string();
@@ -118,11 +126,13 @@ pub struct SlackState {
     pub connected: bool,
     pub user_name: Option<String>,
     pub last: SlackSnapshot,
+    // In-memory cache of DM partner user-id → display name, so we resolve each partner only once.
+    pub user_names: HashMap<String, String>,
 }
 
 impl Default for SlackState {
     fn default() -> Self {
-        Self { client_id: None, watched: vec![], connected: false, user_name: None, last: SlackSnapshot::default() }
+        Self { client_id: None, watched: vec![], connected: false, user_name: None, last: SlackSnapshot::default(), user_names: HashMap::new() }
     }
 }
 
@@ -145,13 +155,28 @@ impl Default for SlackManager {
 }
 
 // One authenticated GET to the Slack Web API; treats `ok:false` as an error.
+// On a 429 (rate limited) Slack sends a Retry-After header; we wait once and retry, so a transient
+// throttle becomes a brief pause instead of a dropped conversation + error banner.
 pub fn api_get(token: &str, method: &str, params: &[(&str, &str)]) -> Result<serde_json::Value, String> {
-    let mut req = ureq::get(&format!("https://slack.com/api/{method}"))
-        .set("Authorization", &format!("Bearer {token}"));
-    for (k, v) in params {
-        req = req.query(k, v);
-    }
-    let resp: serde_json::Value = req.call().map_err(|e| e.to_string())?.into_json().map_err(|e| e.to_string())?;
+    let build = || {
+        let mut req = ureq::get(&format!("https://slack.com/api/{method}"))
+            .set("Authorization", &format!("Bearer {token}"));
+        for (k, v) in params {
+            req = req.query(k, v);
+        }
+        req
+    };
+    let resp = match build().call() {
+        Ok(r) => r,
+        // ureq surfaces non-2xx as Error::Status; honor Retry-After on 429 and retry once.
+        Err(ureq::Error::Status(429, r)) => {
+            let wait = r.header("Retry-After").and_then(|s| s.parse::<u64>().ok()).unwrap_or(1).min(30);
+            std::thread::sleep(std::time::Duration::from_secs(wait));
+            build().call().map_err(|e| e.to_string())?
+        }
+        Err(e) => return Err(e.to_string()),
+    };
+    let resp: serde_json::Value = resp.into_json().map_err(|e| e.to_string())?;
     if resp.get("ok").and_then(|v| v.as_bool()).unwrap_or(false) {
         Ok(resp)
     } else {
@@ -233,22 +258,40 @@ pub fn slack_snapshot(manager: State<SlackManager>) -> SlackSnapshot {
     manager.state.lock().unwrap().last.clone()
 }
 
-// List the user's conversations for the picker (names resolved best-effort).
+// Build a picker row from a users.conversations list object. Pure so it's unit-testable. For a 1:1
+// DM the list gives the partner `user` id but no name; we resolve it from the cache (populated by
+// polling) and otherwise fall back to a "@<user-id>" label — no per-DM network call at list time,
+// so opening the picker never bursts. mpim/channel carry their own `name`.
+pub fn list_row(c: &serde_json::Value, user_names: &HashMap<String, String>) -> Option<ConversationMeta> {
+    let id = c.get("id").and_then(|v| v.as_str())?.to_string();
+    let raw = if c.get("is_im").and_then(|v| v.as_bool()).unwrap_or(false) {
+        "im"
+    } else if c.get("is_mpim").and_then(|v| v.as_bool()).unwrap_or(false) {
+        "mpim"
+    } else {
+        "channel"
+    };
+    let name = if raw == "im" {
+        let uid = c.get("user").and_then(|v| v.as_str()).unwrap_or("");
+        user_names.get(uid).cloned().unwrap_or_else(|| uid.to_string())
+    } else {
+        c.get("name").and_then(|v| v.as_str()).unwrap_or(&id).to_string()
+    };
+    Some(ConversationMeta { id, name, kind: raw.to_string() })
+}
+
+// List the user's channels + DMs for the picker (all opt-in). One users.conversations call, no
+// per-DM lookups — DM names come from the cache, filled in as selected DMs get polled.
 #[tauri::command]
 pub fn slack_list_conversations(manager: State<SlackManager>) -> Result<Vec<ConversationMeta>, String> {
     let token = manager.store.get(ACCOUNT_TOKEN)?.ok_or("not connected")?;
     let resp = api_get(&token, "users.conversations", &[("types", "public_channel,private_channel,im,mpim"), ("limit", "200")])?;
-    let mut out = vec![];
-    if let Some(arr) = resp.get("channels").and_then(|v| v.as_array()) {
-        for c in arr {
-            let id = c.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-            let kind = if c.get("is_im").and_then(|v| v.as_bool()).unwrap_or(false) { "im" }
-                else if c.get("is_mpim").and_then(|v| v.as_bool()).unwrap_or(false) { "mpim" }
-                else { "channel" };
-            let name = c.get("name").and_then(|v| v.as_str()).unwrap_or(&id).to_string();
-            out.push(ConversationMeta { id, name, kind: kind.to_string() });
-        }
-    }
+    let names = manager.state.lock().unwrap().user_names.clone();
+    let out = resp
+        .get("channels")
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter_map(|c| list_row(c, &names)).collect())
+        .unwrap_or_default();
     Ok(out)
 }
 
@@ -329,12 +372,33 @@ fn finish_connect(app: &AppHandle, client_id: &str, client_secret: &str, code: &
     }
 }
 
+// Resolve a user's display name via users.info; best-effort (falls back to the id upstream).
+pub fn resolve_user_name(token: &str, user_id: &str) -> Option<String> {
+    let resp = api_get(token, "users.info", &[("user", user_id)]).ok()?;
+    let profile = resp.get("user").and_then(|u| u.get("profile"));
+    profile
+        .and_then(|p| p.get("display_name"))
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .or_else(|| profile.and_then(|p| p.get("real_name")).and_then(|v| v.as_str()).filter(|s| !s.is_empty()))
+        .or_else(|| resp.get("user").and_then(|u| u.get("name")).and_then(|v| v.as_str()))
+        .map(|s| s.to_string())
+}
+
 // Force a one-shot poll (used by slack_refresh / slack_set_watched / on-focus).
+// Polls only the user-selected conversations (channels + DMs) — a small, bounded set — so we never
+// burst past Slack's rate limits. (DMs are opt-in in the picker, not auto-discovered.)
 fn refresh_now(app: &AppHandle, manager: &SlackManager) {
     let token = match manager.store.get(ACCOUNT_TOKEN) { Ok(Some(t)) => t, _ => return };
     let watched = manager.state.lock().unwrap().watched.clone();
-    let snap = poll_once(&token, &watched);
-    manager.state.lock().unwrap().last = snap.clone();
+    // Clone the name cache out, poll (network) without holding the lock, then write the grown cache back.
+    let mut names = manager.state.lock().unwrap().user_names.clone();
+    let snap = poll_once(&token, &watched, &mut names);
+    {
+        let mut st = manager.state.lock().unwrap();
+        st.last = snap.clone();
+        st.user_names = names;
+    }
     let _ = app.emit("slack://unread", snap);
 }
 
@@ -344,21 +408,40 @@ pub fn slack_refresh(app: AppHandle, manager: State<SlackManager>) -> Result<(),
     Ok(())
 }
 
-// Poll each watched conversation: info (unread + name) + history (latest message).
-pub fn poll_once(token: &str, watched: &[String]) -> SlackSnapshot {
+// Poll each conversation: info (unread + name) + history (latest message). For 1:1 DMs, resolve the
+// partner's display name via the `user_names` cache (users.info on a miss).
+pub fn poll_once(token: &str, ids: &[String], user_names: &mut HashMap<String, String>) -> SlackSnapshot {
     let mut conversations = vec![];
     let mut error = None;
-    for id in watched {
+    for id in ids {
         let info = match api_get(token, "conversations.info", &[("channel", id)]) {
             Ok(v) => v.get("channel").cloned().unwrap_or(serde_json::Value::Null),
             Err(e) => { error = Some(e); continue; }
         };
-        // Fetch a recent window; unread is derived by comparing each message ts against last_read.
-        let messages = api_get(token, "conversations.history", &[("channel", id), ("limit", "50")])
+        // Fetch history strictly newer than last_read (oldest=last_read, inclusive=false by default).
+        // This returns *exactly* the unread messages regardless of how old they are — so a message
+        // marked unread far back in the DM is caught, which a fixed recent window would miss.
+        let last_read = info.get("last_read").and_then(|v| v.as_str()).unwrap_or("0");
+        let messages = api_get(token, "conversations.history", &[("channel", id), ("oldest", last_read), ("limit", "200")])
             .ok()
             .and_then(|v| v.get("messages").and_then(|m| m.as_array()).cloned())
             .unwrap_or_default();
-        if let Some(row) = parse_conversation(&info, &messages) {
+        // 1:1 DM: look up (and cache) the partner's display name so the row shows a person, not a U-id.
+        let im_name = if info.get("is_im").and_then(|v| v.as_bool()).unwrap_or(false) {
+            info.get("user").and_then(|v| v.as_str()).and_then(|uid| {
+                if let Some(n) = user_names.get(uid) {
+                    Some(n.clone())
+                } else if let Some(n) = resolve_user_name(token, uid) {
+                    user_names.insert(uid.to_string(), n.clone());
+                    Some(n)
+                } else {
+                    None
+                }
+            })
+        } else {
+            None
+        };
+        if let Some(row) = parse_conversation(&info, &messages, im_name.as_deref()) {
             if row.unread_count > 0 {
                 conversations.push(row);
             }
@@ -450,7 +533,7 @@ mod tests {
             json!({ "text": "still red",      "ts": "1700000000.000200" }),
             json!({ "text": "who's on call",  "ts": "1700000000.000100" }),
         ];
-        let row = parse_conversation(&info, &messages).unwrap();
+        let row = parse_conversation(&info, &messages, None).unwrap();
         assert_eq!(row.id, "C1");
         assert_eq!(row.kind, "channel");
         assert_eq!(row.name, "incidents");
@@ -467,7 +550,7 @@ mod tests {
             json!({ "text": "latest", "ts": "1700000000.000300" }),
             json!({ "text": "older",  "ts": "1700000000.000200" }),
         ];
-        let row = parse_conversation(&info, &messages).unwrap();
+        let row = parse_conversation(&info, &messages, None).unwrap();
         assert_eq!(row.unread_count, 0);
     }
 
@@ -481,17 +564,47 @@ mod tests {
             json!({ "text": "read",  "ts": "1700000000.000200" }),
             json!({ "text": "old",   "ts": "1700000000.000100" }),
         ];
-        assert_eq!(parse_conversation(&info, &messages).unwrap().unread_count, 2);
+        assert_eq!(parse_conversation(&info, &messages, None).unwrap().unread_count, 2);
     }
 
     #[test]
     fn parse_conversation_marks_im_kind() {
         let info = json!({ "id": "D9", "is_im": true, "last_read": "1700000000.000000" });
         let messages = vec![json!({ "text": "hi", "ts": "1700000000.000200" })];
-        let row = parse_conversation(&info, &messages).unwrap();
+        let row = parse_conversation(&info, &messages, None).unwrap();
         assert_eq!(row.kind, "im");
-        assert_eq!(row.name, "D9"); // DM name resolved later; falls back to id
+        assert_eq!(row.name, "D9"); // no resolved name → falls back to id
         assert_eq!(row.unread_count, 1);
+    }
+
+    #[test]
+    fn parse_conversation_uses_resolved_im_name() {
+        // A 1:1 DM with a resolved partner name shows the person, not the D-id.
+        let info = json!({ "id": "D9", "is_im": true, "user": "U123", "last_read": "1700000000.000000" });
+        let messages = vec![json!({ "text": "hi", "ts": "1700000000.000200" })];
+        let row = parse_conversation(&info, &messages, Some("Alice")).unwrap();
+        assert_eq!(row.kind, "im");
+        assert_eq!(row.name, "Alice");
+    }
+
+    #[test]
+    fn list_row_names_channels_and_dms() {
+        let names: HashMap<String, String> = [("U1".to_string(), "Alice".to_string())].into_iter().collect();
+        // channel → own name
+        let ch = json!({ "id": "C1", "name": "general" });
+        let r = list_row(&ch, &names).unwrap();
+        assert_eq!((r.kind.as_str(), r.name.as_str()), ("channel", "general"));
+        // 1:1 DM with a cached partner name → shows the person
+        let im = json!({ "id": "D1", "is_im": true, "user": "U1" });
+        let r = list_row(&im, &names).unwrap();
+        assert_eq!((r.kind.as_str(), r.name.as_str()), ("im", "Alice"));
+        // 1:1 DM without a cached name → falls back to the user id
+        let im2 = json!({ "id": "D2", "is_im": true, "user": "U9" });
+        assert_eq!(list_row(&im2, &names).unwrap().name, "U9");
+        // group DM → carries its own synthetic name
+        let mp = json!({ "id": "G1", "is_mpim": true, "name": "mpdm-a--b-1" });
+        let r = list_row(&mp, &names).unwrap();
+        assert_eq!((r.kind.as_str(), r.name.as_str()), ("mpim", "mpdm-a--b-1"));
     }
 
     #[test]
@@ -506,7 +619,7 @@ mod tests {
     fn parse_conversation_marks_mpim_kind() {
         let info = json!({ "id": "G7", "is_mpim": true, "last_read": "1700000000.000000" });
         let messages = vec![json!({ "text": "x", "ts": "1700000000.000300" })];
-        let row = parse_conversation(&info, &messages).unwrap();
+        let row = parse_conversation(&info, &messages, None).unwrap();
         assert_eq!(row.kind, "mpim");
     }
 

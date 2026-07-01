@@ -5,6 +5,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { useSettings } from "../../settings/store";
 import { slackStatus, slackConnect, slackDisconnect, slackSetCredentials, slackListConversations, slackSetWatched } from "./api";
 import type { SlackStatus, ConversationMeta } from "./types";
+import { filterConversations } from "./watchFilter";
 import "./SlackConnections.css";
 
 export function SlackConnections() {
@@ -14,6 +15,7 @@ export function SlackConnections() {
   const [clientId, setClientId] = useState(slack?.clientId ?? "");
   const [clientSecret, setClientSecret] = useState("");
   const [convs, setConvs] = useState<ConversationMeta[]>([]);
+  const [watchFilter, setWatchFilter] = useState("");
   const [connectError, setConnectError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -26,7 +28,7 @@ export function SlackConnections() {
     return () => { p.then((u) => u()); };
   }, []);
 
-  // Load the conversation list for the picker once connected.
+  // Load the conversation list (channels + DMs) for the picker once connected.
   useEffect(() => {
     if (status.connected) slackListConversations().then(setConvs).catch(() => {});
   }, [status.connected]);
@@ -62,8 +64,14 @@ export function SlackConnections() {
       </div>
       {status.connected && (
         <div className="slack-connections__watched">
-          <span className="slack-connections__watched-label">Watched channels</span>
-          {convs.map((c) => (
+          <span className="slack-connections__watched-label">Watched conversations</span>
+          <input
+            className="slack-connections__watch-search"
+            placeholder="Search channels & DMs…"
+            value={watchFilter}
+            onChange={(e) => setWatchFilter(e.target.value)}
+          />
+          {filterConversations(convs, watchFilter).map((c) => (
             <label key={c.id} className="slack-connections__watch-row">
               <input type="checkbox" checked={(slack?.watchedChannelIds ?? []).includes(c.id)} onChange={() => toggleWatch(c.id)} />
               {c.kind === "channel" ? "#" : "@"} {c.name}
