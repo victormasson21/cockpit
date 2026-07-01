@@ -224,6 +224,40 @@ with unreads must be added via the watched-channels picker first. **Deferred fol
 design — see spec "Why polling, not Socket Mode"); a few hardcoded CSS values; skip per-conversation `info` errors for
 stale watched ids.
 
+- **Slack tile: opt-in DMs + searchable picker + robust unread + refresh (2026-07-01, merged to `main`).** Adds
+direct-message tracking, a searchable picker, a manual refresh, and fixes two Slack-provider bugs. **Supersedes** the
+older "watched channels only" / 50-message-window notes above.
+  - **DMs are OPT-IN, not auto-tracked — and why.** A first attempt auto-discovered every DM each poll cycle
+    (`users.conversations` types=im,mpim → merge with watched → poll each). But that method returns **all historical
+    DMs** (130 on the real account), and Slack exposes **no cheap per-conversation unread or recency signal** and **no
+    `client.counts`-style aggregate endpoint for user tokens** (verified against docs.slack.dev). Every DM must be probed
+    with `conversations.info` + `.history` (2 Tier-3 calls each), so auto-tracking fired ~260 calls/cycle in a sub-second
+    burst → **Slack `429`**, and conversations were silently dropped. **Decision:** DMs are opt-in. `watched` is again the
+    single source of truth (channels **and** DMs); only the user's selection is polled — small, bounded, never bursts.
+    `discover_dm_ids`/`merge_poll_ids`/`MAX_POLLED_DMS` were removed. (Cheap "new-DM detection" via an im-id set-diff was
+    considered and **deferred** — it's undocumented whether a new inbound DM surfaces as a new `im` id, and it wouldn't
+    catch new unread in *existing* DMs anyway.)
+  - **Picker now lists channels + DMs, all opt-in, searchable.** `slack_list_conversations` requests
+    `public_channel,private_channel,im,mpim` again; pure tested `list_row` builds each `ConversationMeta`. DM names in the
+    picker come from the **in-memory `user_names` cache** (no per-DM `users.info` at list time → no burst), falling back to
+    the partner user-id. Frontend: pure `filterConversations(convs, query)` (`src/tiles/slack/watchFilter.ts`, tested)
+    backs a search box above the list in `SlackConnections.tsx`; rows show `#`/`@` by kind. The orphan-prune (added when
+    the picker was briefly channels-only) was removed — DM ids are valid selections again.
+  - **DM name resolution (live).** `poll_once` resolves a 1:1 DM partner's display name via `resolve_user_name`
+    (`users.info`, cached in `SlackState.user_names` — in-memory only); group DMs keep Slack's synthetic `mpdm-…` name.
+    `parse_conversation` gained an `im_name: Option<&str>` param (pure; falls back to id).
+  - **Unread bugfix (marked-unread of any age).** History is now fetched with **`oldest=last_read`** (inclusive=false)
+    instead of a fixed `limit=50` window. Marking a message unread **rewinds** Slack's read cursor arbitrarily far back;
+    the old window missed those. `oldest=last_read` returns *exactly* the unread set regardless of age.
+  - **`429` safety net.** `api_get` now honors the `Retry-After` header on a 429 (sleep ≤30s, retry once) — a transient
+    throttle becomes a brief pause, not a dropped conversation + error banner.
+  - **Refresh button** on the tile (`SlackTile.tsx`): manual re-poll via the existing `slack_refresh`, with a spinning
+    `RestartIcon` while in flight; disabled when disconnected/refreshing.
+  - **Config note:** DMs are stored as their `D…` conversation ids in `integrations.slack.watchedChannelIds` (same field
+    as channels — the id kind is opaque to storage). 72 Rust + 80 JS tests green; Rust + Vite builds clean.
+  - **PENDING human GUI smoke:** confirm no `429`, the picker lists DMs (with `@`) + search finds them, and a selected
+    DM's unread shows with the partner's name + preview.
+
 ✅ **To Do + Timer tiles (+ shared `<Tile>` shell) — complete & merged to `main`.** A reusable **`<Tile>`** chrome shell
 (`src/tiles/Tile.tsx` — header `icon · TITLE · actions` over a bordered body; `SlackTile` was refactored onto it) now
 backs all tiles. Two local, no-auth **center-column** widgets: a **Timer** (`src/tiles/timer/` — a session-only countdown,
