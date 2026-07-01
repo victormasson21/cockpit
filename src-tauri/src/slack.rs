@@ -47,7 +47,9 @@ pub fn authorize_url(client_id: &str, redirect_uri: &str) -> String {
 
 // Pull the `code` out of the loopback redirect's query string; surface an OAuth `error` if present.
 pub fn parse_callback_code(query: &str) -> Result<String, String> {
-    let q = query.trim_start_matches('?');
+    // `req.url()` is the full path+query (e.g. "/callback?code=…"); take everything after the first '?'.
+    // Falls back to the whole string so a bare "?code=…" query still parses.
+    let q = query.split_once('?').map(|(_, rest)| rest).unwrap_or(query);
     let mut code: Option<String> = None;
     for pair in q.split('&') {
         let mut it = pair.splitn(2, '=');
@@ -408,6 +410,15 @@ mod tests {
     #[test]
     fn parse_callback_extracts_code() {
         assert_eq!(parse_callback_code("?code=abc123&state=x").unwrap(), "abc123");
+    }
+
+    #[test]
+    fn parse_callback_handles_real_request_url() {
+        // tiny_http's req.url() is the full path+query, not a bare query string.
+        assert_eq!(
+            parse_callback_code("/callback?code=13566.abc.def&state=").unwrap(),
+            "13566.abc.def"
+        );
     }
 
     #[test]

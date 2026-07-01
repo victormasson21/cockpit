@@ -14,10 +14,15 @@ export function SlackConnections() {
   const [clientId, setClientId] = useState(slack?.clientId ?? "");
   const [clientSecret, setClientSecret] = useState("");
   const [convs, setConvs] = useState<ConversationMeta[]>([]);
+  const [connectError, setConnectError] = useState<string | null>(null);
 
   useEffect(() => {
     slackStatus().then(setStatus).catch(() => {});
-    const p = listen<SlackStatus>("slack://connected", () => slackStatus().then(setStatus).catch(() => {}));
+    // Surface the OAuth exchange result: a failed token exchange arrives here with an `error`.
+    const p = listen<{ connected: boolean; error?: string }>("slack://connected", (e) => {
+      setConnectError(e.payload.connected ? null : (e.payload.error ?? "connection failed"));
+      slackStatus().then(setStatus).catch(() => {});
+    });
     return () => { p.then((u) => u()); };
   }, []);
 
@@ -32,7 +37,7 @@ export function SlackConnections() {
     setClientSecret("");
     setStatus(await slackStatus());
   };
-  const connect = async () => { const url = await slackConnect(); await openUrl(url); };
+  const connect = async () => { setConnectError(null); const url = await slackConnect(); await openUrl(url); };
   const disconnect = async () => { await slackDisconnect(); setStatus(await slackStatus()); };
 
   const toggleWatch = async (id: string) => {
@@ -46,6 +51,7 @@ export function SlackConnections() {
     <div className="slack-connections">
       <strong>Connections — Slack</strong>
       <div className="slack-connections__status">{status.connected ? "Connected" : "Not connected"}</div>
+      {connectError && <div className="slack-connections__error">Connect failed: {connectError}</div>}
       <input placeholder="Slack app client id" value={clientId} onChange={(e) => setClientId(e.target.value)} />
       <input placeholder="Slack app client secret (stored in Keychain)" type="password" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} />
       <div className="slack-connections__actions">
