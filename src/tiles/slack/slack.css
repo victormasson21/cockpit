@@ -1,6 +1,11 @@
 /* slack.css — Slack-tile body styling (chrome lives in Tile.css). */
 .slack-tile__gear { background: none; border: none; cursor: pointer; color: inherit; opacity: 0.6; display: inline-flex; padding: 0; }
+.slack-tile__gear:hover:not(:disabled) { opacity: 1; }
+.slack-tile__gear:disabled { opacity: 0.3; cursor: default; }
 .slack-tile__gear svg { width: 15px; height: 15px; }
+/* spin the refresh glyph while a manual refresh is in flight */
+.slack-tile__gear--spin svg { animation: slack-spin 0.8s linear infinite; }
+@keyframes slack-spin { to { transform: rotate(360deg); } }
 .slack-tile__list { list-style: none; margin: 0; padding: 0; }
 .slack-tile__row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer; border-bottom: 1px solid var(--border-subtle); }
 .slack-tile__row:hover { background: var(--surface-raised); }
