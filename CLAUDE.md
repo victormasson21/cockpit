@@ -212,10 +212,14 @@ Connections: credentials, connect/disconnect, watched-channels picker; buttons t
 user setup: register your own Slack app, add User Token Scopes + redirect `http://localhost:9000-9009/callback`, paste
 client id/secret. 60 Rust + 53 JS tests green; builds warning-free. Spec: `docs/superpowers/specs/2026-06-27-slack-tile-and-auth-manager-design.md`;
 plan: `docs/superpowers/plans/2026-06-27-slack-tile-and-auth-manager.md`.
-**PENDING human live/GUI smoke** (needs a real Slack app): verify the OAuth round-trip, **pin the unread Web API field
-paths** (`conversations.info` `unread_count_display`/`last_read` + `conversations.history` latest — documented but
-unverified, see the in-code NOTE in `parse_conversation`), confirm the tile renders watched unread + preview + relative
-time and the row links out. **Deferred follow-ups:** resolve a display name (status shows raw `U…` id); add a CSRF
+**Unread Web API field paths PINNED (2026-07-01 live smoke + bugfix):** `conversations.info` does **NOT** return
+`unread_count`/`unread_count_display` (both absent) — the original `parse_conversation` read `unread_count_display`,
+so the count was always 0 and the tile never showed anything. Fixed: unread is now derived from `last_read` (returned
+by `conversations.info`) vs a `conversations.history` window (`limit=50`) — `unread_count` = messages with
+`ts > last_read` (fixed-width `epoch.micros`, lexicographic compare); newest message drives the preview. Verified live
+against a real unread. **Still PENDING human GUI smoke:** verify the OAuth round-trip and that the tile renders watched
+unread + preview + relative time and the row links out. Note: the tile only shows **watched** channels, so a channel
+with unreads must be added via the watched-channels picker first. **Deferred follow-ups:** resolve a display name (status shows raw `U…` id); add a CSRF
 `state` param to the OAuth flow (SP5 Linear OAuth will copy this template); Socket Mode realtime push (polling-only by
 design — see spec "Why polling, not Socket Mode"); a few hardcoded CSS values; skip per-conversation `info` errors for
 stale watched ids.

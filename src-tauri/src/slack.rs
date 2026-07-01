@@ -73,11 +73,18 @@ pub fn conversation_kind(slack_type: &str) -> &'static str {
     }
 }
 
-// Build a row from a conversations.info object + its latest message object.
-// NOTE: field paths reflect documented Slack shapes; the live smoke (Task 10) confirms/adjusts them.
-pub fn parse_conversation(info: &serde_json::Value, latest: &serde_json::Value) -> Option<UnreadConversation> {
+// Build a row from a conversations.info object + its recent history messages (newest first).
+// Unread is computed from `last_read`: Slack's conversations.info does NOT return
+// unread_count/unread_count_display, so we count messages strictly newer than last_read.
+pub fn parse_conversation(info: &serde_json::Value, messages: &[serde_json::Value]) -> Option<UnreadConversation> {
     let id = info.get("id")?.as_str()?.to_string();
-    let unread_count = info.get("unread_count_display").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+    // `last_read` is the ts of the newest message the user has read; anything after it is unread.
+    // ts is fixed-width "epoch.micros" so lexicographic string comparison is correct.
+    let last_read = info.get("last_read").and_then(|v| v.as_str()).unwrap_or("0");
+    let unread_count = messages
+        .iter()
+        .filter(|m| m.get("ts").and_then(|v| v.as_str()).map(|ts| ts > last_read).unwrap_or(false))
+        .count() as u32;
     // Detect raw kind marker from JSON booleans, then map through conversation_kind for consistent handling.
     let raw = if info.get("is_im").and_then(|v| v.as_bool()).unwrap_or(false) {
         "im"
@@ -89,8 +96,10 @@ pub fn parse_conversation(info: &serde_json::Value, latest: &serde_json::Value) 
     let kind = conversation_kind(raw);
     // Channel name from `name`; DM name resolved later via users.info (Task 5) — fall back to id here.
     let name = info.get("name").and_then(|v| v.as_str()).unwrap_or(&id).to_string();
-    let latest_text = latest.get("text").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let latest_ts = latest.get("ts").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    // Newest message (messages[0]) drives the preview text/ts.
+    let latest = messages.first();
+    let latest_text = latest.and_then(|m| m.get("text")).and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let latest_ts = latest.and_then(|m| m.get("ts")).and_then(|v| v.as_str()).unwrap_or("").to_string();
     Some(UnreadConversation {
         id,
         kind: kind.to_string(),
@@ -344,11 +353,12 @@ pub fn poll_once(token: &str, watched: &[String]) -> SlackSnapshot {
             Ok(v) => v.get("channel").cloned().unwrap_or(serde_json::Value::Null),
             Err(e) => { error = Some(e); continue; }
         };
-        let latest = api_get(token, "conversations.history", &[("channel", id), ("limit", "1")])
+        // Fetch a recent window; unread is derived by comparing each message ts against last_read.
+        let messages = api_get(token, "conversations.history", &[("channel", id), ("limit", "50")])
             .ok()
-            .and_then(|v| v.get("messages").and_then(|m| m.as_array()).and_then(|a| a.first().cloned()))
-            .unwrap_or(serde_json::Value::Null);
-        if let Some(row) = parse_conversation(&info, &latest) {
+            .and_then(|v| v.get("messages").and_then(|m| m.as_array()).cloned())
+            .unwrap_or_default();
+        if let Some(row) = parse_conversation(&info, &messages) {
             if row.unread_count > 0 {
                 conversations.push(row);
             }
@@ -432,25 +442,56 @@ mod tests {
     }
 
     #[test]
-    fn parse_conversation_builds_channel_row() {
-        let info = json!({ "id": "C1", "name": "incidents", "unread_count_display": 3 });
-        let latest = json!({ "text": "deploy blocked", "ts": "1700000000.000100" });
-        let row = parse_conversation(&info, &latest).unwrap();
+    fn parse_conversation_counts_unread_after_last_read() {
+        // 3 messages, last_read sits before all of them → all 3 unread; newest drives the preview.
+        let info = json!({ "id": "C1", "name": "incidents", "last_read": "1700000000.000000" });
+        let messages = vec![
+            json!({ "text": "deploy blocked", "ts": "1700000000.000300" }),
+            json!({ "text": "still red",      "ts": "1700000000.000200" }),
+            json!({ "text": "who's on call",  "ts": "1700000000.000100" }),
+        ];
+        let row = parse_conversation(&info, &messages).unwrap();
         assert_eq!(row.id, "C1");
         assert_eq!(row.kind, "channel");
         assert_eq!(row.name, "incidents");
         assert_eq!(row.unread_count, 3);
         assert_eq!(row.latest_text, "deploy blocked");
-        assert_eq!(row.latest_ts, "1700000000.000100");
+        assert_eq!(row.latest_ts, "1700000000.000300");
+    }
+
+    #[test]
+    fn parse_conversation_read_channel_has_zero_unread() {
+        // last_read equals the newest ts → nothing strictly newer → 0 unread (row gets filtered out upstream).
+        let info = json!({ "id": "C2", "name": "product", "last_read": "1700000000.000300" });
+        let messages = vec![
+            json!({ "text": "latest", "ts": "1700000000.000300" }),
+            json!({ "text": "older",  "ts": "1700000000.000200" }),
+        ];
+        let row = parse_conversation(&info, &messages).unwrap();
+        assert_eq!(row.unread_count, 0);
+    }
+
+    #[test]
+    fn parse_conversation_partial_unread() {
+        // last_read between messages → only the newer ones count.
+        let info = json!({ "id": "C3", "last_read": "1700000000.000200" });
+        let messages = vec![
+            json!({ "text": "new",   "ts": "1700000000.000400" }),
+            json!({ "text": "new2",  "ts": "1700000000.000300" }),
+            json!({ "text": "read",  "ts": "1700000000.000200" }),
+            json!({ "text": "old",   "ts": "1700000000.000100" }),
+        ];
+        assert_eq!(parse_conversation(&info, &messages).unwrap().unread_count, 2);
     }
 
     #[test]
     fn parse_conversation_marks_im_kind() {
-        let info = json!({ "id": "D9", "is_im": true, "unread_count_display": 1 });
-        let latest = json!({ "text": "hi", "ts": "1700000000.000200" });
-        let row = parse_conversation(&info, &latest).unwrap();
+        let info = json!({ "id": "D9", "is_im": true, "last_read": "1700000000.000000" });
+        let messages = vec![json!({ "text": "hi", "ts": "1700000000.000200" })];
+        let row = parse_conversation(&info, &messages).unwrap();
         assert_eq!(row.kind, "im");
         assert_eq!(row.name, "D9"); // DM name resolved later; falls back to id
+        assert_eq!(row.unread_count, 1);
     }
 
     #[test]
@@ -463,9 +504,9 @@ mod tests {
 
     #[test]
     fn parse_conversation_marks_mpim_kind() {
-        let info = json!({ "id": "G7", "is_mpim": true, "unread_count_display": 2 });
-        let latest = json!({ "text": "x", "ts": "1700000000.000300" });
-        let row = parse_conversation(&info, &latest).unwrap();
+        let info = json!({ "id": "G7", "is_mpim": true, "last_read": "1700000000.000000" });
+        let messages = vec![json!({ "text": "x", "ts": "1700000000.000300" })];
+        let row = parse_conversation(&info, &messages).unwrap();
         assert_eq!(row.kind, "mpim");
     }
 
