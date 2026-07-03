@@ -15,11 +15,15 @@ const SECTIONS: { state: TodoState; label: string }[] = [
 const GLYPH: Record<TodoState, string> = { todo: "○", in_progress: "◐", done: "✅" };
 
 export function TodoTile() {
-  const { cockpit, addTodo, cycleTodo, removeTodo } = useSettings();
+  const { cockpit, addTodo, cycleTodo, removeTodo, editTodo } = useSettings();
   const [draft, setDraft] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
   const groups = groupByState(cockpit.todos);
 
   const add = () => { const t = draft.trim(); if (!t) return; addTodo(t); setDraft(""); };
+  const startEdit = (id: string, text: string) => { setEditingId(id); setEditDraft(text); };
+  const commitEdit = () => { if (editingId) editTodo(editingId, editDraft); setEditingId(null); };
 
   return (
     <Tile title="TO DO" icon={<span>☑</span>}>
@@ -32,7 +36,21 @@ export function TodoTile() {
               {groups[state].map((t) => (
                 <div key={t.id} className={`todo__row todo__row--${t.state}`}>
                   <button className="todo__glyph" aria-label="cycle state" onClick={() => cycleTodo(t.id)}>{GLYPH[t.state]}</button>
-                  <span className="todo__text">{t.text}</span>
+                  {editingId === t.id ? (
+                    <input
+                      className="todo__edit"
+                      autoFocus
+                      value={editDraft}
+                      onChange={(e) => setEditDraft(e.target.value)}
+                      onBlur={commitEdit}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitEdit();
+                        if (e.key === "Escape") setEditingId(null);
+                      }}
+                    />
+                  ) : (
+                    <span className="todo__text" onClick={() => startEdit(t.id, t.text)}>{t.text}</span>
+                  )}
                   <button className="todo__del" aria-label="delete" onClick={() => removeTodo(t.id)}>✕</button>
                 </div>
               ))}
