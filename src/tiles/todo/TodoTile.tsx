@@ -25,6 +25,8 @@ export function TodoTile() {
 
   const add = () => { const t = draft.trim(); if (!t) return; addTodo(t); setDraft(""); };
   const startEdit = (id: string, text: string) => { setEditingId(id); setEditDraft(text); };
+  // Escape clears editingId first → the input unmounts; React 19 does NOT fire onBlur on unmount, and this
+  // guard no-ops anyway once editingId is null, so Escape reliably discards the draft (no accidental save).
   const commitEdit = () => { if (editingId) editTodo(editingId, editDraft); setEditingId(null); };
 
   return (
