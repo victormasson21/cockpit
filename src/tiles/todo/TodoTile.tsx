@@ -15,10 +15,12 @@ const SECTIONS: { state: TodoState; label: string }[] = [
 const GLYPH: Record<TodoState, string> = { todo: "○", in_progress: "◐", done: "✅" };
 
 export function TodoTile() {
-  const { cockpit, addTodo, cycleTodo, removeTodo, editTodo } = useSettings();
+  const { cockpit, addTodo, cycleTodo, removeTodo, editTodo, reorderTodo } = useSettings();
   const [draft, setDraft] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
   const groups = groupByState(cockpit.todos);
 
   const add = () => { const t = draft.trim(); if (!t) return; addTodo(t); setDraft(""); };
@@ -34,7 +36,16 @@ export function TodoTile() {
             <div key={state} className="todo__section">
               <div className="todo__section-label">{label}</div>
               {groups[state].map((t) => (
-                <div key={t.id} className={`todo__row todo__row--${t.state}`}>
+                <div
+                  key={t.id}
+                  className={`todo__row todo__row--${t.state}${dragOverId === t.id ? " todo__row--drop-target" : ""}`}
+                  draggable={editingId !== t.id}
+                  onDragStart={() => setDraggingId(t.id)}
+                  onDragOver={(e) => { e.preventDefault(); if (t.id !== draggingId) setDragOverId(t.id); }}
+                  onDragLeave={() => setDragOverId((cur) => (cur === t.id ? null : cur))}
+                  onDrop={() => { if (draggingId) reorderTodo(draggingId, t.id); setDraggingId(null); setDragOverId(null); }}
+                  onDragEnd={() => { setDraggingId(null); setDragOverId(null); }}
+                >
                   <button className="todo__glyph" aria-label="cycle state" onClick={() => cycleTodo(t.id)}>{GLYPH[t.state]}</button>
                   {editingId === t.id ? (
                     <input

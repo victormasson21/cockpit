@@ -3,7 +3,8 @@
 .todo__empty { color: var(--text-muted); font-size: var(--fs-sm); }
 .todo__section { display: flex; flex-direction: column; gap: var(--space-1); }
 .todo__section-label { font-size: var(--fs-2xs); letter-spacing: 0.08em; color: var(--text-muted); }
-.todo__row { display: flex; align-items: center; gap: var(--space-2); font-size: var(--fs-md); }
+.todo__row { display: flex; align-items: center; gap: var(--space-2); font-size: var(--fs-md); cursor: grab; }
+.todo__row--drop-target { border-top: 2px solid var(--accent, var(--text-secondary)); }
 .todo__glyph { background: none; border: none; cursor: pointer; color: var(--text-secondary); padding: 0; font-size: var(--fs-lg); line-height: 1; }
 .todo__text { flex: 1; min-width: 0; color: var(--text); cursor: text; }
 .todo__edit {
