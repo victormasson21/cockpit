@@ -12,7 +12,7 @@ const SECTIONS: { state: TodoState; label: string }[] = [
   { state: "done", label: "DONE" },
 ];
 // Status glyph per state; clicking it cycles to the next state.
-const GLYPH: Record<TodoState, string> = { todo: "○", in_progress: "◐", done: "✅" };
+const GLYPH: Record<TodoState, string> = { todo: "○", in_progress: "◐", done: "●" };
 
 export function TodoTile() {
   const { cockpit, addTodo, cycleTodo, removeTodo, editTodo, reorderTodo } = useSettings();
