@@ -28,6 +28,11 @@ The heart — terminals + worktrees — is done. The product arc from here is th
 
 4. **Live worktree & Claude signals (provider).** Substantial, mostly-backend chunk that can slot in whenever it earns priority: detect Claude "**Attention**" from PTY output (currently a styled stub), git **ahead/behind** (stub), and **CI** status (stub chip). Drives the column status dot, the ahead/behind badge, and the CI chip with real data; unlocks the DONE/PAUSED Claude pane states. Provider-flavoured enough to be its own cycle.
 
+> ✅ **Cockpit Diff tab — done & merged.** Centre-column `Home | Diff` tabs in the Cockpit view;
+> Diff shows the right-column worktree's branch-vs-base diff (`git diff --merge-base <base>`, base
+> derived live from `origin/HEAD`) as a numstat stat-list with lazily-expanded colorized hunks.
+> Moved to `CLAUDE.md` "Status". Spec: `docs/superpowers/specs/2026-07-03-cockpit-diff-tab-design.md`.
+
 ---
 
 ## Smaller iterations (scoped, ~1 PR each)
@@ -53,9 +58,6 @@ The heart — terminals + worktrees — is done. The product arc from here is th
 - **Modal-scoped button theme.** Lift form-button styling to `.modal__content button` so future modal forms get themed buttons for free (needs a specificity fix so the accent `__create`/`__deduce` variants still win — that's why it wasn't done in the theme-baseline iteration).
 - **Centralize the empty-host shape.** `ExistingBranchForm` inlines `{ startCmd: "", address: "" }`; extract an `EMPTY_HOST` constant in `model.ts`. Also decide whether a checkout-created worktree should get a default `startCmd` or stay blank (it stays blank today — arguably correct: don't guess a dev server).
 - **`scratchSeq` read-only / atomic `addScratch`.** Minor: derive the next id inside the `set` updater to remove a theoretical double-id race on synchronous calls.
-
-### Cockpit view
-- **Give the Cockpit view a job.** It's an empty themed placeholder. Candidate: a utility/scratch space or an at-a-glance dashboard once integration tiles exist.
 
 ### Deferred from the source-type iterations
 - **GitHub `owner/repo#N` shorthand** in the deduce prompt (today only full PR/issue URLs are detected).

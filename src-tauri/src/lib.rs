@@ -27,6 +27,8 @@ pub fn run() {
             worktree::worktree_status,
             worktree::remove_worktree,
             worktree::delete_branch,
+            worktree::worktree_diff,
+            worktree::worktree_file_diff,
             deduce::deduce_worktree,
             slack::slack_set_credentials,
             slack::slack_set_watched,

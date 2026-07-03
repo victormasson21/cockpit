@@ -27,7 +27,7 @@ without app-switching.
 | Diff scope | **Branch vs base** — `git diff --merge-base <base>` (working tree **and** commits vs the merge-base with `<base>`). Captures Claude's uncommitted edits and its commits. |
 | Base derivation | **Not persisted.** Frontend passes `base=""`; the backend resolves the repo default branch from `origin/HEAD` (a self-contained `symbolic-ref` helper in `worktree.rs`). If no base resolves → inline error. |
 | Rendering | **Stat list → expand hunks.** A `--numstat` file summary (path + green `+N` / red `-N`); click a file to lazily fetch + expand its colorized unified-diff hunks. No npm dep — parse in Rust (numstat) + TS (hunk coloring), render monospace. |
-| Placement | **Cockpit view only.** A tab bar in the Cockpit worktree column; Worktrees/Calm unchanged. Opt-in via a `showDiff` prop on `SlotColumn` (default `false`). |
+| Placement | **Cockpit view, centre column.** A `Home | Diff` tab bar at the top of `CockpitView`'s centre column: Home = the local widgets (Todo/Timer), Diff = the diff of the **right-column** worktree (`cockpitWorktreeId`). Realises the product spec's centre-column "🌶️ diff" override. The worktree column is untouched (terminals only); Worktrees/Calm views unchanged. Tab state is session-only, defaults to Home. *(Revised during build: the first cut put the tabs in the worktree column; moved to the centre to match the design + the product spec's centre-override intent.)* |
 | Empty/error state | **Inline message in the tab** — `No changes vs <base>` or git's stderr, matching the in-pane `[failed to start]` idiom. |
 | Refresh timing | **Snapshot on tab-open + manual refresh button**, with an **`as of HH:MM:SS` timestamp** so staleness is visible. No background polling — reactive/live updates are deferred to the future "Live worktree & Claude signals" provider. |
 
@@ -93,19 +93,12 @@ export const worktreeFileDiff = (worktreePath, repoPath, base, path) =>
   invoke<string>("worktree_file_diff", { worktreePath, repoPath, base, path });
 ```
 
-**Opt-in signal — `src/views/worktree-column/SlotColumn.tsx`:** add `showDiff?: boolean`
-(default `false`) to the props; thread it into `WorktreeBody`. Only `CockpitView` passes
-`showDiff`; `WorktreesView`/`CalmView` are untouched → byte-identical.
-
-**`src/views/CockpitView.tsx`:** pass `showDiff` on its single `SlotColumn`.
-
-**`src/views/worktree-column/WorktreeBody.tsx`:** when `showDiff && variant === "full"`,
-render a tab bar (the `.app__segmented`/`.app__seg` idiom) above `.wt-col__panes`, with local
-`useState<"terminals" | "diff">("terminals")`.
-- Terminal panes stay **mounted** and are CSS-hidden when the Diff tab is active (the same
-  keep-mounted trick `WorktreePane` uses for collapse) so tab-switching never kills/re-fits PTYs.
-- When the Diff tab is active, render `<DiffView worktree={worktree} />` alongside.
-- When `!showDiff`, render exactly as today (no tab bar).
+**`src/views/CockpitView.tsx`:** a `Home | Diff` tab bar at the top of the centre column
+(local `useState<"home" | "diff">("home")`). Home renders the existing widgets (Todo/Timer);
+Diff resolves `cockpitWorktreeId` → a `Worktree` (a plain `worktrees.find`, since only the
+worktree case has a diff) and renders `<DiffView key={worktree.id} worktree={worktree} />`, or a
+"Select a worktree…" message when the right column is empty/holds a scratch. The worktree column
+(`SlotColumn`/`WorktreeBody`) is **unchanged** — no `showDiff` prop, no tabs there.
 
 **`src/views/worktree-column/DiffView.tsx`** (new):
 - On mount + on refresh: `worktreeDiff(worktree.worktreePath, worktree.repoPath, "")`.
@@ -120,13 +113,14 @@ render a tab bar (the `.app__segmented`/`.app__seg` idiom) above `.wt-col__panes
 (map `+`/`-`/context/`@@` lines; drop `diff --git`/`index`/`+++`/`---` file headers). Frontend
 tints each kind.
 
-### CSS — `src/views/worktree-column/WorktreeColumn.css`
+### CSS — `src/views/CockpitView.css`
 
-New `.wt-diff*` classes using existing tokens (`--font-mono`, `--surface-raised`, `--border`,
-`--radius-sm`). Add two theme tokens in `src/theme/tokens.css`: `--diff-add` (green) and
-`--diff-del` (relate to the existing `--danger` red) for the `+N`/`-N` stats and hunk line
-tints. Reuse the `.app__seg`/`.app__seg--active` classes for the tab bar (or a column-scoped
-clone if header specificity collides).
+The `Home | Diff` tab bar (`.cockpit-view__tabs`/`__tab`/`__tab--active`: an underlined-active
+treatment) plus the `.wt-diff*` classes (stat list + colorized hunks) live here, since the diff
+now renders in the centre column. Existing tokens (`--font-mono`, `--surface-raised`, `--border`,
+`--radius-sm`). Two theme tokens added in `src/theme/tokens.css`: `--diff-add` (green) and
+`--diff-del` (red) for the `+N`/`-N` stats and hunk line tints. `WorktreeColumn.css` is
+untouched.
 
 ## Isolation / boundaries
 

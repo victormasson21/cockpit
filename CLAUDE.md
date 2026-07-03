@@ -302,6 +302,31 @@ all three settings affordances match. **Wrap-up:** force-removed 5 pre-existing 
 preserved) so we start clean. 67 Rust + 74 JS tests green; builds clean. **GUI-approved.** Spec:
 `docs/superpowers/specs/2026-06-29-worktree-teardown-actions-design.md`.
 
+✅ **Cockpit Diff tab — complete & merged to `main`. GUI-approved.** The Cockpit view's **centre column** now
+has a `Home | Diff` tab bar (`CockpitView.tsx`; underlined-active `.cockpit-view__tab*` styling): **Home** shows
+the local widgets (Todo/Timer), **Diff** shows the **right-column** worktree's (`cockpitWorktreeId`) branch-vs-base
+diff, or a "Select a worktree…" message when the right column is empty/holds a scratch. Tab state is **session-only**
+(defaults to Home). This realises the product spec's centre-column "🌶️ diff" override (§Centre). The worktree column
+(`SlotColumn`/`WorktreeBody`/`WorktreeColumn.css`) is **untouched** — terminals only. *(First cut placed the tabs in the
+worktree column; moved to the centre to match the design.)*
+- **Diff scope:** `git diff --merge-base <base>` in the worktree dir — diffs the merge-base of `base..HEAD` against the
+  **working tree**, so it captures both committed changes and Claude's **uncommitted** edits ("what does this branch
+  contain right now"). `base` is **not** persisted: the frontend passes `base=""` and the backend derives the repo
+  default branch from `origin/HEAD` (a self-contained `symbolic-ref` helper in `worktree.rs`, decoupled from
+  `deduce.rs`); no `origin/HEAD` → inline error.
+- **Backend (`src-tauri/src/worktree.rs`, mirrors `worktree_status`):** pure tested `diff_stat_args`
+  (`diff --merge-base <base> --numstat`), `file_diff_args`, `parse_numstat` (binary files → `-`/`-` → `binary:true`,
+  0 counts); structs `DiffFile`/`DiffResult` (`camelCase`); private `repo_default_branch` + `resolve_base`; commands
+  `worktree_diff(worktreePath, repoPath, base)` and `worktree_file_diff(…, path)` (raw patch, fetched lazily on expand),
+  both registered in `lib.rs`.
+- **Frontend:** `DiffView.tsx` (fetch on mount + manual refresh with a spinning `RestartIcon` + an `as of HH:MM:SS`
+  timestamp — **snapshot only, no polling**; live updates deferred to the future live-signals provider); pure tested
+  `diffLines.ts` `parseHunks` (classifies `+`/`-`/`@@`/context, drops `diff --git`/`index`/`---`/`+++`/rename headers)
+  colorized via `--diff-add`/`--diff-del` tokens; `api.ts` `worktreeDiff`/`worktreeFileDiff` wrappers + `DiffFile`/
+  `DiffResult` types. Empty diff → "No changes vs <base>"; errors surface inline (git stderr). 30 Rust (6 new) + 85 JS
+  (5 new) tests green; Rust + Vite builds clean. Spec:
+  `docs/superpowers/specs/2026-07-03-cockpit-diff-tab-design.md`.
+
 **Next / resuming work — read `docs/ROADMAP.md` first.** It is the single prioritized backlog, split into
 **main build sub-projects** (the big sequential arc — sub-project 5 onward: Linear tile, then GitHub/Calendar
 tiles, reusing the SP4 provider+panel + Keychain seam) and **smaller iterations** (scoped polish/enhancements). When

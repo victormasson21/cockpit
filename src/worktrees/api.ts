@@ -53,3 +53,13 @@ export const removeWorktreeGit = (repoPath: string, worktreePath: string, force:
   invoke<void>("remove_worktree", { repoPath, worktreePath, force });
 export const deleteBranch = (repoPath: string, branch: string) =>
   invoke<void>("delete_branch", { repoPath, branch });
+
+// Branch-vs-base diff (Cockpit Diff tab). One changed file's line counts (mirrors Rust DiffFile);
+// binary files report 0/0 + binary=true. base="" lets the backend derive the repo default branch.
+export interface DiffFile { path: string; added: number; removed: number; binary: boolean }
+export interface DiffResult { base: string; files: DiffFile[] }
+export const worktreeDiff = (worktreePath: string, repoPath: string, base: string) =>
+  invoke<DiffResult>("worktree_diff", { worktreePath, repoPath, base });
+// One file's raw unified patch, fetched lazily when a file row is expanded.
+export const worktreeFileDiff = (worktreePath: string, repoPath: string, base: string, path: string) =>
+  invoke<string>("worktree_file_diff", { worktreePath, repoPath, base, path });

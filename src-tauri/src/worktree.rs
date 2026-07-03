@@ -70,6 +70,59 @@ pub struct WorktreeStatus {
     pub dirty: bool,
 }
 
+// One changed file in a branch-vs-base diff: path + line counts. `binary` files report no
+// counts in `git diff --numstat` (a `-`/`-` line); we surface that instead of faking zeros.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiffFile {
+    pub path: String,
+    pub added: u32,
+    pub removed: u32,
+    pub binary: bool,
+}
+
+// The whole branch-vs-base diff summary: the resolved base ref + one row per changed file.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiffResult {
+    pub base: String,
+    pub files: Vec<DiffFile>,
+}
+
+// Build the `git diff --merge-base <base> --numstat` argv (the stat summary; pure/tested).
+// --merge-base diffs the merge-base of base..HEAD against the WORKING TREE, so it captures
+// both committed and uncommitted changes — "what does this branch contain right now".
+pub fn diff_stat_args(base: &str) -> Vec<String> {
+    vec!["diff".into(), "--merge-base".into(), base.into(), "--numstat".into()]
+}
+
+// Build the `git diff --merge-base <base> -- <path>` argv for one file's raw patch (pure/tested).
+pub fn file_diff_args(base: &str, path: &str) -> Vec<String> {
+    vec!["diff".into(), "--merge-base".into(), base.into(), "--".into(), path.into()]
+}
+
+// Parse `git diff --numstat` output (one `<added>\t<removed>\t<path>` line per file) into rows.
+// Binary files emit `-\t-\t<path>`; we report them with zero counts + binary=true. Blank lines skipped.
+pub fn parse_numstat(stdout: &str) -> Vec<DiffFile> {
+    stdout
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .map(|l| {
+            let mut parts = l.splitn(3, '\t');
+            let added_raw = parts.next().unwrap_or("");
+            let removed_raw = parts.next().unwrap_or("");
+            let path = parts.next().unwrap_or("").to_string();
+            let binary = added_raw == "-" || removed_raw == "-";
+            DiffFile {
+                path,
+                added: added_raw.parse().unwrap_or(0),
+                removed: removed_raw.parse().unwrap_or(0),
+                binary,
+            }
+        })
+        .collect()
+}
+
 // Build `git worktree remove [--force] <path>` argv (pure; tested without invoking git).
 pub fn worktree_remove_args(worktree_path: &str, force: bool) -> Vec<String> {
     let mut v = vec!["worktree".into(), "remove".into()];
@@ -249,6 +302,67 @@ pub fn worktree_status(worktree_path: String) -> Result<WorktreeStatus, String> 
     Ok(WorktreeStatus { exists: true, dirty })
 }
 
+// Read the repo's default branch from origin/HEAD (e.g. "main"); None when there's no remote HEAD.
+// Self-contained (not shared with deduce.rs's private copy) to keep this module decoupled.
+fn repo_default_branch(repo_path: &str) -> Option<String> {
+    let out = Command::new("git")
+        .args(["-C", repo_path, "symbolic-ref", "--short", "refs/remotes/origin/HEAD"])
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    let short = s.strip_prefix("origin/").unwrap_or(&s).to_string();
+    if short.is_empty() { None } else { Some(short) }
+}
+
+// Resolve the base ref to diff against: an explicit base wins; else the repo default branch;
+// else an error the UI shows inline (we won't guess a base).
+fn resolve_base(base: &str, repo_path: &str) -> Result<String, String> {
+    if !base.is_empty() {
+        return Ok(base.to_string());
+    }
+    repo_default_branch(repo_path)
+        .ok_or_else(|| "couldn't determine a base branch (no origin/HEAD)".to_string())
+}
+
+// Branch-vs-base diff summary for the Cockpit Diff tab: run `git diff --merge-base <base>
+// --numstat` in the worktree dir and parse the per-file line counts. Read-only.
+#[tauri::command]
+pub fn worktree_diff(worktree_path: String, repo_path: String, base: String) -> Result<DiffResult, String> {
+    let base = resolve_base(&base, &repo_path)?;
+    if !Path::new(&worktree_path).exists() {
+        return Err("worktree path not found".to_string());
+    }
+    let out = Command::new("git")
+        .current_dir(&worktree_path)
+        .args(diff_stat_args(&base))
+        .output()
+        .map_err(|e| e.to_string())?;
+    if !out.status.success() {
+        return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
+    }
+    let files = parse_numstat(&String::from_utf8_lossy(&out.stdout));
+    Ok(DiffResult { base, files })
+}
+
+// One file's raw unified patch (fetched lazily when the user expands a file row). Coloring is
+// the frontend's job — we return git's raw output verbatim.
+#[tauri::command]
+pub fn worktree_file_diff(worktree_path: String, repo_path: String, base: String, path: String) -> Result<String, String> {
+    let base = resolve_base(&base, &repo_path)?;
+    let out = Command::new("git")
+        .current_dir(&worktree_path)
+        .args(file_diff_args(&base, &path))
+        .output()
+        .map_err(|e| e.to_string())?;
+    if !out.status.success() {
+        return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).to_string())
+}
+
 // Remove the git worktree (Delete/Wipe). `force` allows removing a dirty worktree. If `git worktree
 // remove` fails but the dir is already gone (manually deleted), fall back to `git worktree prune` to
 // deregister the stale `.git/worktrees/<ref>` entry — the core of the stuck-branch bug fix.
@@ -386,6 +500,48 @@ mod tests {
                 ("feat/login".to_string(), "/repo/feat".to_string()),
             ]
         );
+    }
+
+    #[test]
+    fn diff_stat_args_builds_numstat_against_merge_base() {
+        assert_eq!(diff_stat_args("main"), vec!["diff", "--merge-base", "main", "--numstat"]);
+    }
+
+    #[test]
+    fn file_diff_args_builds_pathspec_diff() {
+        let a = file_diff_args("main", "src/foo.ts");
+        assert_eq!(a, vec!["diff", "--merge-base", "main", "--", "src/foo.ts"]);
+    }
+
+    #[test]
+    fn parse_numstat_reads_counts_and_path() {
+        let out = "12\t3\tsrc/foo.ts\n4\t0\tsrc/bar.rs\n";
+        let got = parse_numstat(out);
+        assert_eq!(got.len(), 2);
+        assert_eq!(got[0].path, "src/foo.ts");
+        assert_eq!((got[0].added, got[0].removed, got[0].binary), (12, 3, false));
+        assert_eq!((got[1].added, got[1].removed, got[1].binary), (4, 0, false));
+    }
+
+    #[test]
+    fn parse_numstat_flags_binary_files() {
+        let got = parse_numstat("-\t-\tassets/logo.png\n");
+        assert_eq!(got.len(), 1);
+        assert_eq!(got[0].path, "assets/logo.png");
+        assert_eq!((got[0].added, got[0].removed, got[0].binary), (0, 0, true));
+    }
+
+    #[test]
+    fn parse_numstat_empty_and_blank_lines() {
+        assert!(parse_numstat("").is_empty());
+        assert!(parse_numstat("\n  \n").is_empty());
+    }
+
+    #[test]
+    fn parse_numstat_tolerates_paths_with_spaces() {
+        // numstat is tab-separated, so a path with spaces stays intact (splitn(3) on '\t').
+        let got = parse_numstat("1\t2\tsrc/a b/c.ts\n");
+        assert_eq!(got[0].path, "src/a b/c.ts");
     }
 
     #[test]

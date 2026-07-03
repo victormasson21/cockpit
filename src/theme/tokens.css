@@ -23,6 +23,8 @@
   --info: #4c8bf5;
   --pr: #a371f7;
   --git: #e8743b;
+  --diff-add: #3fb950; /* added lines / +N stat (green) */
+  --diff-del: #f0556d; /* removed lines / -N stat (red) */
   /* spacing scale */
   --space-1: 4px;
   --space-2: 8px;
