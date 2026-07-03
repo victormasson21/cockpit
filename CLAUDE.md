@@ -267,6 +267,19 @@ backs all tiles. Two local, no-auth **center-column** widgets: a **Timer** (`src
 (`{ id, text, state }`, ids `crypto.randomUUID()`, `#[serde(default)]` back-compat); store actions `addTodo`/`cycleTodo`/`removeTodo`.
 Spec/plan: `docs/superpowers/{specs,plans}/2026-06-27-todo-and-timer-tiles*`.
 
+- **To Do tile: inline edit + drag-reorder (2026-07-03).** Todos are now **editable inline** — click the `.todo__text`
+  span → it becomes an `<input>` (autoFocus, seeded); **Enter/blur saves, Escape reverts, empty save deletes**
+  (the delete-on-empty rule lives in the store's `editTodo`, not the UI). Rows are **reorderable within their section**
+  via **native HTML5 DnD** (no library): each row is `draggable={editingId !== t.id}`, `onDragOver` calls
+  `e.preventDefault()`, dropping calls `reorderTodo(draggedId, targetId)`. The section constraint is enforced in the
+  **pure tested helper `reorderWithinState`** (`todo.ts`) — a **no-op** unless both ids exist, differ, and share the
+  same `state` (cross-section drags change nothing; state is still changed only by the glyph click). Insert semantics:
+  insert-after on move-down, insert-at on move-up (standard DnD idiom). A `dragOverId` local state drives a
+  `.todo__row--drop-target` top-border highlight; `cursor: grab` on rows. **No schema change** — order is intrinsic
+  to the `todos` array. New store actions `editTodo(id,text)` / `reorderTodo(draggedId,targetId)`. 96 JS tests green
+  (5 new `reorderWithinState` cases); tsc + Vite build clean. **GUI acceptance PENDING human eyeball.**
+  Spec/plan: `docs/superpowers/{specs,plans}/2026-07-03-todo-inline-edit-and-reorder*`.
+
 ✅ **Cockpit worktree column — complete & merged to `main`.** The Cockpit view's **right column** is now a worktree pane,
 reusing `SlotColumn` (its selection was refactored to be **prop-driven** — `value` + `onSelect` — so one component backs
 the Worktrees view's session slots, the Calm view, and the Cockpit view's **persisted** slot). New persisted

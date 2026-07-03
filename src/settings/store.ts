@@ -2,7 +2,7 @@
 import { create } from "zustand";
 import type { CockpitConfig, HostConfig, LayoutConfig, Settings, Worktree } from "./types";
 import { saveSettings } from "./api";
-import { nextState } from "../tiles/todo/todo";
+import { nextState, reorderWithinState } from "../tiles/todo/todo";
 import { initSlots, setSlotAt, assignNewWorktree, fillFreeSlot, clearEntity, hideSlotsBeyond, SLOT_COUNT, type Slots, type ScratchTerminal } from "../views/slots";
 
 interface SettingsState {
@@ -19,6 +19,8 @@ interface SettingsState {
   addTodo: (text: string) => void;
   cycleTodo: (id: string) => void;
   removeTodo: (id: string) => void;
+  editTodo: (id: string, text: string) => void;
+  reorderTodo: (draggedId: string, targetId: string) => void;
   addKnownRepo: (path: string) => void;
   removeKnownRepo: (path: string) => void;
   setRepoHost: (path: string, host: HostConfig) => void;
@@ -103,6 +105,17 @@ export const useSettings = create<SettingsState>((set, get) => ({
     get().setCockpit((c) => ({ ...c, todos: c.todos.map((t) => (t.id === id ? { ...t, state: nextState(t.state) } : t)) })),
   removeTodo: (id) =>
     get().setCockpit((c) => ({ ...c, todos: c.todos.filter((t) => t.id !== id) })),
+  // Save edited text; empty/whitespace text deletes the item (treated as "cleared it").
+  editTodo: (id, text) =>
+    get().setCockpit((c) => {
+      const trimmed = text.trim();
+      return trimmed
+        ? { ...c, todos: c.todos.map((t) => (t.id === id ? { ...t, text: trimmed } : t)) }
+        : { ...c, todos: c.todos.filter((t) => t.id !== id) };
+    }),
+  // Reorder within a section via the pure helper (cross-section drops are no-ops).
+  reorderTodo: (draggedId, targetId) =>
+    get().setCockpit((c) => ({ ...c, todos: reorderWithinState(c.todos, draggedId, targetId) })),
   // Slots are session-only display state (not persisted): which worktree shows in each of the 3 columns.
   setSlot: (index, id) => set((st) => ({ slots: setSlotAt(st.slots, index, id) })),
   // Toggle visible column count; shrinking drops the rightmost panes (entities keep running, slots cleared).

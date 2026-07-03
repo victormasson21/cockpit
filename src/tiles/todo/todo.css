@@ -3,9 +3,13 @@
 .todo__empty { color: var(--text-muted); font-size: var(--fs-sm); }
 .todo__section { display: flex; flex-direction: column; gap: var(--space-1); }
 .todo__section-label { font-size: var(--fs-2xs); letter-spacing: 0.08em; color: var(--text-muted); }
-.todo__row { display: flex; align-items: center; gap: var(--space-2); font-size: var(--fs-md); }
-.todo__glyph { background: none; border: none; cursor: pointer; color: var(--text-secondary); padding: 0; font-size: var(--fs-lg); line-height: 1; }
-.todo__text { flex: 1; min-width: 0; color: var(--text); }
+.todo__row { display: flex; align-items: center; gap: var(--space-2); font-size: var(--fs-md); cursor: grab; }
+.todo__row--drop-target { border-top: 2px solid var(--accent, var(--text-secondary)); }
+/* Glyphs sized ~30% above --fs-lg (14→18px); direct px so it stays off the 1px type scale, ×font-scale to respect global zoom. */
+.todo__glyph { background: none; border: none; cursor: pointer; color: var(--text-secondary); padding: 0; font-size: calc(18px * var(--font-scale)); line-height: 1; }
+.todo__text { flex: 1; min-width: 0; color: var(--text); cursor: text; }
+/* Inherits bg/border/radius/padding/font from the global `input` baseline (tokens.css); only layout here. */
+.todo__edit { flex: 1; min-width: 0; }
 .todo__row--done .todo__text { text-decoration: line-through; color: var(--text-muted); }
 .todo__del { background: none; border: none; cursor: pointer; color: var(--text-muted); opacity: 0; }
 .todo__row:hover .todo__del { opacity: 0.7; }
