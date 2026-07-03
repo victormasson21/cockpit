@@ -1,5 +1,5 @@
 /* NewWorktreeForm.css — themed dark styling for the new-worktree (deduce) form + the known-repos editor nested inside it. */
-.nw-form { display: grid; gap: var(--space-2); font-size: 13px; color: var(--text); }
+.nw-form { display: grid; gap: var(--space-2); font-size: var(--fs-md); color: var(--text); }
 .nw-form strong { color: var(--text); font-weight: 700; }
 
 /* input/textarea/radio styling now lives in the global form-control baseline (theme/tokens.css). */
@@ -10,7 +10,7 @@
 .nw-form button {
   background: var(--surface-raised); color: var(--text);
   border: 1px solid var(--border); border-radius: var(--radius-sm);
-  padding: 6px 12px; font-size: 13px; cursor: pointer;
+  padding: 6px 12px; font-size: var(--fs-md); cursor: pointer;
 }
 .nw-form button:hover:not(:disabled) { border-color: var(--accent); }
 .nw-form button:disabled { opacity: 0.5; cursor: default; }
@@ -23,8 +23,8 @@
 .nw-form__sep { border: none; border-top: 1px solid var(--border-subtle); margin: var(--space-1) 0; width: 100%; }
 .nw-form__banner {
   background: var(--surface-raised); border: 1px solid var(--accent);
-  border-radius: var(--radius-sm); padding: var(--space-2); color: var(--text-secondary); font-size: 12px;
+  border-radius: var(--radius-sm); padding: var(--space-2); color: var(--text-secondary); font-size: var(--fs-sm);
 }
 .nw-form__banner strong { color: var(--text); }
-.nw-form__error { color: var(--danger); white-space: pre-wrap; font-size: 12px; }
-.nw-form__hint { color: var(--text-muted); font-size: 12px; }
+.nw-form__error { color: var(--danger); white-space: pre-wrap; font-size: var(--fs-sm); }
+.nw-form__hint { color: var(--text-muted); font-size: var(--fs-sm); }

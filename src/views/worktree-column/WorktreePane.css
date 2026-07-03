@@ -18,7 +18,7 @@
   display: flex; align-items: center; gap: var(--space-2);
   padding: var(--space-1) var(--space-2);
   background: var(--surface-raised); color: var(--text-secondary);
-  font-size: 11px; user-select: none; border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--fs-xs); user-select: none; border-bottom: 1px solid var(--border-subtle);
 }
 .wt-pane__title { font-weight: 600; }
 
@@ -37,6 +37,6 @@
 
 /* SVG-icon size (1em) + position deltas on top of the shared .icon-btn baseline.
    Slim the vertical padding (keeping the wide horizontal click area) to keep the header narrow. */
-.wt-pane__restart, .wt-pane__chevron { font-size: 16px; padding-top: 2px; padding-bottom: 2px; }
+.wt-pane__restart, .wt-pane__chevron { font-size: var(--fs-2xl); padding-top: 2px; padding-bottom: 2px; }
 .wt-pane__restart { margin-left: auto; }
 .wt-pane__body { flex: 1; min-height: 0; padding: var(--space-1); background: var(--bg); }

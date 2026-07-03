@@ -24,6 +24,12 @@ interface SettingsState {
   setRepoHost: (path: string, host: HostConfig) => void;
   setSlackClientId: (clientId: string) => void;
   setSlackWatched: (ids: string[]) => void;
+  // Text zoom (Cmd +/-/0): a multiplier applied to every font-size token; persisted in preferences.
+  fontScale: number;
+  setFontScale: (n: number) => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  resetZoom: () => void;
   slots: Slots;
   slotCount: number; // visible columns (MIN_SLOTS..SLOT_COUNT), session-only
   setSlotCount: (n: number) => void;
@@ -38,6 +44,15 @@ interface SettingsState {
   attention: Record<string, true>;
   markAttention: (ptyId: string) => void;
   clearAttention: (ptyId: string) => void;
+}
+
+// Text-zoom bounds: clamp to a readable range and quantise to the 0.1 step so repeated +/- stay on grid.
+export const ZOOM_MIN = 0.7;
+export const ZOOM_MAX = 2.0;
+export const ZOOM_STEP = 0.1;
+export function clampZoom(n: number): number {
+  const clamped = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, n));
+  return Math.round(clamped * 10) / 10; // avoid float drift (e.g. 1.0000000002) across many steps
 }
 
 // Debounce disk writes so drags/keystrokes don't thrash the filesystem.
@@ -59,7 +74,8 @@ export const useSettings = create<SettingsState>((set, get) => ({
   scratchTerminals: [],
   scratchSeq: 0,
   attention: {},
-  init: (s) => set({ cockpit: s.cockpit, layout: s.layout, loaded: true, slots: initSlots(s.cockpit.worktrees), slotCount: s.cockpit.preferences.panes ?? SLOT_COUNT }),
+  fontScale: 1,
+  init: (s) => set({ cockpit: s.cockpit, layout: s.layout, loaded: true, slots: initSlots(s.cockpit.worktrees), slotCount: s.cockpit.preferences.panes ?? SLOT_COUNT, fontScale: clampZoom(s.cockpit.preferences.fontScale ?? 1) }),
   setCockpit: (next) => {
     set((st) => ({ cockpit: typeof next === "function" ? next(st.cockpit) : next }));
     scheduleSave(get);
@@ -95,6 +111,16 @@ export const useSettings = create<SettingsState>((set, get) => ({
     set((st) => ({ slotCount: n, slots: hideSlotsBeyond(st.slots, n) }));
     get().setCockpit((c) => ({ ...c, preferences: { ...c.preferences, panes: n } }));
   },
+  // Text zoom: set the (clamped) multiplier as session state AND persist it into preferences — same
+  // idiom as setSlotCount. App applies it to <html> as --font-scale; useTerminal reads it for xterm.
+  setFontScale: (n) => {
+    const fontScale = clampZoom(n);
+    set({ fontScale });
+    get().setCockpit((c) => ({ ...c, preferences: { ...c.preferences, fontScale } }));
+  },
+  zoomIn: () => get().setFontScale(get().fontScale + ZOOM_STEP),
+  zoomOut: () => get().setFontScale(get().fontScale - ZOOM_STEP),
+  resetZoom: () => get().setFontScale(1),
   // Persisted Cockpit-view right-column slot (omit from JSON when cleared).
   setCockpitWorktree: (id) => get().setCockpit((c) => ({ ...c, cockpitWorktreeId: id ?? undefined })),
   // View-dependent placement of a newly-created worktree/scratch (see spec).

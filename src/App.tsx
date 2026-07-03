@@ -27,9 +27,30 @@ function normalizeView(v: string): View {
 
 function App() {
   const { loaded, init, addScratch, placeNewEntity, slotCount, setSlotCount } = useSettings();
+  const fontScale = useSettings((s) => s.fontScale);
+  const zoomIn = useSettings((s) => s.zoomIn);
+  const zoomOut = useSettings((s) => s.zoomOut);
+  const resetZoom = useSettings((s) => s.resetZoom);
   const [view, setView] = useState<View>("worktrees");
   const [creating, setCreating] = useState<null | "deduce" | "existing">(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Push the zoom multiplier onto <html> so every --fs-* token (calc(base * var(--font-scale))) recomputes.
+  useEffect(() => {
+    document.documentElement.style.setProperty("--font-scale", String(fontScale));
+  }, [fontScale]);
+
+  // Global text-zoom shortcuts (the app's first): Cmd/Ctrl +, -, 0. macOS delivers "+" as key "=".
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key === "=" || e.key === "+") { e.preventDefault(); zoomIn(); }
+      else if (e.key === "-") { e.preventDefault(); zoomOut(); }
+      else if (e.key === "0") { e.preventDefault(); resetZoom(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [zoomIn, zoomOut, resetZoom]);
 
   // On startup: pull persisted settings from the Rust core, seed the store, pick the saved default view.
   useEffect(() => {

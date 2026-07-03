@@ -1,49 +1,49 @@
 /* CockpitView.css — three-column layout: fixed-width left tiles column · flex center (Home|Diff tabs) · fixed-width right worktree column. */
 .cockpit-view { display: flex; gap: 12px; padding: 12px; height: 100%; box-sizing: border-box; }
 .cockpit-view__tiles { width: 500px; flex: 0 0 500px; display: flex; flex-direction: column; gap: 10px; }
-.cockpit-view__tiles-label { font-size: 11px; letter-spacing: 0.08em; opacity: 0.5; }
+.cockpit-view__tiles-label { font-size: var(--fs-xs); letter-spacing: 0.08em; opacity: 0.5; }
 
 /* center column: a tab bar over either the Home widgets or the Diff view (both flex-fill the remaining height). */
 .cockpit-view__main { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; gap: var(--space-3); }
 .cockpit-view__tabs { display: flex; gap: var(--space-4); border-bottom: 1px solid var(--border); flex: 0 0 auto; }
-.cockpit-view__tab { background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 6px 2px; margin-bottom: -1px; font-size: 14px; border-bottom: 2px solid transparent; }
+.cockpit-view__tab { background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 6px 2px; margin-bottom: -1px; font-size: var(--fs-lg); border-bottom: 2px solid transparent; }
 .cockpit-view__tab:hover { color: var(--text); }
 .cockpit-view__tab--active { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
 
 .cockpit-view__center { flex: 1; min-height: 0; display: flex; gap: var(--space-3); align-items: flex-start; }
 .cockpit-view__center > :first-child { flex: 2; }
 .cockpit-view__center > :last-child { flex: 1; }
-.cockpit-view__diff-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 13px; }
+.cockpit-view__diff-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: var(--fs-md); }
 
 .cockpit-view__worktree { flex: 0 0 500px; display: flex; flex-direction: column; min-height: 0; }
 .cockpit-view__worktree > * { flex: 1; min-height: 0; }
 
 /* Diff view: refresh/asof bar, scrollable stat-list, expandable colorized hunks. Lives in the center column. */
 .wt-diff { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.wt-diff__bar { display: flex; align-items: center; gap: var(--space-2); padding: 0 0 var(--space-2); font-size: 12px; color: var(--text-secondary); }
+.wt-diff__bar { display: flex; align-items: center; gap: var(--space-2); padding: 0 0 var(--space-2); font-size: var(--fs-sm); color: var(--text-secondary); }
 .wt-diff__base { font-weight: 600; }
-.wt-diff__asof { color: var(--text-muted); font-size: 11px; }
-.wt-diff__refresh { margin-left: auto; font-size: 15px; padding: 2px; }
+.wt-diff__asof { color: var(--text-muted); font-size: var(--fs-xs); }
+.wt-diff__refresh { margin-left: auto; font-size: var(--fs-xl); padding: 2px; }
 .wt-diff__refresh--spin svg { animation: wt-diff-spin 0.8s linear infinite; }
 @keyframes wt-diff-spin { to { transform: rotate(360deg); } }
-.wt-diff__msg { color: var(--text-muted); font-size: 12px; padding: var(--space-2) 0; font-family: var(--font-mono); white-space: pre-wrap; }
+.wt-diff__msg { color: var(--text-muted); font-size: var(--fs-sm); padding: var(--space-2) 0; font-family: var(--font-mono); white-space: pre-wrap; }
 
 .wt-diff__files { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 1px; }
 .wt-diff__file { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
 .wt-diff__file-row {
   display: flex; align-items: center; gap: var(--space-2); width: 100%;
   background: var(--surface-raised); border: none; color: var(--text); cursor: pointer;
-  padding: 5px 8px; font-family: var(--font-mono); font-size: 12px; text-align: left;
+  padding: 5px 8px; font-family: var(--font-mono); font-size: var(--fs-sm); text-align: left;
 }
 .wt-diff__file-row:hover { color: var(--text); background: var(--border-subtle); }
 .wt-diff__path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; }
 .wt-diff__stat { flex: 0 0 auto; }
 .wt-diff__add { color: var(--diff-add); }
 .wt-diff__del { color: var(--diff-del); }
-.wt-diff__bin { flex: 0 0 auto; color: var(--text-muted); font-size: 11px; }
+.wt-diff__bin { flex: 0 0 auto; color: var(--text-muted); font-size: var(--fs-xs); }
 
 /* hunk lines: horizontally-scrollable monospace, each line tinted by kind. */
-.wt-diff__hunks { background: var(--bg); overflow-x: auto; font-family: var(--font-mono); font-size: 11px; line-height: 1.5; }
+.wt-diff__hunks { background: var(--bg); overflow-x: auto; font-family: var(--font-mono); font-size: var(--fs-xs); line-height: 1.5; }
 .wt-diff__line { white-space: pre; padding: 0 8px; }
 .wt-diff__line--hunk { color: var(--info); background: rgba(76, 139, 245, 0.08); }
 .wt-diff__line--add { color: var(--diff-add); background: rgba(63, 185, 80, 0.10); }

@@ -11,9 +11,9 @@
 .slack-tile__row:hover { background: var(--surface-raised); }
 .slack-tile__icon { width: 16px; text-align: center; opacity: 0.6; }
 .slack-tile__body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.slack-tile__name { font-size: 12px; font-weight: 600; }
-.slack-tile__preview { font-size: 11px; opacity: 0.6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slack-tile__name { font-size: var(--fs-sm); font-weight: 600; }
+.slack-tile__preview { font-size: var(--fs-xs); opacity: 0.6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .slack-tile__meta { display: flex; align-items: center; gap: 6px; }
-.slack-tile__time { font-size: 10px; opacity: 0.5; }
-.slack-tile__badge { font-size: 10px; background: var(--accent); color: var(--accent-fg); border-radius: 8px; padding: 0 6px; min-width: 16px; text-align: center; }
-.slack-tile__cta, .slack-tile__empty { padding: 14px 10px; font-size: 12px; opacity: 0.7; text-align: center; background: none; border: none; cursor: pointer; color: inherit; }
+.slack-tile__time { font-size: var(--fs-2xs); opacity: 0.5; }
+.slack-tile__badge { font-size: var(--fs-2xs); background: var(--accent); color: var(--accent-fg); border-radius: 8px; padding: 0 6px; min-width: 16px; text-align: center; }
+.slack-tile__cta, .slack-tile__empty { padding: 14px 10px; font-size: var(--fs-sm); opacity: 0.7; text-align: center; background: none; border: none; cursor: pointer; color: inherit; }

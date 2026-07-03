@@ -15,18 +15,26 @@ export interface UseTerminalArgs {
   autostartCmd?: string;
 }
 
+// The xterm base font size at 100% zoom; multiplied by the store's fontScale so terminals zoom too.
+const TERM_BASE_FONT = 12;
+const termFontSize = (scale: number) => Math.round(TERM_BASE_FONT * scale);
+
 // Mount an xterm into a div and keep it attached to the (worktree, role) PTY for the component's lifetime.
 export function useTerminal({ worktreeId, role, cwd, autostartCmd }: UseTerminalArgs) {
   const containerRef = useRef<HTMLDivElement>(null);
   const ptyIdRef = useRef<string>(makePtyId(worktreeId, role));
   const termRef = useRef<Terminal | null>(null);
+  const fitRef = useRef<FitAddon | null>(null);
+  const fontScale = useSettings((s) => s.fontScale);
 
   useEffect(() => {
     const ptyId = makePtyId(worktreeId, role);
     ptyIdRef.current = ptyId;
-    const term = new Terminal({ convertEol: false, fontSize: 12 });
+    // Mount at the current zoom; a separate effect reflows on later zoom changes without remounting.
+    const term = new Terminal({ convertEol: false, fontSize: termFontSize(useSettings.getState().fontScale) });
     termRef.current = term;
     const fit = new FitAddon();
+    fitRef.current = fit;
     term.loadAddon(fit);
     term.open(containerRef.current!);
     fit.fit();
@@ -73,6 +81,7 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd }: UseTerminal
     return () => {
       disposed = true;
       termRef.current = null;
+      fitRef.current = null;
       unlisten?.();
       onBell?.dispose();
       onData.dispose();
@@ -81,6 +90,16 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd }: UseTerminal
       term.dispose();
     };
   }, [worktreeId, role, cwd, autostartCmd]);
+
+  // Live zoom: update xterm's font size and refit (onResize -> pty_resize handles the PTY). No remount,
+  // so scrollback and the running process are untouched. Skips the initial mount (already sized above).
+  useEffect(() => {
+    const term = termRef.current;
+    const fit = fitRef.current;
+    if (!term || !fit) return;
+    term.options.fontSize = termFontSize(fontScale);
+    fit.fit();
+  }, [fontScale]);
 
   // restart: kill then re-ensure (re-runs autostart) at the terminal's CURRENT size for a wedged process.
   const restart = () => {

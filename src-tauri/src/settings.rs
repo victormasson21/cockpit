@@ -107,10 +107,17 @@ pub struct Preferences {
     // Visible column count for the Worktrees/Calm views (2 or 3); defaults for older files without it.
     #[serde(default = "default_panes")]
     pub panes: u32,
+    // Text zoom multiplier (Cmd +/-/0); 1.0 = 100%. Defaults for older files without it.
+    #[serde(default = "default_font_scale", rename = "fontScale")]
+    pub font_scale: f32,
 }
 
 fn default_panes() -> u32 {
     3
+}
+
+fn default_font_scale() -> f32 {
+    1.0
 }
 
 // Portable, user-meaningful config (which tiles exist + preferences). Persisted to cockpit.json.
@@ -153,7 +160,7 @@ impl Default for CockpitConfig {
             integrations: Integrations::default(),
             todos: vec![],
             cockpit_worktree_id: None,
-            preferences: Preferences { theme: "system".into(), default_view: "main".into(), panes: 3 },
+            preferences: Preferences { theme: "system".into(), default_view: "main".into(), panes: 3, font_scale: 1.0 },
         }
     }
 }

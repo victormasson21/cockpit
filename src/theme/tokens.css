@@ -38,6 +38,19 @@
   /* fonts */
   --font-ui: system-ui, -apple-system, "SF Pro Text", "Segoe UI", sans-serif;
   --font-mono: "SF Mono", ui-monospace, Menlo, Monaco, "Cascadia Code", monospace;
+  /* text zoom multiplier (Cmd +/-/0) — driven by the store onto <html>; 1 = 100%. */
+  --font-scale: 1;
+  /* type scale — each named size = its base px × the zoom multiplier. Only font-size scales; layout
+     tokens (--space-*, radii, widths) stay px so zooming text never moves the tiles. */
+  --fs-2xs: calc(10px * var(--font-scale));
+  --fs-xs:  calc(11px * var(--font-scale));
+  --fs-sm:  calc(12px * var(--font-scale));
+  --fs-md:  calc(13px * var(--font-scale)); /* baseline / body */
+  --fs-lg:  calc(14px * var(--font-scale));
+  --fs-xl:  calc(15px * var(--font-scale));
+  --fs-2xl: calc(16px * var(--font-scale));
+  --fs-3xl: calc(17px * var(--font-scale));
+  --fs-display: calc(48px * var(--font-scale)); /* timer digits */
 }
 
 * { box-sizing: border-box; }
@@ -49,7 +62,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-ui);
-  font-size: 13px;
+  font-size: var(--fs-md);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -63,7 +76,7 @@ button {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 6px 12px;
-  font-size: 13px;
+  font-size: var(--fs-md);
   cursor: pointer;
 }
 button:hover:not(:disabled) { border-color: var(--accent); }
@@ -80,7 +93,7 @@ textarea:not(.xterm-helper-textarea) {
   border-radius: var(--radius-sm);
   padding: 6px 8px;
   font-family: var(--font-ui);
-  font-size: 13px;
+  font-size: var(--fs-md);
 }
 /* swap the native select chevron for a themed one drawn in --text-secondary */
 select {

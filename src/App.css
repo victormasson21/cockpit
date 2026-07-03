@@ -10,7 +10,7 @@
 .app__logo { width: 20px; height: 20px; flex: 0 0 auto; display: block; }
 
 .app__segmented { display: flex; gap: 2px; margin: 0 auto; background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius); padding: 2px; }
-.app__seg { background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px 14px; border-radius: var(--radius-sm); font-size: 13px; }
+.app__seg { background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px 14px; border-radius: var(--radius-sm); font-size: var(--fs-md); }
 .app__seg:hover { color: var(--text); }
 .app__seg--active { background: var(--accent); color: var(--accent-fg); font-weight: 600; }
 
@@ -26,6 +26,6 @@
 
 /* Panes toggle (2 / 3) — a compact segmented control mirroring the view switcher. */
 .app__panes { display: flex; gap: 2px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius); padding: 2px; }
-.app__pane { background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px 10px; border-radius: var(--radius-sm); font-size: 13px; }
+.app__pane { background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px 10px; border-radius: var(--radius-sm); font-size: var(--fs-md); }
 .app__pane:hover { color: var(--text); }
 .app__pane--active { background: var(--accent); color: var(--accent-fg); font-weight: 600; }

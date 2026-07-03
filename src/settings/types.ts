@@ -10,6 +10,7 @@ export interface Preferences {
   theme: "system" | "light" | "dark";
   defaultView: "cockpit" | "worktrees" | "calm";
   panes: number; // visible Worktrees/Calm columns (2 or 3)
+  fontScale?: number; // text zoom multiplier (Cmd +/-/0); 1 = 100%. optional for back-compat with older cockpit.json
 }
 
 export interface HostConfig { startCmd: string; address: string }
