@@ -138,6 +138,17 @@ pub fn delete_branch_args(branch: &str) -> Vec<String> {
     vec!["branch".into(), "-D".into(), branch.into()]
 }
 
+// True when `branch` is a branch we refuse to force-delete on Wipe. It matches the repo's known
+// default (from origin/HEAD) when we have one; when that's absent (fresh clones often lack a local
+// origin/HEAD ref), it falls back to the conventional names main/master so the common case is still
+// protected. Pure so the guard is testable.
+pub fn is_default_branch(branch: &str, default: Option<&str>) -> bool {
+    match default {
+        Some(d) => branch == d,
+        None => branch == "main" || branch == "master",
+    }
+}
+
 // Mark each branch that is currently checked out in some worktree, recording where — a pure join so it's testable.
 pub fn mark_checked_out(mut branches: Vec<BranchInfo>, worktree_branches: &[(String, String)]) -> Vec<BranchInfo> {
     for b in &mut branches {
@@ -396,6 +407,14 @@ pub fn remove_worktree(repo_path: String, worktree_path: String, force: bool) ->
 // branch still checked out in a worktree.
 #[tauri::command]
 pub fn delete_branch(repo_path: String, branch: String) -> Result<(), String> {
+    // Guard: never force-delete the repo default branch (e.g. Wipe on a `main`-checked-out worktree).
+    // Wipe then degrades to Delete — the worktree is already removed by the caller; the branch is kept.
+    let default = repo_default_branch(&repo_path);
+    if is_default_branch(&branch, default.as_deref()) {
+        return Err(format!(
+            "{branch} is the repo default branch — refusing to delete it (worktree removed; branch kept)."
+        ));
+    }
     let args = delete_branch_args(&branch);
     let out = Command::new("git")
         .current_dir(&repo_path)
@@ -458,6 +477,23 @@ mod tests {
     #[test]
     fn delete_branch_args_builds_force_delete() {
         assert_eq!(delete_branch_args("victor/fix"), vec!["branch", "-D", "victor/fix"]);
+    }
+
+    #[test]
+    fn is_default_branch_matches_known_default() {
+        assert!(is_default_branch("main", Some("main")));
+        assert!(!is_default_branch("victor/fix", Some("main")));
+        // A non-standard known default (e.g. "develop") is protected; "main" is not, since it's not it.
+        assert!(is_default_branch("develop", Some("develop")));
+        assert!(!is_default_branch("main", Some("develop")));
+    }
+
+    #[test]
+    fn is_default_branch_falls_back_to_main_master_when_unknown() {
+        // No origin/HEAD (common on fresh clones): still protect the conventional names.
+        assert!(is_default_branch("main", None));
+        assert!(is_default_branch("master", None));
+        assert!(!is_default_branch("victor/fix", None));
     }
 
     #[test]

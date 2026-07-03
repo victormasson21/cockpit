@@ -101,8 +101,8 @@ export function SlotColumn({ value, onSelect, variant = "full" }: { value: strin
           action={confirm}
           onClose={() => setConfirm(null)}
           // removeWorktree (inside teardown) already clears the slot; onSelect(null) covers the
-          // Cockpit single-column case too. A branch-delete warning is non-fatal — log it.
-          onDone={(warning) => { setConfirm(null); onSelect(null); if (warning) console.error(warning); }}
+          // Cockpit single-column case too. Any non-fatal warning was already shown in the dialog.
+          onDone={() => { setConfirm(null); onSelect(null); }}
         />
       )}
     </div>
