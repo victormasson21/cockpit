@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { nextState, groupByState } from "./todo";
+import { nextState, groupByState, reorderWithinState } from "./todo";
 import type { TodoItem } from "../../settings/types";
 
 const item = (id: string, state: TodoItem["state"]): TodoItem => ({ id, text: id, state });
@@ -22,5 +22,41 @@ describe("groupByState", () => {
   });
   it("returns empty buckets for an empty list", () => {
     expect(groupByState([])).toEqual({ todo: [], in_progress: [], done: [] });
+  });
+});
+
+describe("reorderWithinState", () => {
+  const items = [
+    item("a", "todo"),
+    item("b", "todo"),
+    item("c", "todo"),
+    item("d", "in_progress"),
+  ];
+
+  it("moves an item down to the target's position within the same section", () => {
+    // drag a onto c → order becomes b, c, a (a lands at c's slot)
+    const r = reorderWithinState(items, "a", "c");
+    expect(r.map((i) => i.id)).toEqual(["b", "c", "a", "d"]);
+  });
+
+  it("moves an item up to the target's position within the same section", () => {
+    // drag c onto a → c lands at a's slot
+    const r = reorderWithinState(items, "c", "a");
+    expect(r.map((i) => i.id)).toEqual(["c", "a", "b", "d"]);
+  });
+
+  it("is a no-op when dragged and target are in different sections", () => {
+    const r = reorderWithinState(items, "a", "d");
+    expect(r.map((i) => i.id)).toEqual(["a", "b", "c", "d"]);
+  });
+
+  it("is a no-op for an unknown id", () => {
+    const r = reorderWithinState(items, "a", "zzz");
+    expect(r.map((i) => i.id)).toEqual(["a", "b", "c", "d"]);
+  });
+
+  it("is a no-op when dragging onto itself", () => {
+    const r = reorderWithinState(items, "b", "b");
+    expect(r.map((i) => i.id)).toEqual(["a", "b", "c", "d"]);
   });
 });
