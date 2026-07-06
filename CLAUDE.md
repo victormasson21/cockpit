@@ -388,6 +388,8 @@ prompt pre-filled + the error**. **Checkout / existing-branch flow is untouched.
     **Deduce** (`wt-ico--claude`), **Checkout** (`wt-ico--branch`), **Terminal** (`wt-ico--terminal`) — reusing the
     slot columns' masked-PNG glyphs. All three Create buttons are **full-width accent** and identical (the terminal
     button copy is now "Create"; `.eb-form__create` widened; the grid-child `.nw-form__create` already stretched).
+    **Cmd/Ctrl+N** opens the modal (a second global `keydown` effect in `App.tsx`, mirroring the zoom shortcuts;
+    `preventDefault` claims the combo from the browser's "new window").
 
 **Next / resuming work — read `docs/ROADMAP.md` first.** It is the single prioritized backlog, split into
 **main build sub-projects** (the big sequential arc — sub-project 5 onward: Linear tile, then GitHub/Calendar
