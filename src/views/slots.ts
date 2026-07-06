@@ -36,6 +36,12 @@ export function clearEntity(slots: Slots, id: string): Slots {
   return slots.map((s) => (s === id ? null : s));
 }
 
+// swapSlotId: replace every occurrence of one id with another (pending → real worktree, in place).
+// Pure 1:1 replacement so the tile stays in the SAME slot when a pending worktree resolves.
+export function swapSlotId(slots: Slots, from: string, to: string): Slots {
+  return slots.map((s) => (s === from ? to : s));
+}
+
 // hideSlotsBeyond: when shrinking the visible column count, null out the now-hidden slots so
 // re-expanding shows empty panes (the dropped entities keep running and stay in the dropdowns).
 export function hideSlotsBeyond(slots: Slots, visibleCount: number): Slots {
@@ -45,22 +51,36 @@ export function hideSlotsBeyond(slots: Slots, visibleCount: number): Slots {
 // A scratch terminal: a session-only single-shell entity that can occupy a slot (no repo/branch).
 export type ScratchTerminal = { id: string; title: string };
 
-// What a slot id resolves to: a worktree, a scratch terminal, or nothing.
+// A pending worktree: a session-only placeholder occupying a slot while deduce + create run in the
+// background. Replaced in place by the real worktree on success; discarded on failure. `id` is `pending-*`.
+export type PendingWorktree = {
+  id: string;
+  prompt: string;
+  status: "deducing" | "creating";
+  view: "cockpit" | "worktrees" | "calm";
+};
+
+// What a slot id resolves to: a worktree, a scratch terminal, a pending worktree, or nothing.
 export type SlotEntity =
   | { kind: "worktree"; worktree: Worktree }
   | { kind: "scratch"; scratch: ScratchTerminal }
+  | { kind: "pending"; pending: PendingWorktree }
   | null;
 
-// resolveSlotEntity: look an id up as a worktree first, then a scratch (ids never collide — scratch is `scratch-*`).
+// resolveSlotEntity: look an id up as a worktree first, then scratch, then pending (ids never collide —
+// `wt-*` / `scratch-*` / `pending-*`). `pending` defaults to [] so existing 3-arg callers still compile.
 export function resolveSlotEntity(
   id: string | null,
   worktrees: Worktree[],
   scratch: ScratchTerminal[],
+  pending: PendingWorktree[] = [],
 ): SlotEntity {
   if (!id) return null;
   const w = worktrees.find((x) => x.id === id);
   if (w) return { kind: "worktree", worktree: w };
   const s = scratch.find((x) => x.id === id);
   if (s) return { kind: "scratch", scratch: s };
+  const p = pending.find((x) => x.id === id);
+  if (p) return { kind: "pending", pending: p };
   return null;
 }

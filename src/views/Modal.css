@@ -12,7 +12,17 @@
 .modal__close { margin-left: auto; font-size: var(--fs-xl); }
 .modal__content { padding: var(--space-3); overflow: auto; }
 
-/* Mode toggle for the New-worktree modal (Deduce | Existing branch). */
-.nw-modal__modes { display: flex; gap: var(--space-1); margin-bottom: var(--space-3); }
-.nw-modal__mode { font: inherit; padding: var(--space-1) var(--space-2); background: var(--surface-raised); color: var(--text-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
-.nw-modal__mode--active { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+/* Unified New-worktree modal: separators between the deduce / existing-branch / terminal sections. */
+.nw-modal__sep { border: none; border-top: 1px solid var(--border-subtle); margin: var(--space-3) 0; }
+/* Section heading: icon + label, a touch larger and bolder than the section body. */
+.nw-modal__heading {
+  display: flex; align-items: center; gap: var(--space-2);
+  font-size: var(--fs-xl); font-weight: 700; color: var(--text); margin-bottom: var(--space-2);
+}
+/* Terminal button: full-width accent action, identical to the deduce/checkout Create buttons. */
+.nw-modal__terminal {
+  width: 100%; font: inherit; font-weight: 600; padding: 6px 12px;
+  background: var(--accent); color: var(--accent-fg);
+  border: 1px solid transparent; border-radius: var(--radius-sm); cursor: pointer;
+}
+.nw-modal__terminal:hover { filter: brightness(1.08); }

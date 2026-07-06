@@ -14,10 +14,11 @@
 }
 .nw-form button:hover:not(:disabled) { border-color: var(--accent); }
 .nw-form button:disabled { opacity: 0.5; cursor: default; }
-.nw-form__deduce, .nw-form__create {
+/* Scoped with the element selector so they out-specify the generic `.nw-form button` rule above. */
+.nw-form button.nw-form__deduce, .nw-form button.nw-form__create {
   background: var(--accent); color: var(--accent-fg); border-color: transparent; font-weight: 600;
 }
-.nw-form__deduce:hover:not(:disabled), .nw-form__create:hover:not(:disabled) { filter: brightness(1.08); border-color: transparent; }
+.nw-form button.nw-form__deduce:hover:not(:disabled), .nw-form button.nw-form__create:hover:not(:disabled) { filter: brightness(1.08); border-color: transparent; }
 
 /* dividers, banner, errors, hints */
 .nw-form__sep { border: none; border-top: 1px solid var(--border-subtle); margin: var(--space-1) 0; width: 100%; }
