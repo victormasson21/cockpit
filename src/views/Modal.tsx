@@ -7,7 +7,8 @@ export function Modal({ title, onClose, children, className }: { title: string; 
   // Escape closes the modal (universal for every Modal). Respects a caller's guarded onClose (e.g. a
   // busy no-op in TeardownConfirm), since it just invokes the same prop the scrim/✕ do.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    // preventDefault stops the browser/OS "exit fullscreen" on Escape — while a modal is open, Escape only closes it.
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); onClose(); } };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
