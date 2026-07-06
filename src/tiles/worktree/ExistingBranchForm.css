@@ -10,7 +10,7 @@
 .eb-form button:hover:not(:disabled) { border-color: var(--accent); }
 .eb-form button:disabled { opacity: 0.5; cursor: default; }
 .eb-form__create {
-  align-self: flex-start;
+  width: 100%;
   background: var(--accent); color: var(--accent-fg); border-color: transparent; font-weight: 600;
 }
 .eb-form__create:hover:not(:disabled) { filter: brightness(1.08); border-color: transparent; }

@@ -14,10 +14,15 @@
 
 /* Unified New-worktree modal: separators between the deduce / existing-branch / terminal sections. */
 .nw-modal__sep { border: none; border-top: 1px solid var(--border-subtle); margin: var(--space-3) 0; }
-/* Terminal button: subtle full-width action, matching the .nw-form button idiom. */
-.nw-modal__terminal {
-  width: 100%; font: inherit; padding: 6px 12px;
-  background: var(--surface-raised); color: var(--text);
-  border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer;
+/* Section heading: icon + label, a touch larger and bolder than the section body. */
+.nw-modal__heading {
+  display: flex; align-items: center; gap: var(--space-2);
+  font-size: var(--fs-xl); font-weight: 700; color: var(--text); margin-bottom: var(--space-2);
 }
-.nw-modal__terminal:hover { border-color: var(--accent); }
+/* Terminal button: full-width accent action, identical to the deduce/checkout Create buttons. */
+.nw-modal__terminal {
+  width: 100%; font: inherit; font-weight: 600; padding: 6px 12px;
+  background: var(--accent); color: var(--accent-fg);
+  border: 1px solid transparent; border-radius: var(--radius-sm); cursor: pointer;
+}
+.nw-modal__terminal:hover { filter: brightness(1.08); }

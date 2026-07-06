@@ -384,6 +384,10 @@ prompt pre-filled + the error**. **Checkout / existing-branch flow is untouched.
     top-nav wiring, relocated). **All three actions close the modal on success.** `NewWorktreeForm` lost its
     redundant `cancel` button (the modal owns close/scrim). CSS: removed `.nw-modal__mode*`; added `.nw-modal__sep`
     + `.nw-modal__terminal` in `Modal.css`. Pure UI restructure — no store/Rust changes; 104 JS tests still green.
+    Each section now has a **bold icon heading** (`SectionHeading` in `NewWorktreeModal`, `.nw-modal__heading`):
+    **Deduce** (`wt-ico--claude`), **Checkout** (`wt-ico--branch`), **Terminal** (`wt-ico--terminal`) — reusing the
+    slot columns' masked-PNG glyphs. All three Create buttons are **full-width accent** and identical (the terminal
+    button copy is now "Create"; `.eb-form__create` widened; the grid-child `.nw-form__create` already stretched).
 
 **Next / resuming work — read `docs/ROADMAP.md` first.** It is the single prioritized backlog, split into
 **main build sub-projects** (the big sequential arc — sub-project 5 onward: Linear tile, then GitHub/Calendar
