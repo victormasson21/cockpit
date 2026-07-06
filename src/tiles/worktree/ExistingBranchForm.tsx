@@ -89,7 +89,7 @@ export function ExistingBranchForm({ onCreated }: { onCreated: (worktreeId: stri
       <input placeholder="name" value={name} onChange={(e) => setName(e.target.value)} />
       {error && <div className="eb-form__error">{error}</div>}
       <button className="eb-form__create" disabled={busy || !repoPath || !branch || !name} onClick={submit}>
-        {busy ? "creating…" : "create"}
+        {busy ? "Creating…" : "Create"}
       </button>
     </div>
   );
