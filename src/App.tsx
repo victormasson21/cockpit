@@ -26,7 +26,7 @@ function normalizeView(v: string): View {
 }
 
 function App() {
-  const { loaded, init, addScratch, placeNewEntity, slotCount, setSlotCount } = useSettings();
+  const { loaded, init, slotCount, setSlotCount } = useSettings();
   const worktreeError = useSettings((s) => s.worktreeError);
   const clearWorktreeError = useSettings((s) => s.clearWorktreeError);
   const fontScale = useSettings((s) => s.fontScale);
@@ -34,7 +34,7 @@ function App() {
   const zoomOut = useSettings((s) => s.zoomOut);
   const resetZoom = useSettings((s) => s.resetZoom);
   const [view, setView] = useState<View>("worktrees");
-  const [creating, setCreating] = useState<null | "deduce" | "existing">(null);
+  const [creating, setCreating] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Push the zoom multiplier onto <html> so every --fs-* token (calc(base * var(--font-scale))) recomputes.
@@ -68,7 +68,7 @@ function App() {
 
   // Reopen the deduce modal (prefilled) when a background deduce/create fails, so the user can retry.
   useEffect(() => {
-    if (worktreeError) setCreating("deduce");
+    if (worktreeError) setCreating(true);
   }, [worktreeError]);
 
   if (!loaded) return <div className="app__loading">Loading…</div>;
@@ -103,9 +103,7 @@ function App() {
               ))}
             </div>
           )}
-          <button className="app__new" onClick={() => setCreating("deduce")}>Worktree</button>
-          <button className="app__new" onClick={() => setCreating("existing")}>Checkout</button>
-          <button className="app__new" onClick={() => placeNewEntity(addScratch(), view)}>Terminal</button>
+          <button className="app__new" onClick={() => setCreating(true)}>+ New</button>
           <button className="app__new app__new--icon" aria-label="settings" onClick={() => setSettingsOpen(true)}><GearIcon /></button>
         </div>
       </header>
@@ -114,7 +112,7 @@ function App() {
         {view === "worktrees" && <WorktreesView />}
         {view === "calm" && <CalmView />}
       </main>
-      {creating && <NewWorktreeModal initialMode={creating} view={view} onClose={() => { setCreating(null); clearWorktreeError(); }} />}
+      {creating && <NewWorktreeModal view={view} onClose={() => { setCreating(false); clearWorktreeError(); }} />}
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
     </div>
   );

@@ -25,10 +25,7 @@ export function NewWorktreeForm({ view, onClose }: { view: View; onClose: () => 
         autoFocus onChange={(e) => setPrompt(e.target.value)} />
       {noRepos && <div className="nw-form__hint">Add a known repo in Settings (⚙) to enable deduce.</div>}
       {worktreeError && <div className="nw-form__error">{worktreeError.message}</div>}
-      <div style={{ display: "flex", gap: 6 }}>
-        <button className="nw-form__create" disabled={!prompt.trim() || noRepos} onClick={submit}>Create</button>
-        <button onClick={onClose}>cancel</button>
-      </div>
+      <button className="nw-form__create" disabled={!prompt.trim() || noRepos} onClick={submit}>Create</button>
     </div>
   );
 }

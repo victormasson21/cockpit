@@ -376,6 +376,14 @@ prompt pre-filled + the error**. **Checkout / existing-branch flow is untouched.
     tests green; tsc + Vite + cargo builds clean. **GUI end-to-end acceptance PENDING human eyeball** (native macOS
     window can't be driven headlessly): confirm instant close + spinner, `deducing…`→`creating…`→real tile in the
     same slot, other-tile interaction while spinning, and the failure-reopen path.
+  - **Unified New modal + single `+ New` nav button (same session).** The header's three buttons (`Worktree ·
+    Checkout · Terminal`) collapsed into one **`+ New`** (`App.tsx`; `creating` state is now a plain boolean, no
+    `initialMode`). `NewWorktreeModal` dropped its Deduce/Existing-branch segmented toggle and now **stacks one
+    panel**: `NewWorktreeForm` (prompt + **Create**) → `<hr className="nw-modal__sep">` → `ExistingBranchForm`
+    (repo→branch→name→Create) → separator → a **Terminal** button (`placeNewEntity(addScratch(), view)` — the old
+    top-nav wiring, relocated). **All three actions close the modal on success.** `NewWorktreeForm` lost its
+    redundant `cancel` button (the modal owns close/scrim). CSS: removed `.nw-modal__mode*`; added `.nw-modal__sep`
+    + `.nw-modal__terminal` in `Modal.css`. Pure UI restructure — no store/Rust changes; 104 JS tests still green.
 
 **Next / resuming work — read `docs/ROADMAP.md` first.** It is the single prioritized backlog, split into
 **main build sub-projects** (the big sequential arc — sub-project 5 onward: Linear tile, then GitHub/Calendar
