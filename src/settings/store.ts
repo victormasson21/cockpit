@@ -3,7 +3,11 @@ import { create } from "zustand";
 import type { CockpitConfig, HostConfig, LayoutConfig, Settings, Worktree } from "./types";
 import { saveSettings } from "./api";
 import { nextState, reorderWithinState } from "../tiles/todo/todo";
-import { initSlots, setSlotAt, assignNewWorktree, fillFreeSlot, clearEntity, hideSlotsBeyond, SLOT_COUNT, type Slots, type ScratchTerminal } from "../views/slots";
+import { initSlots, setSlotAt, assignNewWorktree, fillFreeSlot, clearEntity, swapSlotId, hideSlotsBeyond, SLOT_COUNT, type Slots, type ScratchTerminal, type PendingWorktree } from "../views/slots";
+import { deduceWorktree, createWorktree } from "../worktrees/api";
+import { makeWorktree, sourceLinkFrom, branchSpecFrom } from "../worktrees/model";
+
+type View = "cockpit" | "worktrees" | "calm";
 
 interface SettingsState {
   cockpit: CockpitConfig;
@@ -37,11 +41,18 @@ interface SettingsState {
   setSlotCount: (n: number) => void;
   setSlot: (index: number, id: string | null) => void;
   setCockpitWorktree: (id: string | null) => void;
-  placeNewEntity: (id: string, view: "cockpit" | "worktrees" | "calm") => void;
+  placeNewEntity: (id: string, view: View) => void;
   scratchTerminals: ScratchTerminal[];
   scratchSeq: number;
   addScratch: () => string;
   removeScratch: (id: string) => void;
+  // Session-only pending worktrees (spinner tiles) + the whole deduce→create background chain.
+  pendingWorktrees: PendingWorktree[];
+  pendingSeq: number;
+  startDeduceWorktree: (prompt: string, view: View) => void;
+  // Last failed deduce/create (prompt + message); App watches it to reopen the modal prefilled.
+  worktreeError: { prompt: string; message: string } | null;
+  clearWorktreeError: () => void;
   // Session-only "needs attention" set, keyed by ptyId (presence = highlight). Not persisted.
   attention: Record<string, true>;
   markAttention: (ptyId: string) => void;
@@ -75,6 +86,9 @@ export const useSettings = create<SettingsState>((set, get) => ({
   slotCount: SLOT_COUNT,
   scratchTerminals: [],
   scratchSeq: 0,
+  pendingWorktrees: [],
+  pendingSeq: 0,
+  worktreeError: null,
   attention: {},
   fontScale: 1,
   init: (s) => set({ cockpit: s.cockpit, layout: s.layout, loaded: true, slots: initSlots(s.cockpit.worktrees), slotCount: s.cockpit.preferences.panes ?? SLOT_COUNT, fontScale: clampZoom(s.cockpit.preferences.fontScale ?? 1) }),
@@ -136,8 +150,8 @@ export const useSettings = create<SettingsState>((set, get) => ({
   resetZoom: () => get().setFontScale(1),
   // Persisted Cockpit-view right-column slot (omit from JSON when cleared).
   setCockpitWorktree: (id) => get().setCockpit((c) => ({ ...c, cockpitWorktreeId: id ?? undefined })),
-  // View-dependent placement of a newly-created worktree/scratch (see spec).
-  placeNewEntity: (id, view) => {
+  // View-dependent placement of a newly-created worktree/scratch/pending (see spec).
+  placeNewEntity: (id: string, view: View) => {
     if (view === "cockpit") {
       get().setCockpit((c) => ({ ...c, cockpitWorktreeId: id }));
       set((st) => ({ slots: fillFreeSlot(st.slots, id, st.slotCount) }));
@@ -156,6 +170,60 @@ export const useSettings = create<SettingsState>((set, get) => ({
   removeScratch: (id) => {
     get().setCockpit((c) => ({ ...c, cockpitWorktreeId: c.cockpitWorktreeId === id ? undefined : c.cockpitWorktreeId }));
     set((st) => ({ scratchTerminals: st.scratchTerminals.filter((s) => s.id !== id), slots: clearEntity(st.slots, id) }));
+  },
+  clearWorktreeError: () => set({ worktreeError: null }),
+  // startDeduceWorktree: place a spinning pending tile immediately, then run deduce→create in the
+  // background (this action outlives the modal, so the fire-and-forget async survives modal close).
+  // On success the pending id is swapped in place for the real `wt-*` id; on failure the tile is
+  // discarded and worktreeError is set so App reopens the modal prefilled.
+  startDeduceWorktree: (prompt, view) => {
+    const n = get().pendingSeq + 1;
+    const pendingId = `pending-${n}`;
+    set((st) => ({
+      pendingSeq: n,
+      pendingWorktrees: [...st.pendingWorktrees, { id: pendingId, prompt, status: "deducing", view }],
+    }));
+    get().placeNewEntity(pendingId, view);
+
+    // isLive: the user may repick/close the slot mid-flight; if the pending entity is gone, abandon quietly.
+    const isLive = () => get().pendingWorktrees.some((p) => p.id === pendingId);
+
+    void (async () => {
+      try {
+        const d = await deduceWorktree(prompt, get().cockpit.knownRepos.map((r) => r.path));
+        if (!isLive()) return;
+        set((st) => ({
+          pendingWorktrees: st.pendingWorktrees.map((p) => (p.id === pendingId ? { ...p, status: "creating" } : p)),
+        }));
+        // A repo's saved host default wins over the agent's guess (matches the old runDeduce precedence).
+        const saved = get().cockpit.knownRepos.find((r) => r.path === d.repoPath)?.host;
+        const startCmd = saved?.startCmd ?? d.startCmd;
+        const address = saved?.address ?? d.address;
+        const spec = branchSpecFrom({ prNumber: d.prNumber ?? 0, mode: d.existingBranch ? "existing" : "new", branch: d.branch, base: d.base });
+        const worktreePath = await createWorktree(d.repoPath, d.name, spec);
+        if (!isLive()) return;
+        const realId = `wt-${Date.now()}`;
+        const sl = sourceLinkFrom(d);
+        get().addWorktree(makeWorktree({
+          id: realId, name: d.name, repoPath: d.repoPath, branch: d.branch, worktreePath,
+          host: { startCmd, address }, links: sl ? [sl] : [],
+        }));
+        // Swap in place across both slot surfaces, then drop the pending entity.
+        set((st) => ({
+          slots: swapSlotId(st.slots, pendingId, realId),
+          pendingWorktrees: st.pendingWorktrees.filter((p) => p.id !== pendingId),
+        }));
+        get().setCockpit((c) => (c.cockpitWorktreeId === pendingId ? { ...c, cockpitWorktreeId: realId } : c));
+      } catch (e) {
+        // Discard the tile + clear its slot(s), and signal App to reopen the modal prefilled.
+        set((st) => ({
+          pendingWorktrees: st.pendingWorktrees.filter((p) => p.id !== pendingId),
+          slots: clearEntity(st.slots, pendingId),
+          worktreeError: { prompt, message: String(e) },
+        }));
+        get().setCockpit((c) => (c.cockpitWorktreeId === pendingId ? { ...c, cockpitWorktreeId: undefined } : c));
+      }
+    })();
   },
   // Attention highlight (session-only): a pane bells -> mark; user focuses/types in it -> clear.
   markAttention: (ptyId) => set((st) => ({ attention: { ...st.attention, [ptyId]: true } })),

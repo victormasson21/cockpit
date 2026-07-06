@@ -19,7 +19,7 @@ export function NewWorktreeModal({ initialMode = "deduce", view, onClose }: { in
         <button className={mode === "existing" ? "nw-modal__mode nw-modal__mode--active" : "nw-modal__mode"} onClick={() => setMode("existing")}>Existing branch</button>
       </div>
       {mode === "deduce"
-        ? <NewWorktreeForm onCreated={created} />
+        ? <NewWorktreeForm view={view} onClose={onClose} />
         : <ExistingBranchForm onCreated={created} />}
     </Modal>
   );

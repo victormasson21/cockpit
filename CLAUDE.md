@@ -340,6 +340,43 @@ worktree column; moved to the centre to match the design.)*
   (5 new) tests green; Rust + Vite builds clean. Spec:
   `docs/superpowers/specs/2026-07-03-cockpit-diff-tab-design.md`.
 
+✅ **Instant, non-blocking Deduce flow (2026-07-06).** The old blocking Deduce ceremony (open modal → click
+Deduce, wait 15–43s staring at it → review pre-filled fields + banner → click Create, wait on git) is **replaced**:
+the **Worktree** modal is now just a **prompt textarea + Create** (no fields, no separate Deduce step, no
+review/confirm). On submit the **modal closes immediately** and a **spinning pending tile** claims a slot; the
+`deduce_worktree` → `create_worktree` chain runs in the **background** (non-blocking — Tauri runs each `invoke` on
+its own thread, so awaiting from JS doesn't block the webview; **no Rust changes**). When create resolves, the real
+worktree **swaps into the same slot in place**. On failure the tile is discarded and the modal **reopens with the
+prompt pre-filled + the error**. **Checkout / existing-branch flow is untouched.**
+  - **Pending entity** = a third session-only `SlotEntity` kind (`{ kind:"pending"; pending }`), mirroring the
+    `scratchTerminals` slice: `PendingWorktree { id:`pending-<n>`, prompt, status:"deducing"|"creating", view }` in
+    `src/views/slots.ts`; `resolveSlotEntity` gained a defaulted 4th `pending` arg (3-arg callers still compile). New
+    pure `swapSlotId(slots, from, to)` (1:1 in-place replacement — keeps the tile in the SAME slot; chosen over
+    re-running `placeNewEntity`, which could relocate/evict if the layout changed during the ~30s deduce).
+  - **Orchestration lives in the store** (`startDeduceWorktree(prompt, view)` in `src/settings/store.ts`), not the
+    form's local async — so it survives the modal closing. It places a `pending-<n>` via the existing
+    `placeNewEntity`, then a fire-and-forget async: `deduceWorktree` → (guard: pending still live?) → status→creating
+    → resolve host from the repo's saved default (same precedence as the old `runDeduce`) → `branchSpecFrom` →
+    `createWorktree` → (guard) → `addWorktree(makeWorktree(...))` + `swapSlotId(pending→real)` + swap
+    `cockpitWorktreeId` if held + drop the pending entity. **catch:** drop pending, `clearEntity` its slot, set
+    session-only `worktreeError = { prompt, message }`. `isLive()` guards handle the user repicking/closing the slot
+    mid-flight (abandon quietly; an orphaned git worktree in the rare post-create removal is accepted, YAGNI —
+    **no cancel button**).
+  - **Reopen-on-failure:** `App.tsx` watches `worktreeError` (`useEffect` → `setCreating("deduce")`); modal `onClose`
+    calls `clearWorktreeError()` so a stale error can't re-trigger. The trimmed `NewWorktreeForm` seeds its prompt
+    from `worktreeError?.prompt` and shows `worktreeError.message`.
+  - **Rendering:** new `src/views/worktree-column/PendingBody.tsx` (CSS spinner + `deducing…`/`creating…` +
+    prompt); `SlotColumn` resolves pending, renders `PendingBody`, **gates the gear menu off** for pending, and shows
+    a synthetic disabled `<option>` in the picker (a pending id isn't in the worktree/scratch lists). CSS spinner
+    (`.wt-col__spinner` + `@keyframes wt-spin`) in `WorktreeColumn.css`. `CockpitView` reuses `SlotColumn` so it
+    renders pending tiles too.
+  - `NewWorktreeForm` was gutted to a prompt-only form (filename kept); `NewWorktreeModal` deduce branch now
+    `<NewWorktreeForm view onClose />` (no `onCreated` — the store owns placement). `FORM_DEFAULTS`/`branchSpecFrom`/
+    `sourceLinkFrom`/`makeWorktree` still exported (reused by the store action + model tests). 104 JS (+8) + 80 Rust
+    tests green; tsc + Vite + cargo builds clean. **GUI end-to-end acceptance PENDING human eyeball** (native macOS
+    window can't be driven headlessly): confirm instant close + spinner, `deducing…`→`creating…`→real tile in the
+    same slot, other-tile interaction while spinning, and the failure-reopen path.
+
 **Next / resuming work — read `docs/ROADMAP.md` first.** It is the single prioritized backlog, split into
 **main build sub-projects** (the big sequential arc — sub-project 5 onward: Linear tile, then GitHub/Calendar
 tiles, reusing the SP4 provider+panel + Keychain seam) and **smaller iterations** (scoped polish/enhancements). When

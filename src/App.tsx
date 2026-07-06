@@ -27,6 +27,8 @@ function normalizeView(v: string): View {
 
 function App() {
   const { loaded, init, addScratch, placeNewEntity, slotCount, setSlotCount } = useSettings();
+  const worktreeError = useSettings((s) => s.worktreeError);
+  const clearWorktreeError = useSettings((s) => s.clearWorktreeError);
   const fontScale = useSettings((s) => s.fontScale);
   const zoomIn = useSettings((s) => s.zoomIn);
   const zoomOut = useSettings((s) => s.zoomOut);
@@ -63,6 +65,11 @@ function App() {
       })
       .catch((e) => console.error("load failed", e));
   }, [init]);
+
+  // Reopen the deduce modal (prefilled) when a background deduce/create fails, so the user can retry.
+  useEffect(() => {
+    if (worktreeError) setCreating("deduce");
+  }, [worktreeError]);
 
   if (!loaded) return <div className="app__loading">Loading…</div>;
 
@@ -107,7 +114,7 @@ function App() {
         {view === "worktrees" && <WorktreesView />}
         {view === "calm" && <CalmView />}
       </main>
-      {creating && <NewWorktreeModal initialMode={creating} view={view} onClose={() => setCreating(null)} />}
+      {creating && <NewWorktreeModal initialMode={creating} view={view} onClose={() => { setCreating(null); clearWorktreeError(); }} />}
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
     </div>
   );

@@ -5,6 +5,10 @@ import type { CockpitConfig, Worktree } from "./types";
 
 // Mock the IPC layer so the debounced save never reaches Tauri in tests.
 vi.mock("./api", () => ({ saveSettings: vi.fn().mockResolvedValue(undefined) }));
+// Mock the worktree IPC calls the deduce→create background chain makes.
+vi.mock("../worktrees/api", () => ({ deduceWorktree: vi.fn(), createWorktree: vi.fn() }));
+import { deduceWorktree, createWorktree } from "../worktrees/api";
+import type { DeducedWorktree } from "../worktrees/api";
 
 const baseCockpit: CockpitConfig = {
   version: 1,
@@ -221,5 +225,90 @@ describe("text zoom", () => {
   it("init defaults fontScale to 1 when absent (back-compat)", () => {
     useSettings.getState().init({ cockpit: baseCockpit, layout: { version: 1, views: {} } });
     expect(useSettings.getState().fontScale).toBe(1);
+  });
+});
+
+// The deduce→create background chain: a pending tile is placed immediately, then swapped for the
+// real worktree on success or discarded (with worktreeError set) on failure.
+describe("startDeduceWorktree — pending worktree flow", () => {
+  const deduced: DeducedWorktree = {
+    repoPath: "/a", name: "fix login", branch: "fix-login", base: "main",
+    startCmd: "npm run dev", address: "http://localhost:3000", reason: "matched repo",
+  };
+  // flush(): let the fire-and-forget async chain settle (two awaited IPC calls).
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useSettings.setState({
+      cockpit: { ...structuredClone(baseCockpit), knownRepos: [{ path: "/a" }] },
+      layout: { version: 1, views: {} }, loaded: true,
+      slots: [null, null, null], slotCount: 3, scratchTerminals: [], scratchSeq: 0,
+      pendingWorktrees: [], pendingSeq: 0, worktreeError: null,
+    });
+  });
+
+  it("places a spinning pending tile immediately (deducing)", () => {
+    vi.mocked(deduceWorktree).mockReturnValue(new Promise(() => {})); // never resolves this tick
+    useSettings.getState().startDeduceWorktree("fix the login bug", "worktrees");
+    const st = useSettings.getState();
+    expect(st.pendingWorktrees).toEqual([{ id: "pending-1", prompt: "fix the login bug", status: "deducing", view: "worktrees" }]);
+    expect(st.slots).toEqual(["pending-1", null, null]);
+  });
+
+  it("success: swaps the pending id for the real worktree in the same slot and persists the model", async () => {
+    vi.mocked(deduceWorktree).mockResolvedValue(deduced);
+    vi.mocked(createWorktree).mockResolvedValue("/wt/fix-login");
+    useSettings.getState().startDeduceWorktree("fix the login bug", "worktrees");
+    await flush();
+    const st = useSettings.getState();
+    expect(st.pendingWorktrees).toEqual([]);
+    expect(st.slots[0]).toMatch(/^wt-/);
+    expect(st.cockpit.worktrees).toHaveLength(1);
+    expect(st.cockpit.worktrees[0].id).toBe(st.slots[0]);
+    expect(st.cockpit.worktrees[0].worktreePath).toBe("/wt/fix-login");
+    expect(st.worktreeError).toBeNull();
+  });
+
+  it("success on cockpit view: swaps cockpitWorktreeId too", async () => {
+    vi.mocked(deduceWorktree).mockResolvedValue(deduced);
+    vi.mocked(createWorktree).mockResolvedValue("/wt/fix-login");
+    useSettings.getState().startDeduceWorktree("fix the login bug", "cockpit");
+    expect(useSettings.getState().cockpit.cockpitWorktreeId).toBe("pending-1");
+    await flush();
+    const st = useSettings.getState();
+    expect(st.cockpit.cockpitWorktreeId).toMatch(/^wt-/);
+    expect(st.pendingWorktrees).toEqual([]);
+  });
+
+  it("deduce failure: discards the tile, clears the slot, sets worktreeError", async () => {
+    vi.mocked(deduceWorktree).mockRejectedValue("couldn't resolve Linear ticket");
+    useSettings.getState().startDeduceWorktree("ENG-1 fix login", "worktrees");
+    await flush();
+    const st = useSettings.getState();
+    expect(st.pendingWorktrees).toEqual([]);
+    expect(st.slots).toEqual([null, null, null]);
+    expect(st.cockpit.worktrees).toHaveLength(0);
+    expect(st.worktreeError).toEqual({ prompt: "ENG-1 fix login", message: "couldn't resolve Linear ticket" });
+  });
+
+  it("mid-flight discard: if the pending tile is removed before deduce resolves, no worktree is added", async () => {
+    let resolveDeduce!: (d: DeducedWorktree) => void;
+    vi.mocked(deduceWorktree).mockReturnValue(new Promise((res) => { resolveDeduce = res; }));
+    useSettings.getState().startDeduceWorktree("fix the login bug", "worktrees");
+    // User repicks the slot away from the pending tile and it drops out of the pending list.
+    useSettings.setState({ pendingWorktrees: [], slots: [null, null, null] });
+    resolveDeduce(deduced);
+    await flush();
+    const st = useSettings.getState();
+    expect(st.cockpit.worktrees).toHaveLength(0);
+    expect(st.slots).toEqual([null, null, null]);
+    expect(createWorktree).not.toHaveBeenCalled();
+  });
+
+  it("clearWorktreeError nulls the field", () => {
+    useSettings.setState({ worktreeError: { prompt: "p", message: "m" } });
+    useSettings.getState().clearWorktreeError();
+    expect(useSettings.getState().worktreeError).toBeNull();
   });
 });

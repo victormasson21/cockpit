@@ -1,6 +1,6 @@
 // slots.test.ts — pure slot-reducer behavior for the 3-column Worktrees view.
 import { describe, it, expect } from "vitest";
-import { SLOT_COUNT, MIN_SLOTS, initSlots, setSlotAt, assignNewWorktree, fillFreeSlot, clearEntity, hideSlotsBeyond, resolveSlotEntity, type ScratchTerminal } from "./slots";
+import { SLOT_COUNT, MIN_SLOTS, initSlots, setSlotAt, assignNewWorktree, fillFreeSlot, clearEntity, swapSlotId, hideSlotsBeyond, resolveSlotEntity, type ScratchTerminal, type PendingWorktree } from "./slots";
 import type { Worktree } from "../settings/types";
 
 const wt = (id: string, status: Worktree["status"] = "ongoing"): Worktree => ({
@@ -33,12 +33,22 @@ describe("slots", () => {
   it("clearEntity also clears scratch ids", () => {
     expect(clearEntity(["scratch-1", "b", null], "scratch-1")).toEqual([null, "b", null]);
   });
-  it("resolveSlotEntity finds a worktree, then a scratch, else null", () => {
+  it("resolveSlotEntity finds a worktree, then a scratch, else null (3-arg call still compiles)", () => {
     const scratch: ScratchTerminal[] = [{ id: "scratch-1", title: "Scratch 1" }];
     expect(resolveSlotEntity(null, [wt("a")], scratch)).toBeNull();
     expect(resolveSlotEntity("a", [wt("a")], scratch)).toEqual({ kind: "worktree", worktree: wt("a") });
     expect(resolveSlotEntity("scratch-1", [wt("a")], scratch)).toEqual({ kind: "scratch", scratch: scratch[0] });
     expect(resolveSlotEntity("ghost", [wt("a")], scratch)).toBeNull();
+  });
+  it("resolveSlotEntity finds a pending worktree (after worktree + scratch)", () => {
+    const pending: PendingWorktree[] = [{ id: "pending-1", prompt: "fix login", status: "deducing", view: "worktrees" }];
+    expect(resolveSlotEntity("pending-1", [wt("a")], [], pending)).toEqual({ kind: "pending", pending: pending[0] });
+    // worktree/scratch still win over a same-listed pending (ids never actually collide)
+    expect(resolveSlotEntity("a", [wt("a")], [], pending)).toEqual({ kind: "worktree", worktree: wt("a") });
+  });
+  it("swapSlotId replaces every occurrence, leaves non-matches, and no-ops when absent", () => {
+    expect(swapSlotId(["pending-1", "b", "pending-1"], "pending-1", "wt-9")).toEqual(["wt-9", "b", "wt-9"]);
+    expect(swapSlotId(["a", "b", "c"], "pending-1", "wt-9")).toEqual(["a", "b", "c"]);
   });
   it("hideSlotsBeyond clears slots past the visible count (re-expand shows empty panes)", () => {
     expect(hideSlotsBeyond(["a", "b", "c"], 2)).toEqual(["a", "b", null]);

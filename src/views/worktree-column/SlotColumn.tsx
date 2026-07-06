@@ -7,15 +7,16 @@ import { resolveSlotEntity } from "../slots";
 import { GearIcon, CloseIcon, PauseIcon, BinIcon, GhostIcon } from "../icons";
 import { WorktreeBody } from "./WorktreeBody";
 import { ScratchBody } from "./ScratchBody";
+import { PendingBody } from "./PendingBody";
 import { TeardownConfirm } from "./TeardownConfirm";
 import { killWorktreePtys } from "../../worktrees/teardown";
 import "./WorktreeColumn.css";
 
 export function SlotColumn({ value, onSelect, variant = "full" }: { value: string | null; onSelect: (id: string | null) => void; variant?: "full" | "calm" }) {
-  const { cockpit, removeScratch, scratchTerminals } = useSettings();
+  const { cockpit, removeScratch, scratchTerminals, pendingWorktrees } = useSettings();
   const ongoing = cockpit.worktrees.filter((w) => w.status === "ongoing");
   const activeId = value;
-  const entity = resolveSlotEntity(activeId, cockpit.worktrees, scratchTerminals);
+  const entity = resolveSlotEntity(activeId, cockpit.worktrees, scratchTerminals, pendingWorktrees);
   const [menuOpen, setMenuOpen] = useState(false);
   // Delete/Wipe open a confirmation dialog (worktree only); state is local to each column instance.
   const [confirm, setConfirm] = useState<"delete" | "wipe" | null>(null);
@@ -49,6 +50,8 @@ export function SlotColumn({ value, onSelect, variant = "full" }: { value: strin
         <div className="wt-col__picker-wrap">
           <select className="wt-col__picker" value={activeId ?? ""} onChange={(e) => onSelect(e.target.value || null)}>
             <option value="">Select…</option>
+            {/* A pending id isn't in the worktree/scratch lists — show a synthetic disabled option so the select reads sensibly. */}
+            {entity?.kind === "pending" && <option value={entity.pending.id} disabled>{entity.pending.status}…</option>}
             <optgroup label="Worktrees">
               {ongoing.map((w) => {
                 // Append the repo basename to the title so each slot's origin is obvious at a glance.
@@ -64,7 +67,7 @@ export function SlotColumn({ value, onSelect, variant = "full" }: { value: strin
           </select>
           <span className="wt-col__caret" aria-hidden>⌄</span>
         </div>
-        {entity && (
+        {entity && entity.kind !== "pending" && (
           <div className="wt-col__menu">
             <button className="icon-btn wt-col__gear" aria-label="column settings" onClick={() => setMenuOpen((o) => !o)}><GearIcon /></button>
             {menuOpen && (
@@ -91,8 +94,10 @@ export function SlotColumn({ value, onSelect, variant = "full" }: { value: strin
       ) : entity.kind === "worktree" ? (
         // Key on the component (not a wrapper div) so the remount preserves the .wt-col → .wt-col__body flex chain.
         <WorktreeBody key={entity.worktree.id} worktree={entity.worktree} variant={variant} />
-      ) : (
+      ) : entity.kind === "scratch" ? (
         <ScratchBody key={entity.scratch.id} scratchId={entity.scratch.id} />
+      ) : (
+        <PendingBody key={entity.pending.id} pending={entity.pending} />
       )}
 
       {confirm && entity?.kind === "worktree" && (
