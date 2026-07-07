@@ -19,6 +19,32 @@ export interface UseTerminalArgs {
 const TERM_BASE_FONT = 12;
 const termFontSize = (scale: number) => Math.round(TERM_BASE_FONT * scale);
 
+// Fixed always-dark terminal palette (theme spec §3) — deliberately NOT chrome tokens: terminal
+// bodies keep this exact dark set even if a light chrome theme is added later.
+const TERM_THEME = {
+  background: "#0E1F2D",
+  foreground: "#9aa3b2",
+  cursor: "#e7ebf2",
+  cursorAccent: "#0E1F2D",
+  selectionBackground: "rgba(143,182,224,0.25)",
+  black: "#3a4a5e",        // line-number grey
+  red: "#ff7b72",          // keyword red
+  green: "#5FB584",
+  yellow: "#C1A46E",       // camel
+  blue: "#79c0ff",         // number blue
+  magenta: "#d2a8ff",      // fn purple
+  cyan: "#a5d6ff",         // string blue
+  white: "#9aa3b2",
+  brightBlack: "#6a7a8c",  // comment
+  brightRed: "#C56F60",    // attention ⚠
+  brightGreen: "#5FB584",
+  brightYellow: "#C1A46E",
+  brightBlue: "#8fb6e0",   // paths / branch
+  brightMagenta: "#d2a8ff",
+  brightCyan: "#a5d6ff",
+  brightWhite: "#e7ebf2",  // bright text
+};
+
 // Mount an xterm into a div and keep it attached to the (worktree, role) PTY for the component's lifetime.
 export function useTerminal({ worktreeId, role, cwd, autostartCmd }: UseTerminalArgs) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -31,7 +57,12 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd }: UseTerminal
     const ptyId = makePtyId(worktreeId, role);
     ptyIdRef.current = ptyId;
     // Mount at the current zoom; a separate effect reflows on later zoom changes without remounting.
-    const term = new Terminal({ convertEol: false, fontSize: termFontSize(useSettings.getState().fontScale) });
+    const term = new Terminal({
+      convertEol: false,
+      fontSize: termFontSize(useSettings.getState().fontScale),
+      fontFamily: '"JetBrains Mono", ui-monospace, monospace',
+      theme: TERM_THEME,
+    });
     termRef.current = term;
     const fit = new FitAddon();
     fitRef.current = fit;
