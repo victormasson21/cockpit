@@ -83,11 +83,39 @@ pub struct SlackIntegration {
     pub watched_channel_ids: Vec<String>,
 }
 
+// One captured PR review request (resolved at fetch time; render-ready). id = the Slack message ts.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PrReviewItem {
+    pub id: String,
+    pub url: String,
+    pub repo: String,
+    pub number: u64,
+    pub title: String,
+    pub author: String,
+    pub ts: String,
+    // Ship/Show/Ask marker parsed from the message text ("SHIP" | "SHOW" | "ASK").
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
+}
+
+// PR Reviews tile config + state: watched channel, fetch cursor, and the user-curated item list.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PrReviewsIntegration {
+    #[serde(rename = "channelId", default, skip_serializing_if = "Option::is_none")]
+    pub channel_id: Option<String>,
+    #[serde(rename = "lastSeenTs", default, skip_serializing_if = "Option::is_none")]
+    pub last_seen_ts: Option<String>,
+    #[serde(default)]
+    pub items: Vec<PrReviewItem>,
+}
+
 // Container so future tiles add sibling fields without touching CockpitConfig's shape twice.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct Integrations {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub slack: Option<SlackIntegration>,
+    #[serde(rename = "prReviews", default, skip_serializing_if = "Option::is_none")]
+    pub pr_reviews: Option<PrReviewsIntegration>,
 }
 
 // One to-do item: stable id + text + lifecycle state ("todo" | "in_progress" | "done"; TS narrows the domain).
@@ -325,6 +353,31 @@ mod tests {
         let slack = cfg.integrations.slack.unwrap();
         assert_eq!(slack.client_id.as_deref(), Some("123.456"));
         assert_eq!(slack.watched_channel_ids, vec!["C1", "D2"]);
+    }
+
+    #[test]
+    fn cockpit_without_pr_reviews_field_still_loads() {
+        let json = r#"{"version":1,"tiles":[],"worktrees":[],"integrations":{"slack":{"watchedChannelIds":[]}},"preferences":{"theme":"system","defaultView":"main"}}"#;
+        let cfg: CockpitConfig = serde_json::from_str(json).unwrap();
+        assert!(cfg.integrations.pr_reviews.is_none());
+    }
+
+    #[test]
+    fn pr_reviews_integration_round_trips() {
+        let json = r#"{"version":1,"tiles":[],"worktrees":[],"integrations":{"prReviews":{"channelId":"C9","lastSeenTs":"1751.000100","items":[{"id":"1751.000200","url":"https://github.com/acme/web-app/pull/4821","repo":"web-app","number":4821,"title":"Add idempotency key to checkout","author":"Priya Shah","ts":"1751.000200","mode":"SHIP"}]}},"preferences":{"theme":"system","defaultView":"main"}}"#;
+        let cfg: CockpitConfig = serde_json::from_str(json).unwrap();
+        let pr = cfg.integrations.pr_reviews.clone().unwrap();
+        assert_eq!(pr.channel_id.as_deref(), Some("C9"));
+        assert_eq!(pr.last_seen_ts.as_deref(), Some("1751.000100"));
+        assert_eq!(pr.items.len(), 1);
+        assert_eq!(pr.items[0].number, 4821);
+        assert_eq!(pr.items[0].mode.as_deref(), Some("SHIP"));
+        // full round-trip preserves the shape; mode omitted when None
+        let back = serde_json::to_string(&cfg).unwrap();
+        let again: CockpitConfig = serde_json::from_str(&back).unwrap();
+        assert_eq!(again.integrations.pr_reviews, cfg.integrations.pr_reviews);
+        let no_mode = PrReviewItem { mode: None, ..pr.items[0].clone() };
+        assert!(!serde_json::to_string(&no_mode).unwrap().contains("mode"));
     }
 
     #[test]

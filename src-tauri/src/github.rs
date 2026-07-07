@@ -45,7 +45,7 @@ pub fn detect_github_ref(prompt: &str) -> Option<GithubRef> {
 }
 
 // Parse one token as github.com/<owner>/<repo>/(pull|issues)/<N> (trailing slug/query tolerated).
-fn parse_github_url(token: &str) -> Option<GithubRef> {
+pub(crate) fn parse_github_url(token: &str) -> Option<GithubRef> {
     let rest = token.split_once("github.com/").map(|(_, r)| r)?;
     let mut parts = rest.split('/');
     let owner = non_empty(parts.next()?)?;
@@ -135,15 +135,20 @@ fn origin_owner_repo(repo_path: &str) -> Option<(String, String)> {
     parse_owner_repo(String::from_utf8_lossy(&out.stdout).trim())
 }
 
-// Run a gh subcommand with a hard timeout; returns stdout, or an Err carrying gh's stderr.
+// Run a gh subcommand with the default hard timeout; returns stdout, or an Err carrying gh's stderr.
 fn run_gh(args: &[&str]) -> Result<String, String> {
+    run_gh_timeout(args, GH_TIMEOUT)
+}
+
+// Same, with a caller-chosen timeout (e.g. best-effort title enrichment wants to give up sooner).
+pub(crate) fn run_gh_timeout(args: &[&str], timeout: Duration) -> Result<String, String> {
     let mut child = Command::new("gh")
         .args(args)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("gh CLI not found: {e}"))?;
-    match child.wait_timeout(GH_TIMEOUT).map_err(|e| e.to_string())? {
+    match child.wait_timeout(timeout).map_err(|e| e.to_string())? {
         None => {
             let _ = child.kill();
             Err("gh timed out".into())

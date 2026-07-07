@@ -9,13 +9,15 @@ import { filterConversations } from "./watchFilter";
 import "./SlackConnections.css";
 
 export function SlackConnections() {
-  const { cockpit, setSlackClientId, setSlackWatched } = useSettings();
+  const { cockpit, setSlackClientId, setSlackWatched, setPrChannel } = useSettings();
   const slack = cockpit.integrations?.slack;
+  const prChannelId = cockpit.integrations?.prReviews?.channelId;
   const [status, setStatus] = useState<SlackStatus>({ connected: false, hasCredentials: false });
   const [clientId, setClientId] = useState(slack?.clientId ?? "");
   const [clientSecret, setClientSecret] = useState("");
   const [convs, setConvs] = useState<ConversationMeta[]>([]);
   const [watchFilter, setWatchFilter] = useState("");
+  const [prFilter, setPrFilter] = useState("");
   const [connectError, setConnectError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -77,6 +79,25 @@ export function SlackConnections() {
               {c.kind === "channel" ? "#" : "@"} {c.name}
             </label>
           ))}
+        </div>
+      )}
+      {/* PR Reviews tile source: one channel, single-select (radio). Persisted as integrations.prReviews.channelId. */}
+      {status.connected && (
+        <div className="slack-connections__watched">
+          <span className="slack-connections__watched-label">PR reviews channel</span>
+          <input
+            className="slack-connections__watch-search"
+            placeholder="Search channels…"
+            value={prFilter}
+            onChange={(e) => setPrFilter(e.target.value)}
+          />
+          {filterConversations(convs.filter((c) => c.kind === "channel"), prFilter).map((c) => (
+            <label key={c.id} className="slack-connections__watch-row">
+              <input type="radio" name="pr-reviews-channel" checked={prChannelId === c.id} onChange={() => setPrChannel(c.id)} />
+              # {c.name}
+            </label>
+          ))}
+          {prChannelId && <button onClick={() => setPrChannel(null)}>Clear PR channel</button>}
         </div>
       )}
     </div>

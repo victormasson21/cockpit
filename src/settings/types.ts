@@ -17,7 +17,20 @@ export interface HostConfig { startCmd: string; address: string }
 export interface KnownRepo { path: string; host?: HostConfig }
 export interface WorktreeLink { label: string; url: string }
 export interface SlackIntegration { clientId?: string; watchedChannelIds: string[] }
-export interface Integrations { slack?: SlackIntegration }
+// One captured PR review request (render-ready; id = the Slack message ts).
+export interface PrReviewItem {
+  id: string;
+  url: string;
+  repo: string;
+  number: number;
+  title: string;
+  author: string;
+  ts: string;
+  mode?: string; // Ship/Show/Ask marker from the message ("SHIP" | "SHOW" | "ASK")
+}
+// PR Reviews tile config + state: watched channel, fetch cursor, user-curated item list.
+export interface PrReviewsIntegration { channelId?: string; lastSeenTs?: string; items: PrReviewItem[] }
+export interface Integrations { slack?: SlackIntegration; prReviews?: PrReviewsIntegration }
 export type TodoState = "todo" | "in_progress" | "done";
 export interface TodoItem { id: string; text: string; state: TodoState }
 export type WorktreeStatus = "ongoing" | "completed";

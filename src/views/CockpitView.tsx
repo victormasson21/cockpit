@@ -2,6 +2,7 @@
 import { useState } from "react";
 import "./CockpitView.css";
 import { SlackTile } from "../tiles/slack/SlackTile";
+import { PrReviewsTile } from "../tiles/pr/PrReviewsTile";
 import { TodoTile } from "../tiles/todo/TodoTile";
 import { TimerTile } from "../tiles/timer/TimerTile";
 import { SlotColumn } from "./worktree-column/SlotColumn";
@@ -20,6 +21,7 @@ export function CockpitView({ onOpenSettings }: { onOpenSettings: () => void }) 
       <aside className="cockpit-view__tiles">
         <div className="cockpit-view__tiles-label">TILES</div>
         <SlackTile onOpenSettings={onOpenSettings} />
+        <PrReviewsTile onOpenSettings={onOpenSettings} />
       </aside>
       <div className="cockpit-view__main">
         {/* Home | Diff tabs — Home shows the local widgets, Diff swaps in the worktree's branch diff. */}
