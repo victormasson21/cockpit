@@ -2,27 +2,27 @@
 .modal__scrim { position: fixed; inset: 0; background: var(--overlay); display: flex; align-items: center; justify-content: center; z-index: 100; }
 .modal__panel {
   width: min(560px, 92vw); max-height: 88vh; display: flex; flex-direction: column;
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
+  background: var(--bg-1); border: 1px solid var(--bdr-2); border-radius: var(--r); overflow: hidden;
 }
 /* Wide variant for the Settings modal's nav-rail + pane layout. */
 .modal__panel--wide { width: min(720px, 94vw); }
-.modal__header { display: flex; align-items: center; padding: var(--space-3); border-bottom: 1px solid var(--border-subtle); }
-.modal__title { font-weight: 700; }
+.modal__header { display: flex; align-items: center; padding: var(--space-3); border-bottom: 1px solid var(--divider); }
+.modal__title { font-weight: 700; color: var(--tx-hi); }
 /* SVG-icon size (1em) + position delta on top of the shared .icon-btn baseline */
 .modal__close { margin-left: auto; font-size: var(--fs-xl); }
 .modal__content { padding: var(--space-3); overflow: auto; }
 
 /* Unified New-worktree modal: separators between the deduce / existing-branch / terminal sections. */
-.nw-modal__sep { border: none; border-top: 1px solid var(--border-subtle); margin: var(--space-3) 0; }
+.nw-modal__sep { border: none; border-top: 1px solid var(--divider); margin: var(--space-3) 0; }
 /* Section heading: icon + label, a touch larger and bolder than the section body. */
 .nw-modal__heading {
   display: flex; align-items: center; gap: var(--space-2);
-  font-size: var(--fs-xl); font-weight: 700; color: var(--text); margin-bottom: var(--space-2);
+  font-size: var(--fs-xl); font-weight: 700; color: var(--tx-hi); margin-bottom: var(--space-2);
 }
 /* Terminal button: full-width accent action, identical to the deduce/checkout Create buttons. */
 .nw-modal__terminal {
   width: 100%; font: inherit; font-weight: 600; padding: 6px 12px;
-  background: var(--accent); color: var(--accent-fg);
-  border: 1px solid transparent; border-radius: var(--radius-sm); cursor: pointer;
+  background: var(--accent); color: var(--on-accent);
+  border: 1px solid transparent; border-radius: var(--r-sm); cursor: pointer;
 }
-.nw-modal__terminal:hover { filter: brightness(1.08); }
+.nw-modal__terminal:hover { background-image: linear-gradient(var(--hover), var(--hover)); }

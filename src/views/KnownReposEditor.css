@@ -1,10 +1,10 @@
 /* KnownReposEditor.css — layout only; inputs/buttons inherit the global theme baselines. */
-.known-repos { display: grid; gap: var(--space-2); font-size: var(--fs-md); color: var(--text); }
-.known-repos strong { color: var(--text); font-weight: 700; }
-.known-repos__empty { font-size: var(--fs-sm); color: var(--text-secondary); }
+.known-repos { display: grid; gap: var(--space-2); font-size: var(--fs-md); color: var(--tx); }
+.known-repos strong { color: var(--tx); font-weight: 700; }
+.known-repos__empty { font-size: var(--fs-sm); color: var(--tx-2); }
 
 /* one repo: path + remove on top, then the two host-default inputs. */
-.known-repos__row { display: grid; gap: var(--space-1); padding-bottom: var(--space-2); border-bottom: 1px solid var(--border-subtle); }
+.known-repos__row { display: grid; gap: var(--space-1); padding-bottom: var(--space-2); border-bottom: 1px solid var(--divider); }
 .known-repos__head { display: flex; gap: var(--space-1); align-items: center; }
 .known-repos__path { flex: 1; font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
