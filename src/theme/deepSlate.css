@@ -1,0 +1,46 @@
+/* deepSlate.css — the "Deep Slate" (2b) theme: canonical colour/type/shape tokens.
+   Future themes redefine this same token contract under their own [data-theme]. */
+:root[data-theme="deep-slate"] {
+  /* type + shape */
+  --ui: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+  --r: 13px;  --r-sm: 9px;
+
+  /* surfaces (bg-0 darkest ground → surface = cards) */
+  --bg-0:#122A3E; --bg-1:#173245; --bg-2:#1C3B57; --bg-3:#123453;
+  --surface:#234A66; --term:#0E1F2D;
+
+  /* borders */
+  --bdr:#345B7E; --bdr-2:#43719B; --divider:#294E6C; --bdr-soft:#3B6791;
+
+  /* text (hi = headings → tx-4 = faintest) */
+  --tx-hi:#EAF1F7; --tx:#C4D2DE; --tx-2:#93A8BA; --tx-3:#6B8397; --tx-4:#43596C;
+
+  /* action / accent (steel blue) */
+  --accent:#7CACE0; --accent-strong:#97C1EC; --on-accent:#0E2135;
+
+  /* --- the two intentional 2b accents --- */
+  --nav-active:#C15E4C;        /* active segmented-control tab fill (red) */
+  --btn-new:#5AC488;           /* primary "New" button (bright green)     */
+  --on-btn-new:#0E2135;        /* text/icon on the green button           */
+
+  /* info / secondary (channel names, PR repo, branch, workspace chips) */
+  --info-tx:#A3C8EE; --info-bg:#234A6E; --info-bdr:#3E70A2;
+
+  /* status */
+  --ok:#6CC593;   --ok-bg:#154637;   --ok-tx:#84D3A7;   /* success / running / passed */
+  --warn:#D5B87F; --warn-bg:#443A1B; --warn-tx:#E2C591; /* in-progress / warm */
+  --bad:#D9836F;  --bad-bg:#4A251E;  --bad-tx:#EC9C8C;  /* failed / attention */
+  --review:#8FC7CC; --review-bg:#1F464B; --review-tx:#AEDADE; --review-bdr:#3B6E74;
+
+  --hover: rgba(255,255,255,.08);    /* hover state-layer over any surface */
+
+  /* diff lines — live on the ALWAYS-DARK terminal body, constant regardless
+     of chrome theme, so keep these fixed */
+  --add-bg:rgba(79,155,110,.16); --add-mark:#56C486; --add-tx:#A9D8BC;
+  --del-bg:rgba(166,90,77,.20);  --del-mark:#C56F60; --del-tx:#E0B3AB;
+
+  /* additions beyond the spec token list: */
+  --overlay: rgba(0,0,0,.6);         /* modal scrim (kept from the old theme) */
+  --bad-rgb: 217,131,111;            /* --bad as rgb channels for glow alpha  */
+}
