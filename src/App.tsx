@@ -10,7 +10,6 @@ import { NewWorktreeModal } from "./views/NewWorktreeModal";
 import { SettingsModal } from "./views/SettingsModal";
 import { MIN_SLOTS, SLOT_COUNT } from "./views/slots";
 import { GearIcon } from "./views/icons";
-import logoUrl from "./assets/cockpit-radar.svg";
 import "./App.css";
 
 type View = "cockpit" | "worktrees" | "calm";
@@ -86,7 +85,6 @@ function App() {
     <div className="app">
       <header className="app__header">
         <div className="app__brand">
-          <img className="app__logo" src={logoUrl} alt="" aria-hidden />
           <span className="app__name">cockpit</span>
         </div>
         <nav className="app__segmented">

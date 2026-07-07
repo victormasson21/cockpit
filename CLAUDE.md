@@ -144,6 +144,52 @@ renders them. Getting this one pattern right makes the Nth integration mechanica
 
 - **Claude attention highlight (terminal-bell detection) — live & GUI-verified.** Detection is the **terminal bell**: `useTerminal` (`src/worktrees/useTerminal.ts`) hooks xterm's built-in `term.onBell` and, for **attention roles only** (`isAttentionRole` in `src/worktrees/ptyId.ts` → `claude` | scratch `shell`; host/git excluded), marks the pane on a live BEL. A `bellLive` flag (set true right after the scrollback replay write) gates out BEL bytes already sitting in replayed scrollback. State is a **session-only** store slice keyed by `ptyId` (`attention: Record<string, true>` + `markAttention`/`clearAttention` in `src/settings/store.ts`; not persisted). Consumers read it: `WorktreePane` applies `.wt-pane--attention` (warm-red border + glow) and renders the `wt-attention` badge; `SlotColumn` tints the column icon for the slot's claude/shell pane. **Cleared only on real input** — `term.onData` (the user typing a response) and on `restart`; deliberately **not** on focus/window-switch (that cleared it before the user noticed). **No Rust changes** — `pty.rs` already streams the raw bytes and xterm parses the bell. Theme: `--attention-warm` (#ef7a5f, warm coral-red) + `--attention-warm-rgb` in `tokens.css`; the badge + column-icon tint were unified onto it. **One-time user prerequisite:** Claude Code must emit the bell — set `preferredNotifChannel: "terminal_bell"` in `~/.claude/settings.json` (default `auto` sends no bell in the webview terminal). Claude rings after a short idle interval (not the instant a prompt appears), so the glow has an inherent brief delay — that latency is Claude's, not ours (the in-app path is synchronous: BEL → IPC → `onBell` → store → render). README "Claude Code setup" documents the prerequisite. 76 JS tests green (`ptyId.test.ts` covers `isAttentionRole` + id format); Rust + Vite builds clean.
 
+## Replacing the logo
+
+The logo (since 2026-07-07: the persimmon-tree drawing, dark ink + orange fruit) is displayed in
+exactly **two** places — the **header is deliberately logo-free** (a 20px logo was too tight next to
+the brand text; `.app__brand` renders the "cockpit" name only — don't re-add an `<img>` there):
+
+1. **Favicon** — `public/cockpit-tree.png` (256×256, transparent), referenced from `index.html` as
+   `<link rel="icon" type="image/png" href="/cockpit-tree.png" />`.
+2. **App/dock icons** — `src-tauri/icons/*`. `tauri.conf.json` `bundle.icon` lists `32x32.png`,
+   `128x128.png`, `128x128@2x.png`, `icon.icns`, `icon.ico`; the generator also rewrites the
+   Windows `Square*`/`StoreLogo` files and the 1024×1024 `icon.png` (keep that one — it doubles as
+   the master source for future regenerations). The app icon is NOT the bare artwork: it sits on a
+   **macOS-style rounded-rect plate** (a bare transparent PNG looked wrong next to real Dock icons).
+
+Procedure to swap in a new logo image:
+
+1. **Make the source a square 1024×1024 PNG with a transparent background.** `tauri icon` needs
+   alpha, and an opaque background becomes a literal white square on the dock. If the artwork sits
+   on white, derive per-pixel alpha from whiteness using **`min(r, g, b)`** — NOT `max()`: saturated
+   colours (e.g. the orange fruit) have one high channel, so `max()` wrongly erases them. Thresholds
+   that worked: whiteness > 250 → alpha 0; whiteness > 230 → alpha `255 - whiteness` (softens
+   anti-aliased edges); else fully opaque. No ImageMagick on this machine — use Pillow in a
+   throwaway venv (`python3 -m venv venv && pip install pillow`).
+2. **Compose the app-icon variant on a plate** (Pillow again): 1024×1024 transparent canvas,
+   `rounded_rectangle([100, 100, 924, 924], radius=185)` filled **`#F4F0E6`** (warm off-white,
+   user-picked), artwork resized to ~660px and centered. This mimics the Big Sur icon shape.
+3. Run `npm run tauri icon -- /abs/path/to/plated-icon-1024.png` — regenerates all of
+   `src-tauri/icons/`. It **also emits `icons/ios/` and `icons/android/`** — delete both
+   (desktop-only app, nothing references them).
+4. Replace `public/cockpit-tree.png` with a 256×256 resize of the bare transparent artwork — the
+   favicon deliberately has **no plate** (reads better at tab size); update `index.html` if the
+   filename changes.
+5. Verify: `npm run build` + `npx vitest run` green; eyeball `src-tauri/icons/128x128.png` (Read it
+   as an image) to confirm nothing got alpha-mangled.
+6. **Dock-icon gotcha (verified 2026-07-07):** in dev the Dock icon is embedded into the binary at
+   compile time, and **cargo does not track the icon files** — after regenerating icons,
+   `cargo build` reports "Finished" in ~0.1s without recompiling, so restarting `tauri dev` alone
+   still shows the OLD icon. Force it: `touch src-tauri/build.rs && cargo build` (recompiles the
+   cockpit crate, re-embedding the icons), then restart `tauri dev`. A bundled `.app` from
+   `tauri build` needs the same touch first for the same reason.
+7. Keep the entire swap (icons + favicon + any code) in **one commit** so it rolls back with a
+   single `git revert`.
+
+History: the original logo was `cockpit-radar.svg` (in `src/assets/` for the header import and in
+`public/` for the favicon) — both deleted in the 2026-07-07 swap.
+
 ## Status
 
 ✅ **Sub-project 1 (layout shell + settings) — complete & merged to `main`.**
