@@ -1,6 +1,6 @@
 /* CockpitView.css — three-column layout: fixed-width left tiles column · flex center (Home|Diff tabs) · fixed-width right worktree column. */
 .cockpit-view { display: flex; gap: 12px; padding: 12px; height: 100%; box-sizing: border-box; }
-.cockpit-view__tiles { width: 500px; flex: 0 0 500px; display: flex; flex-direction: column; gap: 10px; }
+.cockpit-view__tiles { width: 400px; flex: 0 0 400px; display: flex; flex-direction: column; gap: 10px; }
 .cockpit-view__tiles-label { font-size: var(--fs-xs); letter-spacing: 0.08em; color: var(--tx-3); }
 
 /* center column: a tab bar over either the Home widgets or the Diff view (both flex-fill the remaining height). */
@@ -10,9 +10,11 @@
 .cockpit-view__tab:hover { color: var(--tx); }
 .cockpit-view__tab--active { color: var(--tx-hi); border-bottom-color: var(--accent); font-weight: 600; }
 
-.cockpit-view__center { flex: 1; min-height: 0; display: flex; gap: var(--space-3); align-items: flex-start; }
-.cockpit-view__center > :first-child { flex: 2; }
-.cockpit-view__center > :last-child { flex: 1; }
+/* Home widgets: wrap when narrow — the Timer drops below the To Do list and takes the full row
+   (a fixed 2:1 split cropped the 48px digits at small widths). */
+.cockpit-view__center { flex: 1; min-height: 0; display: flex; flex-wrap: wrap; gap: var(--space-3); align-content: flex-start; overflow: auto; }
+.cockpit-view__center > :first-child { flex: 2 1 340px; }
+.cockpit-view__center > :last-child { flex: 1 1 240px; }
 .cockpit-view__diff-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--tx-3); font-size: var(--fs-md); }
 
 .cockpit-view__worktree { flex: 0 0 500px; display: flex; flex-direction: column; min-height: 0; }
@@ -28,12 +30,12 @@
 @keyframes wt-diff-spin { to { transform: rotate(360deg); } }
 .wt-diff__msg { color: var(--tx-3); font-size: var(--fs-sm); padding: var(--space-2) 0; font-family: var(--mono); white-space: pre-wrap; }
 
-.wt-diff__files { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 1px; }
-.wt-diff__file { background: var(--surface); border: 1px solid var(--bdr); border-radius: var(--r-sm); overflow: hidden; }
+.wt-diff__files { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: var(--space-1); }
+.wt-diff__file { background: var(--surface); border: 1px solid var(--bdr); border-radius: var(--r-sm); overflow: hidden; flex: 0 0 auto; }
 .wt-diff__file-row {
   display: flex; align-items: center; gap: var(--space-2); width: 100%;
   background: var(--surface); border: none; color: var(--tx); cursor: pointer;
-  padding: 5px 8px; font-family: var(--mono); font-size: var(--fs-sm); text-align: left;
+  padding: 8px 10px; font-family: var(--mono); font-size: var(--fs-sm); text-align: left;
   transition: background-color 200ms ease-out;
 }
 .wt-diff__file-row:hover { color: var(--tx); background: var(--hover); }
@@ -45,8 +47,8 @@
 
 /* hunk lines — ALWAYS-DARK code surface: fixed §3 literals + the fixed --add/--del diff tokens
    (constant regardless of chrome theme, so hex here is deliberate, not a missed token). */
-.wt-diff__hunks { background: var(--term); overflow-x: auto; font-family: var(--mono); font-size: var(--fs-xs); line-height: 1.5; }
-.wt-diff__line { white-space: pre; padding: 0 8px; }
+.wt-diff__hunks { background: var(--term); overflow-x: auto; font-family: var(--mono); font-size: var(--fs-xs); line-height: 1.6; padding: var(--space-2) 0; }
+.wt-diff__line { white-space: pre; padding: 1px 12px; }
 .wt-diff__line--hunk { color: #8fb6e0; background: rgba(143, 182, 224, 0.08); }
 .wt-diff__line--add { color: var(--add-tx); background: var(--add-bg); }
 .wt-diff__line--del { color: var(--del-tx); background: var(--del-bg); }
