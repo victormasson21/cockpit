@@ -393,6 +393,28 @@ prompt pre-filled + the error**. **Checkout / existing-branch flow is untouched.
     effect in the shared `Modal` component (`views/Modal.tsx`), so it's universal (New worktree, Settings,
     TeardownConfirm); it invokes the caller's `onClose`, so a guarded no-op (TeardownConfirm while busy) is respected.
 
+✅ **PR Reviews tile (2026-07-07) — code complete.** A manual-refresh tile below the Slack tile (Cockpit TILES
+column) listing PR review requests posted to one configured Slack channel; each item = `repo · #number · Slack
+author` + the **exact PR title** (via `gh pr view --json title`, Slack-text fallback) + an optional
+**SHIP/SHOW/ASK badge** (standalone token parsed from the message, any case), with **Remove** (durable) and
+**+ Review** (fires the existing `startDeduceWorktree(prompt, "cockpit")` background flow — the GitHub source
+path checks the PR out; failures reuse the `worktreeError` modal-reopen). **Backend:** one one-shot command
+`pr_reviews_fetch(channelId, oldest?)` in `src-tauri/src/pr_reviews.rs` (no polling/events — the refresh button
+drives everything); reuses the Slack provider's keychain token, `api_get` (429 retry), `conversations.history`
+with `oldest=<cursor>` (exclusive), and `resolve_user_name` + the `user_names` cache (bot posts fall back to
+`username`, else "unknown"). PR links parse from plain URLs **and** Slack mrkdwn `<url|label>` segments (label
+kept as fallback title; issues links don't qualify); `newestTs` = max ts over ALL fetched messages so the cursor
+advances past chatter; first refresh (`oldest=None`) is a `limit=1` cursor-seed only ("start empty" — items appear
+from the next message onward). Pure tested fns: `extract_pr_ref`, `extract_mode`, `newest_ts`, `fallback_title`,
+`parse_title`, `pr_title_args`, and the DI'd `build_item`; `github.rs::run_gh`/`parse_github_url` made
+`pub(crate)` for reuse. **Persistence:** `integrations.prReviews = { channelId?, lastSeenTs?, items[] }` in
+`cockpit.json` (`#[serde(default)]`, back-compat tested; items carry `mode?`). **Frontend:** `src/tiles/pr/`
+(`PrReviewsTile` on the `<Tile>` shell; `merge.ts` `mergePrItems` dedupes incoming by PR `url` and prepends
+newest-first), store actions `setPrChannel` (clears the cursor — it belongs to a channel — keeps items) /
+`applyPrFetch` / `removePrItem`; a single-select **"PR reviews channel"** radio picker (channels only, searchable)
+added to `SlackConnections`. "Refreshed Xm ago" is session-only. 94 Rust + 112 JS tests green; builds clean.
+**GUI + live acceptance PENDING human eyeball.** Spec: `docs/superpowers/specs/2026-07-07-pr-reviews-tile-design.md`.
+
 **Next / resuming work — read `docs/ROADMAP.md` first.** It is the single prioritized backlog, split into
 **main build sub-projects** (the big sequential arc — sub-project 5 onward: Linear tile, then GitHub/Calendar
 tiles, reusing the SP4 provider+panel + Keychain seam) and **smaller iterations** (scoped polish/enhancements). When

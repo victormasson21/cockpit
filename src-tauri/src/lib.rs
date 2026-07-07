@@ -3,6 +3,7 @@ mod commands;
 mod deduce;
 mod github;
 mod keychain;
+mod pr_reviews;
 mod pty;
 mod settings;
 mod slack;
@@ -39,6 +40,7 @@ pub fn run() {
             slack::slack_refresh,
             slack::slack_list_conversations,
             slack::slack_init,
+            pr_reviews::pr_reviews_fetch,
             auth::list_connections,
         ])
         .run(tauri::generate_context!())

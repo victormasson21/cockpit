@@ -45,7 +45,7 @@ pub fn detect_github_ref(prompt: &str) -> Option<GithubRef> {
 }
 
 // Parse one token as github.com/<owner>/<repo>/(pull|issues)/<N> (trailing slug/query tolerated).
-fn parse_github_url(token: &str) -> Option<GithubRef> {
+pub(crate) fn parse_github_url(token: &str) -> Option<GithubRef> {
     let rest = token.split_once("github.com/").map(|(_, r)| r)?;
     let mut parts = rest.split('/');
     let owner = non_empty(parts.next()?)?;
@@ -136,7 +136,7 @@ fn origin_owner_repo(repo_path: &str) -> Option<(String, String)> {
 }
 
 // Run a gh subcommand with a hard timeout; returns stdout, or an Err carrying gh's stderr.
-fn run_gh(args: &[&str]) -> Result<String, String> {
+pub(crate) fn run_gh(args: &[&str]) -> Result<String, String> {
     let mut child = Command::new("gh")
         .args(args)
         .stdout(Stdio::piped())

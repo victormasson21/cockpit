@@ -1,8 +1,9 @@
 // store.ts — single in-session source of truth for settings; flushes changes to disk (debounced).
 import { create } from "zustand";
-import type { CockpitConfig, HostConfig, LayoutConfig, Settings, Worktree } from "./types";
+import type { CockpitConfig, HostConfig, LayoutConfig, PrReviewItem, Settings, Worktree } from "./types";
 import { saveSettings } from "./api";
 import { nextState, reorderWithinState } from "../tiles/todo/todo";
+import { mergePrItems } from "../tiles/pr/merge";
 import { initSlots, setSlotAt, assignNewWorktree, fillFreeSlot, clearEntity, swapSlotId, hideSlotsBeyond, SLOT_COUNT, type Slots, type ScratchTerminal, type PendingWorktree } from "../views/slots";
 import { deduceWorktree, createWorktree } from "../worktrees/api";
 import { makeWorktree, sourceLinkFrom, branchSpecFrom } from "../worktrees/model";
@@ -30,6 +31,9 @@ interface SettingsState {
   setRepoHost: (path: string, host: HostConfig) => void;
   setSlackClientId: (clientId: string) => void;
   setSlackWatched: (ids: string[]) => void;
+  setPrChannel: (id: string | null) => void;
+  applyPrFetch: (items: PrReviewItem[], newestTs?: string) => void;
+  removePrItem: (id: string) => void;
   // Text zoom (Cmd +/-/0): a multiplier applied to every font-size token; persisted in preferences.
   fontScale: number;
   setFontScale: (n: number) => void;
@@ -251,4 +255,28 @@ export const useSettings = create<SettingsState>((set, get) => ({
     get().setCockpit((c) => ({ ...c, integrations: { ...c.integrations, slack: { ...c.integrations?.slack, watchedChannelIds: c.integrations?.slack?.watchedChannelIds ?? [], clientId } } })),
   setSlackWatched: (ids) =>
     get().setCockpit((c) => ({ ...c, integrations: { ...c.integrations, slack: { ...c.integrations?.slack, clientId: c.integrations?.slack?.clientId, watchedChannelIds: ids } } })),
+  // PR Reviews tile: same functional-updater idiom, always preserving sibling integration fields.
+  // Switching channels drops the cursor (it belongs to a channel) but keeps the curated items.
+  setPrChannel: (id) =>
+    get().setCockpit((c) => ({
+      ...c,
+      integrations: { ...c.integrations, prReviews: { channelId: id ?? undefined, items: c.integrations?.prReviews?.items ?? [] } },
+    })),
+  applyPrFetch: (items, newestTs) =>
+    get().setCockpit((c) => {
+      const pr = c.integrations?.prReviews ?? { items: [] };
+      return {
+        ...c,
+        integrations: {
+          ...c.integrations,
+          prReviews: { ...pr, items: mergePrItems(pr.items, items), lastSeenTs: newestTs ?? pr.lastSeenTs },
+        },
+      };
+    }),
+  removePrItem: (id) =>
+    get().setCockpit((c) => {
+      const pr = c.integrations?.prReviews;
+      if (!pr) return c;
+      return { ...c, integrations: { ...c.integrations, prReviews: { ...pr, items: pr.items.filter((i) => i.id !== id) } } };
+    }),
 }));
