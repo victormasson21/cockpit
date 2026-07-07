@@ -1,29 +1,29 @@
 /* SlackConnections.css — themed styling for the Settings → Connections (Slack) section; mirrors the nw-form button idiom. */
-.slack-connections { display: grid; gap: var(--space-2); font-size: var(--fs-md); color: var(--text); }
-.slack-connections strong { color: var(--text); font-weight: 700; }
-.slack-connections__status { font-size: var(--fs-sm); color: var(--text-secondary); }
-.slack-connections__error { font-size: var(--fs-sm); color: var(--attention-warm); }
+.slack-connections { display: grid; gap: var(--space-2); font-size: var(--fs-md); color: var(--tx); }
+.slack-connections strong { color: var(--tx); font-weight: 700; }
+.slack-connections__status { font-size: var(--fs-sm); color: var(--tx-2); }
+.slack-connections__error { font-size: var(--fs-sm); color: var(--bad-tx); }
 
 /* buttons: subtle by default, accent for the primary save/connect actions (same pattern as NewWorktreeForm) */
 .slack-connections__actions { display: flex; gap: var(--space-1); }
 .slack-connections button {
-  background: var(--surface-raised); color: var(--text);
-  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg-3); color: var(--tx);
+  border: 1px solid var(--bdr); border-radius: var(--r-sm);
   padding: 6px 12px; font-size: var(--fs-md); cursor: pointer;
 }
-.slack-connections button:hover:not(:disabled) { border-color: var(--accent); }
+.slack-connections button:hover:not(:disabled) { border-color: var(--bdr-2); background-image: linear-gradient(var(--hover), var(--hover)); }
 .slack-connections button:disabled { opacity: 0.5; cursor: default; }
 .slack-connections__primary {
-  background: var(--accent); color: var(--accent-fg); border-color: transparent; font-weight: 600;
+  background: var(--accent); color: var(--on-accent); border-color: transparent; font-weight: 600;
 }
-.slack-connections__primary:hover:not(:disabled) { filter: brightness(1.08); border-color: transparent; }
+.slack-connections__primary:hover:not(:disabled) { background-image: linear-gradient(var(--hover), var(--hover)); border-color: transparent; }
 
 /* watched-channels picker */
 .slack-connections__watched {
   display: grid; gap: var(--space-1); max-height: 200px; overflow: auto;
-  border-top: 1px solid var(--border-subtle); padding-top: var(--space-2);
+  border-top: 1px solid var(--divider); padding-top: var(--space-2);
 }
-.slack-connections__watched-label { font-size: var(--fs-sm); color: var(--text-secondary); }
+.slack-connections__watched-label { font-size: var(--fs-sm); color: var(--tx-2); }
 /* compact search box; base look inherited from the global input theme in tokens.css */
 .slack-connections__watch-search { font-size: var(--fs-sm); padding: 4px 8px; }
 .slack-connections__watch-row { display: flex; gap: var(--space-1); align-items: center; font-size: var(--fs-sm); }

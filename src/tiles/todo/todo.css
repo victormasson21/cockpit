@@ -1,15 +1,18 @@
 /* todo.css — To Do tile body: sections + rows + add input. */
 .todo { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-2) var(--space-3); }
-.todo__empty { color: var(--text-muted); font-size: var(--fs-sm); }
+.todo__empty { color: var(--tx-3); font-size: var(--fs-sm); }
 .todo__section { display: flex; flex-direction: column; gap: var(--space-1); }
-.todo__section-label { font-size: var(--fs-2xs); letter-spacing: 0.08em; color: var(--text-muted); }
+.todo__section-label { font-size: var(--fs-2xs); letter-spacing: 0.08em; color: var(--tx-3); }
 .todo__row { display: flex; align-items: center; gap: var(--space-2); font-size: var(--fs-md); cursor: grab; }
-.todo__row--drop-target { border-top: 2px solid var(--accent, var(--text-secondary)); }
+.todo__row--drop-target { border-top: 2px solid var(--accent); }
 /* Glyphs sized ~30% above --fs-lg (14→18px); direct px so it stays off the 1px type scale, ×font-scale to respect global zoom. */
-.todo__glyph { background: none; border: none; cursor: pointer; color: var(--text-secondary); padding: 0; font-size: calc(18px * var(--font-scale)); line-height: 1; }
-.todo__text { flex: 1; min-width: 0; color: var(--text); cursor: text; }
+.todo__glyph { background: none; border: none; cursor: pointer; color: var(--tx-2); padding: 0; font-size: calc(18px * var(--font-scale)); line-height: 1; }
+/* status roles: in-progress = warn, done = ok (glyph tint mirrors the section meaning) */
+.todo__row--in_progress .todo__glyph { color: var(--warn); }
+.todo__row--done .todo__glyph { color: var(--ok); }
+.todo__text { flex: 1; min-width: 0; color: var(--tx); cursor: text; }
 /* Inherits bg/border/radius/padding/font from the global `input` baseline (tokens.css); only layout here. */
 .todo__edit { flex: 1; min-width: 0; }
-.todo__row--done .todo__text { text-decoration: line-through; color: var(--text-muted); }
-.todo__del { background: none; border: none; cursor: pointer; color: var(--text-muted); opacity: 0; }
+.todo__row--done .todo__text { text-decoration: line-through; color: var(--tx-3); }
+.todo__del { background: none; border: none; cursor: pointer; color: var(--tx-3); opacity: 0; }
 .todo__row:hover .todo__del { opacity: 0.7; }
