@@ -1,7 +1,7 @@
 //! pr_reviews.rs — PR Reviews tile provider: one-shot fetch of new PR-request messages from a Slack
 //! channel (since a persisted cursor), turning each PR link into a render-ready item.
 
-use crate::github::{parse_github_url, run_gh, GithubKind, GithubRef};
+use crate::github::{parse_github_url, run_gh_timeout, GithubKind, GithubRef};
 use crate::settings::PrReviewItem;
 use crate::slack::{api_get, resolve_user_name, SlackManager, ACCOUNT_TOKEN};
 use serde::Serialize;
@@ -24,18 +24,13 @@ pub fn pr_reviews_fetch(
     oldest: Option<String>,
 ) -> Result<PrFetchResult, String> {
     let token = manager.store.get(ACCOUNT_TOKEN).map_err(|e| e.to_string())?.ok_or("Slack not connected")?;
-    let history = |params: &[(&str, &str)]| -> Result<Vec<serde_json::Value>, String> {
-        Ok(api_get(&token, "conversations.history", params)?
-            .get("messages")
-            .and_then(|m| m.as_array())
-            .cloned()
-            .unwrap_or_default())
-    };
     let Some(cursor) = oldest else {
-        let messages = history(&[("channel", &channel_id), ("limit", "1")])?;
-        return Ok(PrFetchResult { items: vec![], newest_ts: newest_ts(&messages) });
+        let resp = api_get(&token, "conversations.history", &[("channel", &channel_id), ("limit", "1")])?;
+        let messages = resp.get("messages").and_then(|m| m.as_array()).cloned().unwrap_or_default();
+        // Empty channel: seed at "0" so the channel's first-ever message still counts next refresh.
+        return Ok(PrFetchResult { items: vec![], newest_ts: newest_ts(&messages).or_else(|| Some("0".into())) });
     };
-    let messages = history(&[("channel", &channel_id), ("oldest", &cursor), ("limit", "200")])?;
+    let messages = fetch_history_since(&token, &channel_id, &cursor)?;
     // Clone the name cache out, do all network work without holding the lock, write the grown cache back.
     let mut names = manager.state.lock().unwrap().user_names.clone();
     let items: Vec<PrReviewItem> = messages
@@ -51,15 +46,46 @@ pub fn pr_reviews_fetch(
             })
         })
         .collect();
-    manager.state.lock().unwrap().user_names = names;
+    // extend(), not replace: the 30s poll thread may have cached names while we were on the network.
+    manager.state.lock().unwrap().user_names.extend(names);
     Ok(PrFetchResult { items, newest_ts: newest_ts(&messages) })
 }
 
+// Slack pages history at `limit` per call; follow response_metadata.next_cursor (bounded) so a big
+// backlog (> one page since the cursor) isn't silently dropped while the cursor jumps past it.
+const MAX_HISTORY_PAGES: usize = 5;
+fn fetch_history_since(token: &str, channel_id: &str, oldest: &str) -> Result<Vec<serde_json::Value>, String> {
+    let mut messages: Vec<serde_json::Value> = vec![];
+    let mut cursor = String::new();
+    for _ in 0..MAX_HISTORY_PAGES {
+        let mut params: Vec<(&str, &str)> = vec![("channel", channel_id), ("oldest", oldest), ("limit", "200")];
+        if !cursor.is_empty() {
+            params.push(("cursor", &cursor));
+        }
+        let resp = api_get(token, "conversations.history", &params)?;
+        if let Some(arr) = resp.get("messages").and_then(|m| m.as_array()) {
+            messages.extend(arr.iter().cloned());
+        }
+        let next = resp
+            .get("response_metadata")
+            .and_then(|r| r.get("next_cursor"))
+            .and_then(|c| c.as_str())
+            .unwrap_or("")
+            .to_string();
+        if next.is_empty() {
+            break;
+        }
+        cursor = next;
+    }
+    Ok(messages)
+}
+
 // Exact PR title via the gh CLI; None (→ fallback_title) when gh can't see the repo / isn't set up.
+// Short timeout: enrichment is best-effort and runs once per new PR — don't let a hang stall refresh.
 fn fetch_pr_title(pr: &PrRef) -> Option<String> {
     let args = pr_title_args(&pr.owner, &pr.repo, pr.number);
     let refs: Vec<&str> = args.iter().map(String::as_str).collect();
-    parse_title(&run_gh(&refs).ok()?)
+    parse_title(&run_gh_timeout(&refs, std::time::Duration::from_secs(10)).ok()?)
 }
 
 // A PR link found in a Slack message; label is the mrkdwn <url|label> text when present.
@@ -103,11 +129,12 @@ fn parse_pr_url(s: &str) -> Option<PrRef> {
     }
 }
 
-// Find a standalone Ship/Show/Ask marker (any case, tolerating *bold*/[brackets]/punctuation).
+// Find a standalone SHIP/SHOW/ASK marker (uppercase only — the channel convention — so prose like
+// "can you show me" doesn't badge; *bold*/[brackets]/punctuation around the token are tolerated).
 pub fn extract_mode(text: &str) -> Option<String> {
     text.split_whitespace().find_map(|t| {
         let w = t.trim_matches(|c: char| !c.is_ascii_alphanumeric());
-        ["SHIP", "SHOW", "ASK"].iter().find(|m| w.eq_ignore_ascii_case(m)).map(|m| m.to_string())
+        ["SHIP", "SHOW", "ASK"].iter().find(|m| w == **m).map(|m| m.to_string())
     })
 }
 
@@ -235,11 +262,12 @@ mod tests {
     }
 
     #[test]
-    fn extract_mode_matches_standalone_ship_show_ask_tokens() {
+    fn extract_mode_matches_standalone_uppercase_ship_show_ask_tokens() {
         assert_eq!(extract_mode("SHIP: tiny fix").as_deref(), Some("SHIP"));
-        assert_eq!(extract_mode("*show* please").as_deref(), Some("SHOW")); // slack bold + any case
-        assert_eq!(extract_mode("[Ask] big refactor").as_deref(), Some("ASK"));
+        assert_eq!(extract_mode("*SHOW* please").as_deref(), Some("SHOW")); // slack bold tolerated
+        assert_eq!(extract_mode("[ASK] big refactor").as_deref(), Some("ASK"));
         assert_eq!(extract_mode("we are shipping this"), None); // embedded in a word
+        assert_eq!(extract_mode("can you show me the diff and ask around"), None); // prose, not a marker
         assert_eq!(extract_mode("plain request"), None);
     }
 

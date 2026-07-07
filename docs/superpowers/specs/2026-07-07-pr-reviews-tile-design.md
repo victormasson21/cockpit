@@ -45,12 +45,18 @@ A **PR REVIEWS tile** below the Slack tile in the Cockpit view's TILES column:
 - No cursor yet → `limit=1` history call, returns no items + the newest ts ("start empty").
 - Per message: `extract_pr_ref` (pure) finds a `github.com/<owner>/<repo>/pull/<N>` URL — plain or
   Slack mrkdwn `<url|label>` / `<url>` forms; `extract_mode` (pure) finds a standalone
-  SHIP/SHOW/ASK token (any case → uppercase); author = message `user` resolved via `users.info`
-  (fallback: bot `username`, else "unknown"); title = `gh pr view <N> --repo <owner>/<repo> --json
-  title` (fallback: mrkdwn label → text minus URL → `repo#N`; the item is created regardless).
+  SHIP/SHOW/ASK token (**uppercase only** — the channel convention; prose like "can you show me"
+  must not badge); author = message `user` resolved via `users.info` (fallback: bot `username`, else
+  "unknown"); title = `gh pr view <N> --repo <owner>/<repo> --json title` (**10s timeout** — best-effort
+  enrichment must not stall refresh; fallback: mrkdwn label → text minus URL → `repo#N`; the item is
+  created regardless).
 - `newestTs` = max ts over **all** fetched messages (chatter included) so the cursor always advances.
-- `gh` calls are sequential, one per new PR message, bounded by `limit=200`; the invoke runs on its own
-  thread so the UI never blocks.
+  History is **paginated** via `response_metadata.next_cursor` (bounded at 5 × 200 messages) so a big
+  backlog isn't silently dropped while the cursor jumps past it. An empty channel's first refresh seeds
+  the cursor at `"0"` so the channel's first-ever message still counts.
+- `gh` calls are sequential, one per new PR message; the invoke runs on its own thread so the UI never
+  blocks. The `user_names` cache write-back uses `extend` (not replace) so the concurrent Slack poll
+  thread's additions survive.
 
 **Persistence** (`integrations.prReviews` in `cockpit.json`, all `#[serde(default)]`, non-secret):
 `{ channelId?, lastSeenTs?, items: PrReviewItem[] }` where an item is
@@ -79,4 +85,5 @@ loaded conversations list + `filterConversations`, channels only.
 
 - PR author/state from `gh` (richer than the Slack poster) · live updates via a future signals
   provider · auto-launching the worktree's Claude pane with a review prompt (the `claude` autostart is
-  hardcoded today) · multiple PR links per message (first wins).
+  hardcoded today) · multiple PR links per message (first wins) · thread replies (deliberate:
+  `conversations.history` returns parents + broadcasts only — a request channel's asks are top-level).

@@ -23,12 +23,16 @@ export function PrReviewsTile({ onOpenSettings }: { onOpenSettings: () => void }
   // Manual refresh: fetch messages since the cursor; the store merge dedupes and advances the cursor.
   const refresh = async () => {
     if (!pr?.channelId || refreshing) return;
+    const channelId = pr.channelId; // captured: guard against the user switching channels mid-fetch
     setRefreshing(true);
     setError(null);
     try {
-      const res = await prReviewsFetch(pr.channelId, pr.lastSeenTs);
-      applyPrFetch(res.items, res.newestTs);
-      setRefreshedAt(Date.now());
+      const res = await prReviewsFetch(channelId, pr.lastSeenTs);
+      // Only apply if the picked channel is still the one we fetched (else drop the stale result).
+      if (useSettings.getState().cockpit.integrations?.prReviews?.channelId === channelId) {
+        applyPrFetch(res.items, res.newestTs);
+        setRefreshedAt(Date.now());
+      }
     } catch (e) {
       setError(String(e));
     }

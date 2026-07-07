@@ -26,6 +26,11 @@ describe("mergePrItems", () => {
     expect(merged.map((i) => i.id)).toEqual(["3", "1"]);
   });
 
+  test("dedupes within the incoming batch (same PR re-pinged between refreshes)", () => {
+    const merged = mergePrItems([], [item("2", "u1"), item("1", "u1")]);
+    expect(merged.map((i) => i.id)).toEqual(["2"]);
+  });
+
   test("empty incoming returns the existing array unchanged", () => {
     const existing = [item("1", "u1")];
     expect(mergePrItems(existing, [])).toEqual(existing);
