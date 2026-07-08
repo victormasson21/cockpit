@@ -1,6 +1,8 @@
 // App.tsx — app shell: loads settings, renders the themed header (view switcher + new-worktree) and the active view.
 import { useEffect, useState } from "react";
+import { getVersion } from "@tauri-apps/api/app";
 import { loadSettings } from "./settings/api";
+import { versionLabel } from "./version";
 import { slackInit } from "./tiles/slack/api";
 import { useSettings } from "./settings/store";
 import { WorktreesView } from "./views/WorktreesView";
@@ -35,6 +37,11 @@ function App() {
   const [view, setView] = useState<View>("worktrees");
   const [creating, setCreating] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // App version for the header tag; import.meta.env.DEV distinguishes local dev from a packaged build.
+  const [version, setVersion] = useState<string | null>(null);
+  useEffect(() => {
+    getVersion().then(setVersion).catch(() => {});
+  }, []);
 
   // Push the zoom multiplier onto <html> so every --fs-* token (calc(base * var(--font-scale))) recomputes.
   useEffect(() => {
@@ -87,6 +94,7 @@ function App() {
       <header className="app__header" data-tauri-drag-region>
         <div className="app__brand">
           <span className="app__name">cockpit</span>
+          <span className="app__version">{versionLabel(version, import.meta.env.DEV)}</span>
         </div>
         <nav className="app__segmented">
           {VIEWS.map((v) => (

@@ -144,6 +144,29 @@ renders them. Getting this one pattern right makes the Nth integration mechanica
 
 - **Claude attention highlight (terminal-bell detection) — live & GUI-verified.** Detection is the **terminal bell**: `useTerminal` (`src/worktrees/useTerminal.ts`) hooks xterm's built-in `term.onBell` and, for **attention roles only** (`isAttentionRole` in `src/worktrees/ptyId.ts` → `claude` | scratch `shell`; host/git excluded), marks the pane on a live BEL. A `bellLive` flag (set true right after the scrollback replay write) gates out BEL bytes already sitting in replayed scrollback. State is a **session-only** store slice keyed by `ptyId` (`attention: Record<string, true>` + `markAttention`/`clearAttention` in `src/settings/store.ts`; not persisted). Consumers read it: `WorktreePane` applies `.wt-pane--attention` (warm-red border + glow) and renders the `wt-attention` badge; `SlotColumn` tints the column icon for the slot's claude/shell pane. **Cleared only on real input** — `term.onData` (the user typing a response) and on `restart`; deliberately **not** on focus/window-switch (that cleared it before the user noticed). **No Rust changes** — `pty.rs` already streams the raw bytes and xterm parses the bell. Theme: `--attention-warm` (#ef7a5f, warm coral-red) + `--attention-warm-rgb` in `tokens.css`; the badge + column-icon tint were unified onto it. **One-time user prerequisite:** Claude Code must emit the bell — set `preferredNotifChannel: "terminal_bell"` in `~/.claude/settings.json` (default `auto` sends no bell in the webview terminal). Claude rings after a short idle interval (not the instant a prompt appears), so the glow has an inherent brief delay — that latency is Claude's, not ours (the in-app path is synchronous: BEL → IPC → `onBell` → store → render). README "Claude Code setup" documents the prerequisite. 76 JS tests green (`ptyId.test.ts` covers `isAttentionRole` + id format); Rust + Vite builds clean.
 
+- **Deep Slate theme (2026-07-08, merged to `main`, GUI-approved).** The app-wide dark theme is now the
+  spec'd **"Deep Slate" (2b)** token contract: `src/theme/deepSlate.css` holds ALL colour/type/shape tokens
+  verbatim under `:root[data-theme="deep-slate"]` (plus two flagged additions: `--overlay`, `--bad-rgb`);
+  `src/theme/tokens.css` is the theme-AGNOSTIC baseline (spacing, `--fs-*` type scale, element defaults) —
+  the old token names (`--bg`, `--surface-raised`, `--text-*`, `--attention*`, `--danger`, `--radius*`,
+  `--font-ui/mono`…) are **deleted**, components use the new vocabulary (`--bg-0..3`, `--surface`, `--tx-hi..4`,
+  `--bdr/--bdr-2/--divider`, `--accent/--on-accent`, `--r/--r-sm`, `--ui/--mono`, status trios `--ok/--warn/
+  --bad/--review-*`, chip trio `--info-*`, `--hover` state layer at 200ms ease-out). `ThemeProvider`
+  (`src/theme/ThemeProvider.tsx`, wraps `<App>` in `main.tsx`) sets `data-theme` on `<html>` and imports the
+  theme CSS + fonts — **Inter + JetBrains Mono bundled locally via `@fontsource/*`** (no CDN). Role rules:
+  the active view tab is the ONE red fill (`--nav-active`), the header `+ New` is the ONE green button
+  (`--btn-new`), everything else primary is `--accent` steel blue. **Terminal bodies + the diff hunk area are
+  ALWAYS-DARK (`--term`) with FIXED literals** (spec §3): xterm gets the hardcoded `TERM_THEME` palette +
+  JetBrains Mono in `useTerminal.ts` — deliberately not chrome tokens, so a future light theme won't touch
+  terminals. Allowed literal-colour sites (everything else must use tokens): `deepSlate.css`, `TERM_THEME`,
+  the diff hunk/ctx colours in `CockpitView.css`, the two data-URI SVG strokes in `tokens.css` (chevron/tick —
+  data-URIs can't `var()`), the active-tab shadow. **Tauri:** overlay titlebar (`titleBarStyle: "Overlay"`,
+  `hiddenTitle`, forced `"theme": "Dark"`); the header is a `data-tauri-drag-region` with 84px left padding for
+  the traffic lights. **Flex gotcha (fixed):** any fixed-width column holding terminals needs `min-width: 0` —
+  a freshly-mounted xterm is 80 cols (~588px) before FitAddon runs, and `min-width: auto` lets that first paint
+  inflate the column, which then visibly shrinks as fit converges (`.cockpit-view__worktree` was the case).
+  Plan: `docs/superpowers/plans/2026-07-07-deep-slate-theme.md`.
+
 ## Replacing the logo
 
 The logo (since 2026-07-07: the persimmon-tree drawing, dark ink + orange fruit) is displayed in
