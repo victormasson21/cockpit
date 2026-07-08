@@ -4,6 +4,7 @@ import { createWorktree, listBranches, type BranchInfo } from "../../worktrees/a
 import { makeWorktree } from "../../worktrees/model";
 import { deriveBranchName } from "./branchName";
 import { useSettings } from "../../settings/store";
+import { Dropdown } from "../../views/Dropdown";
 import "./ExistingBranchForm.css";
 
 export function ExistingBranchForm({ onCreated }: { onCreated: (worktreeId: string) => void }) {
@@ -64,10 +65,8 @@ export function ExistingBranchForm({ onCreated }: { onCreated: (worktreeId: stri
 
   return (
     <div className="eb-form">
-      <select className="eb-form__repo" value={repoPath} onChange={(e) => pickRepo(e.target.value)}>
-        <option value="">select repo…</option>
-        {cockpit.knownRepos.map((r) => (<option key={r.path} value={r.path}>{r.path}</option>))}
-      </select>
+      <Dropdown variant="form" placeholder="select repo…" value={repoPath || null} onChange={pickRepo}
+        groups={[{ options: cockpit.knownRepos.map((r) => ({ value: r.path, label: r.path })) }]} />
       {cockpit.knownRepos.length === 0 && (
         <div className="eb-form__hint">Add a known repo (in the New worktree form) to enable this.</div>
       )}
@@ -76,15 +75,13 @@ export function ExistingBranchForm({ onCreated }: { onCreated: (worktreeId: stri
         <div className="eb-form__hint">no local branches found.</div>
       )}
       {branches.length > 0 && (
-        <select className="eb-form__branch" value={branch} onChange={(e) => pickBranch(e.target.value)}>
-          <option value="">select branch…</option>
-          {branches.map((b) => (
-            // Disable branches already checked out elsewhere — git can't worktree-add them.
-            <option key={b.name} value={b.name} disabled={b.checkedOut}>
-              {b.name} — {b.lastCommitRelative}{b.checkedOut ? " · checked out" : ""}
-            </option>
-          ))}
-        </select>
+        <Dropdown variant="form" placeholder="select branch…" value={branch || null} onChange={pickBranch}
+          groups={[{ options: branches.map((b) => ({
+            // Recency rides in the dim hint slot; checked-out branches are disabled — git can't worktree-add them.
+            value: b.name, label: b.name,
+            hint: `${b.lastCommitRelative}${b.checkedOut ? " · checked out" : ""}`,
+            disabled: b.checkedOut,
+          })) }]} />
       )}
       <input placeholder="name" value={name} onChange={(e) => setName(e.target.value)} />
       {error && <div className="eb-form__error">{error}</div>}

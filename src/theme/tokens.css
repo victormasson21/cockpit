@@ -37,7 +37,7 @@ body {
 }
 
 /* Button baseline — themed at the baseline like the inputs below, so every button inherits the dark
-   look with no extra classes. Bespoke buttons (.icon-btn, .app__new, .wt-col__picker) set their own
+   look with no extra classes. Bespoke buttons (.icon-btn, .app__new, .dd__trigger) set their own
    background/border and override this by specificity. */
 button {
   font-family: inherit;
