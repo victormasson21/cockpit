@@ -60,10 +60,15 @@ function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [zoomIn, zoomOut, resetZoom]);
 
-  // Cmd/Ctrl+N: open the New modal (browser default is "new window" — preventDefault claims the combo).
+  // Cmd/Ctrl+N: open the New modal; Cmd/Ctrl+1..3: switch view (digit order matches the header tabs).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "n") { e.preventDefault(); setCreating(true); }
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key.toLowerCase() === "n") { e.preventDefault(); setCreating(true); }
+      else {
+        const v = VIEWS[Number(e.key) - 1];
+        if (v) { e.preventDefault(); setView(v.id); }
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
