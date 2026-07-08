@@ -182,6 +182,30 @@ renders them. Getting this one pattern right makes the Nth integration mechanica
   id with no `.catch`) — the pane looks stuck. Close also clears the attention highlight. No Rust changes
   (`pty_kill` is idempotent — Ok on a missing id).
 
+- **Themed Dropdown (custom select) (2026-07-08, merged to `main`).** All 3 native `<select>`s (slot-column
+  picker + Checkout's repo/branch) are replaced by one shared **`Dropdown`** component — macOS renders the
+  native popup list and CSS can't style it at all, so theme colours/padding/radius on the open list required
+  a custom trigger-button + popover listbox (same pattern as the gear menu; no library, no portal).
+  **Files:** `src/views/dropdownModel.ts` (pure types + tested `selectedLabel(groups, value, placeholder)`
+  trigger-label resolution) — named `dropdownModel`, NOT `dropdown`: on macOS's case-insensitive FS,
+  importing `../Dropdown` resolves `dropdown.ts` first (`.ts` beats `.tsx`) and tsc errors with a casing
+  clash against `Dropdown.tsx`; `src/views/Dropdown.tsx` (component: outside-click close via a
+  while-open document listener; Escape closes with `stopPropagation` so a host modal's own Escape handler
+  doesn't also fire — first Escape closes the popover, second closes the modal); `src/views/Dropdown.css`.
+  **API:** `value: string|null`, `onChange(value)`, `groups: {label?, options:{value,label,hint?,disabled?}[]}[]`,
+  `placeholder`, `variant: "heading"|"form"` — `heading` = the slot column's bold title-as-picker look,
+  `form` = the input-baseline box so closed state blends into forms. **Styling:** popover on `--surface`,
+  radius `--r`, new **`--menu-shadow`** token (deepSlate.css additions block); rows `--fs-lg` at `8px 14px`
+  with `--hover` pills; selected = `--tx-hi` + accent `TickIcon`; disabled `--tx-3`; group headers =
+  uppercase `--fs-2xs` themed optgroups; `hint` renders dim after the label (branch rows: recency +
+  "· checked out"). **CSS gotcha:** rows/trigger are `<button>`s — the `.dd button.dd__*` selector shape
+  (0,2,1) is deliberate, out-specifying both the global button baseline and `.eb-form button`. The gear-menu
+  popover was aligned to the same family (radius `--r`, `--menu-shadow`, hover pills). The slot picker's
+  "Select…" row (value `""`) keeps its clear-the-slot role; Checkout's placeholder rows are no longer
+  selectable (no reset row — repick instead). Native-select baseline in `tokens.css` kept for future forms.
+  130 JS tests green (4 new); tsc + Vite clean; no Rust changes. **GUI acceptance PENDING human eyeball.**
+  Spec/plan: `docs/superpowers/{specs,plans}/2026-07-08-themed-dropdown*`.
+
 ## Replacing the logo
 
 The logo (since 2026-07-07: the persimmon-tree drawing, dark ink + orange fruit) is displayed in
