@@ -83,7 +83,8 @@ function App() {
 
   return (
     <div className="app">
-      <header className="app__header">
+      {/* data-tauri-drag-region: empty header areas drag the window (overlay titlebar); buttons still click. */}
+      <header className="app__header" data-tauri-drag-region>
         <div className="app__brand">
           <span className="app__name">cockpit</span>
         </div>

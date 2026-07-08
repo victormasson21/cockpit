@@ -1,11 +1,11 @@
 /* timer.css — Timer tile body: big countdown + controls. */
 .timer { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); padding: var(--space-4); }
-.timer__time { font-size: var(--fs-display); font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
-.timer__time--done { color: var(--attention); }
+.timer__time { font-size: var(--fs-display); font-weight: 700; font-variant-numeric: tabular-nums; font-family: var(--mono); color: var(--tx-hi); }
+.timer__time--done { color: var(--warn-tx); }
 .timer__controls { display: flex; align-items: center; gap: var(--space-2); }
-.timer__btn { background: var(--surface-raised); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 14px; font-size: var(--fs-md); cursor: pointer; }
-.timer__btn:hover:not(:disabled) { border-color: var(--accent); }
+.timer__btn { background: var(--bg-3); color: var(--tx); border: 1px solid var(--bdr); border-radius: var(--r-sm); padding: 6px 14px; font-size: var(--fs-md); cursor: pointer; }
+.timer__btn:hover:not(:disabled) { border-color: var(--bdr-2); background-image: linear-gradient(var(--hover), var(--hover)); }
 .timer__btn:disabled { opacity: 0.5; cursor: default; }
-.timer__btn--primary { background: var(--accent); color: var(--accent-fg); border-color: transparent; font-weight: 600; }
-.timer__min { font-size: var(--fs-sm); color: var(--text-secondary); display: inline-flex; align-items: center; gap: 4px; }
+.timer__btn--primary { background: var(--accent); color: var(--on-accent); border-color: transparent; font-weight: 600; }
+.timer__min { font-size: var(--fs-sm); color: var(--tx-2); display: inline-flex; align-items: center; gap: 4px; }
 .timer__min input { width: 56px; }

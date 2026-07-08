@@ -1,30 +1,6 @@
-/* tokens.css — single source of theme design tokens (dark) + app baseline; imported once in main.tsx. */
+/* tokens.css — theme-AGNOSTIC baseline: spacing/type-scale tokens + element defaults, written
+   against the theme token contract (colours/fonts/radii live in the active theme, e.g. deepSlate.css). */
 :root {
-  /* backgrounds */
-  --bg: #0d1117;
-  --surface: #11161d;
-  --surface-raised: #161c24;
-  --overlay: rgba(0, 0, 0, 0.6);
-  /* borders */
-  --border: #232c38;
-  --border-subtle: #1a212b;
-  /* text */
-  --text: #e6edf3;
-  --text-secondary: #9aa7b4;
-  --text-muted: #6b7785;
-  /* accent + semantic */
-  --accent: #2dd4bf;
-  --accent-fg: #04221d;
-  --attention: #f5a623;
-  --attention-warm: #ef7a5f;          /* warm coral-red for the "needs attention" pane glow: "look here", not "error" */
-  --attention-warm-rgb: 239, 122, 95; /* same colour as rgb channels, for the glow's box-shadow alpha */
-  --danger: #f0556d;
-  --ok: #3fb950;
-  --info: #4c8bf5;
-  --pr: #a371f7;
-  --git: #e8743b;
-  --diff-add: #3fb950; /* added lines / +N stat (green) */
-  --diff-del: #f0556d; /* removed lines / -N stat (red) */
   /* spacing scale */
   --space-1: 4px;
   --space-2: 8px;
@@ -32,12 +8,6 @@
   --space-4: 16px;
   --space-5: 24px;
   --space-6: 32px;
-  /* radii */
-  --radius: 8px;
-  --radius-sm: 5px;
-  /* fonts */
-  --font-ui: system-ui, -apple-system, "SF Pro Text", "Segoe UI", sans-serif;
-  --font-mono: "SF Mono", ui-monospace, Menlo, Monaco, "Cascadia Code", monospace;
   /* text zoom multiplier (Cmd +/-/0) — driven by the store onto <html>; 1 = 100%. */
   --font-scale: 1;
   /* type scale — each named size = its base px × the zoom multiplier. Only font-size scales; layout
@@ -59,9 +29,9 @@ html, body, #root { height: 100%; }
 
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-ui);
+  background: var(--bg-0);
+  color: var(--tx);
+  font-family: var(--ui);
   font-size: var(--fs-md);
   -webkit-font-smoothing: antialiased;
 }
@@ -71,15 +41,17 @@ body {
    background/border and override this by specificity. */
 button {
   font-family: inherit;
-  background: var(--surface-raised);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: var(--bg-3);
+  color: var(--tx);
+  border: 1px solid var(--bdr);
+  border-radius: var(--r-sm);
   padding: 6px 12px;
   font-size: var(--fs-md);
   cursor: pointer;
+  transition: background-color 200ms ease-out, border-color 200ms ease-out, color 200ms ease-out;
 }
-button:hover:not(:disabled) { border-color: var(--accent); }
+/* hover = --hover state layer painted over the resting fill (works atop any background-color) */
+button:hover:not(:disabled) { background-image: linear-gradient(var(--hover), var(--hover)); border-color: var(--bdr-2); }
 button:disabled { opacity: 0.5; cursor: default; }
 
 /* Form controls — themed at the baseline so every form's input/select/textarea aligns automatically,
@@ -87,24 +59,24 @@ button:disabled { opacity: 0.5; cursor: default; }
 input:not([type="radio"]):not([type="checkbox"]),
 select,
 textarea:not(.xterm-helper-textarea) {
-  background-color: var(--surface-raised);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background-color: var(--bg-3);
+  color: var(--tx);
+  border: 1px solid var(--bdr);
+  border-radius: var(--r-sm);
   padding: 6px 8px;
-  font-family: var(--font-ui);
+  font-family: var(--ui);
   font-size: var(--fs-md);
 }
-/* swap the native select chevron for a themed one drawn in --text-secondary */
+/* swap the native select chevron for a themed one drawn in --tx-2 (data-URIs can't use var()) */
 select {
   appearance: none; -webkit-appearance: none;
   padding-right: 26px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5' fill='none' stroke='%239aa7b4' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5' fill='none' stroke='%2393A8BA' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 8px center;
 }
 input:not([type="radio"]):not([type="checkbox"])::placeholder,
-textarea:not(.xterm-helper-textarea)::placeholder { color: var(--text-muted); }
+textarea:not(.xterm-helper-textarea)::placeholder { color: var(--tx-3); }
 input:not([type="radio"]):not([type="checkbox"]):focus,
 select:focus,
 textarea:not(.xterm-helper-textarea):focus { outline: none; border-color: var(--accent); }
@@ -113,10 +85,11 @@ textarea:not(.xterm-helper-textarea):focus { outline: none; border-color: var(--
    and hover across the app. (The app top bar's buttons keep their own .app__new padding and opt out.) */
 .icon-btn {
   display: inline-flex; align-items: center; justify-content: center; line-height: 1;
-  background: none; border: none; color: var(--text-muted); cursor: pointer;
-  padding: 6px 12px; border-radius: var(--radius-sm); /* vertical ~+40%, horizontal tripled from the prior 4px */
+  background: none; border: none; color: var(--tx-3); cursor: pointer;
+  padding: 6px 12px; border-radius: var(--r-sm); /* vertical ~+40%, horizontal tripled from the prior 4px */
+  transition: background-color 200ms ease-out, color 200ms ease-out;
 }
-.icon-btn:hover { color: var(--text); background: var(--border-subtle); }
+.icon-btn:hover { color: var(--tx); background: var(--hover); }
 input[type="radio"] { accent-color: var(--accent); }
 
 /* Checkboxes — themed at the baseline to match the inputs: surfaced box + border, accent fill + drawn tick when
@@ -124,16 +97,16 @@ input[type="radio"] { accent-color: var(--accent); }
 input[type="checkbox"] {
   appearance: none; -webkit-appearance: none;
   width: 16px; height: 16px; flex: 0 0 auto; margin: 0;
-  background-color: var(--surface-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background-color: var(--bg-3);
+  border: 1px solid var(--bdr);
+  border-radius: var(--r-sm);
   cursor: pointer;
 }
 input[type="checkbox"]:checked {
   background-color: var(--accent);
   border-color: var(--accent);
-  /* dark (--accent-fg) tick centered in the accent box, matching text-on-accent elsewhere */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2 5 8.5 9.5 3.5' fill='none' stroke='%2304221d' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  /* dark (--on-accent) tick centered in the accent box, matching text-on-accent elsewhere */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2 5 8.5 9.5 3.5' fill='none' stroke='%230E2135' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: center;
 }

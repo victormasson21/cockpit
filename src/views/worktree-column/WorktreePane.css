@@ -1,7 +1,7 @@
 /* WorktreePane.css — terminal pane as a card; open panes flex-fill the column's vertical space. */
 .wt-pane {
   display: flex; flex-direction: column; min-height: 0;
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
+  background: var(--surface); border: 1px solid var(--bdr); border-radius: var(--r); overflow: hidden;
 }
 .wt-pane--open { flex: 1; }
 .wt-pane--closed { flex: 0 0 auto; }
@@ -9,23 +9,24 @@
 
 /* needs-attention: warm reddish border + glow (a Claude/scratch pane waiting for you). */
 .wt-pane--attention {
-  border-color: var(--attention-warm);
-  box-shadow: 0 0 0 1px var(--attention-warm),
-              0 0 24px 5px rgba(var(--attention-warm-rgb), 0.45);
+  border-color: var(--bad);
+  box-shadow: 0 0 0 1px var(--bad),
+              0 0 24px 5px rgba(var(--bad-rgb), 0.45);
 }
 
+/* header = chrome (theme tokens); the body below is the ALWAYS-DARK terminal ground. */
 .wt-pane__header {
   display: flex; align-items: center; gap: var(--space-2);
   padding: var(--space-1) var(--space-2);
-  background: var(--surface-raised); color: var(--text-secondary);
-  font-size: var(--fs-xs); user-select: none; border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface); color: var(--tx-2);
+  font-size: var(--fs-xs); user-select: none; border-bottom: 1px solid var(--divider);
 }
 .wt-pane__title { font-weight: 600; }
 
 /* per-pane leading icon: masked PNG glyph tinted with the theme (alpha-only source). */
 .wt-ico {
   width: 15.6px; height: 15.6px; flex: 0 0 auto;
-  background: var(--text-secondary);
+  background: var(--tx-2);
   -webkit-mask-position: center; mask-position: center;
   -webkit-mask-size: contain; mask-size: contain;
   -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
@@ -39,4 +40,4 @@
    Slim the vertical padding (keeping the wide horizontal click area) to keep the header narrow. */
 .wt-pane__restart, .wt-pane__chevron { font-size: var(--fs-2xl); padding-top: 2px; padding-bottom: 2px; }
 .wt-pane__restart { margin-left: auto; }
-.wt-pane__body { flex: 1; min-height: 0; padding: var(--space-1); background: var(--bg); }
+.wt-pane__body { flex: 1; min-height: 0; padding: var(--space-1); background: var(--term); }

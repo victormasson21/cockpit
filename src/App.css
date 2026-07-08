@@ -1,30 +1,35 @@
 /* App.css — shell: header (brand · segmented switcher · new-worktree) + view body. */
 .app { display: flex; flex-direction: column; height: 100vh; }
-.app__loading { padding: var(--space-5); color: var(--text-secondary); }
+.app__loading { padding: var(--space-5); color: var(--tx-2); }
 
+/* top bar = --bg-2; left padding clears the macOS traffic lights (overlay titlebar). */
 .app__header {
   display: flex; align-items: center; gap: var(--space-4);
-  padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border); background: var(--surface);
+  padding: var(--space-2) var(--space-3) var(--space-2) 84px;
+  border-bottom: 1px solid var(--bdr); background: var(--bg-2);
 }
-.app__brand { display: flex; align-items: center; gap: var(--space-2); font-weight: 700; }
+.app__brand { display: flex; align-items: center; gap: var(--space-2); font-weight: 700; color: var(--tx-hi); }
 
-.app__segmented { display: flex; gap: 2px; margin: 0 auto; background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius); padding: 2px; }
-.app__seg { background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px 14px; border-radius: var(--radius-sm); font-size: var(--fs-md); }
-.app__seg:hover { color: var(--text); }
-.app__seg--active { background: var(--accent); color: var(--accent-fg); font-weight: 600; }
+/* view switcher: track --bg-3, ACTIVE TAB = the intentional 2b red. */
+.app__segmented { display: flex; gap: 2px; margin: 0 auto; background: var(--bg-3); border: 1px solid var(--bdr); border-radius: var(--r); padding: 2px; }
+.app__seg { background: none; border: none; color: var(--tx-2); cursor: pointer; padding: 4px 14px; border-radius: var(--r-sm); font-size: var(--fs-md); transition: color 200ms ease-out, background-color 200ms ease-out; }
+.app__seg:hover { color: var(--tx); }
+.app__seg--active { background: var(--nav-active); color: var(--tx-hi); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18); }
 
-.app__new { background: var(--accent); color: var(--accent-fg); border: none; border-radius: var(--radius-sm); padding: 6px 12px; font-weight: 600; cursor: pointer; }
-.app__new:hover { filter: brightness(1.08); }
-/* settings gear: icon variant — flex-centre the SVG, sized a touch larger than the button text */
-.app__new--icon { display: inline-flex; align-items: center; justify-content: center; font-size: 1.3em; line-height: 1; }
+/* THE one green button (everything else primary stays --accent). */
+.app__new { background: var(--btn-new); color: var(--on-btn-new); border: none; border-radius: var(--r-sm); padding: 6px 12px; font-weight: 600; cursor: pointer; }
+.app__new:hover { background-image: linear-gradient(var(--hover), var(--hover)); }
+/* settings gear: neutral icon variant, not green — flex-centre the SVG, sized a touch larger than text */
+.app__new--icon { display: inline-flex; align-items: center; justify-content: center; font-size: 1.3em; line-height: 1; background: none; color: var(--tx-2); }
+.app__new--icon:hover { color: var(--tx); background: var(--hover); background-image: none; }
 
 .app__body { flex: 1; min-height: 0; }
 
 /* Group the header create buttons together on the right. */
 .app__actions { display: flex; align-items: center; gap: var(--space-2); }
 
-/* Panes toggle (2 / 3) — a compact segmented control mirroring the view switcher. */
-.app__panes { display: flex; gap: 2px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius); padding: 2px; }
-.app__pane { background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px 10px; border-radius: var(--radius-sm); font-size: var(--fs-md); }
-.app__pane:hover { color: var(--text); }
-.app__pane--active { background: var(--accent); color: var(--accent-fg); font-weight: 600; }
+/* Panes toggle (2 / 3) — workspace-number chips on the info trio. */
+.app__panes { display: flex; gap: 2px; background: var(--bg-3); border: 1px solid var(--bdr); border-radius: var(--r); padding: 2px; }
+.app__pane { background: none; border: none; color: var(--tx-2); cursor: pointer; padding: 4px 10px; border-radius: var(--r-sm); font-size: var(--fs-md); transition: color 200ms ease-out, background-color 200ms ease-out; }
+.app__pane:hover { color: var(--tx); }
+.app__pane--active { background: var(--info-bg); border: 1px solid var(--info-bdr); color: var(--info-tx); font-weight: 600; padding: 3px 9px; }
