@@ -17,7 +17,10 @@
 .cockpit-view__center > :last-child { flex: 1 1 240px; }
 .cockpit-view__diff-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--tx-3); font-size: var(--fs-md); }
 
-.cockpit-view__worktree { flex: 0 0 500px; display: flex; flex-direction: column; min-height: 0; }
+/* min-width: 0 is load-bearing: a freshly-mounted xterm is 80 cols (~588px) wide before FitAddon runs,
+   and the default min-width:auto would let that inflate the column past its 500px basis on mount
+   (visible shrink-back as fit converges). */
+.cockpit-view__worktree { flex: 0 0 500px; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
 .cockpit-view__worktree > * { flex: 1; min-height: 0; }
 
 /* Diff view: refresh/asof bar, scrollable stat-list, expandable colorized hunks. Lives in the center column. */
