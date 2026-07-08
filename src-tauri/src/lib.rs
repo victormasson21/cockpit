@@ -6,11 +6,14 @@ mod keychain;
 mod pr_reviews;
 mod pty;
 mod settings;
+mod shell_env;
 mod slack;
 mod worktree;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Before anything spawns: adopt the login shell's PATH so `claude`/`gh` resolve even on GUI launch.
+    shell_env::fix_path();
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(pty::PtyManager::default())
