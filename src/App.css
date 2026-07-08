@@ -10,6 +10,15 @@
 }
 /* baseline (not center) so the smaller version tag sits on the same text line as the brand name */
 .app__brand { display: flex; align-items: baseline; gap: var(--space-2); font-weight: 700; color: var(--tx-hi); }
+/* Masked tree glyph next to the name; align-self overrides the brand's baseline alignment (which serves the version tag). */
+.app__logo {
+  width: 18px; height: 18px; flex: 0 0 auto; align-self: center;
+  background: var(--tx-hi);
+  -webkit-mask-image: url("./assets/icons/tree.svg"); mask-image: url("./assets/icons/tree.svg");
+  -webkit-mask-position: center; mask-position: center;
+  -webkit-mask-size: contain; mask-size: contain;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+}
 /* version tag: quiet metadata next to the brand ("v0.1.0 · dev" in dev, "v0.1.0" in a build) */
 .app__version { color: var(--tx-3); font-size: var(--fs-xs); font-weight: 400; }
 

@@ -43,7 +43,7 @@ export function SlotColumn({ value, onSelect, variant = "full" }: { value: strin
   const attnPtyId = entity?.kind === "worktree" ? makePtyId(entity.worktree.id, "claude")
     : entity?.kind === "scratch" ? makePtyId(entity.scratch.id, "shell") : null;
   const attention = useSettings((s) => (attnPtyId ? Boolean(s.attention[attnPtyId]) : false));
-  const iconKind = entity?.kind === "scratch" ? "terminal" : "branch"; // scratch → terminal glyph; worktree & empty slots → branch.
+  const iconKind = entity?.kind === "scratch" ? "terminal" : "tree"; // scratch → terminal glyph; worktree & empty slots → tree.
 
   // Picker rows: clear-action + (synthetic pending) ungrouped, then Worktrees / Scratch groups.
   const pickerGroups: DropdownGroup[] = [

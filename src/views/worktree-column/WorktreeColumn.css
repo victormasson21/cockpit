@@ -14,7 +14,7 @@
   -webkit-mask-size: contain; mask-size: contain;
   -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
 }
-.wt-col__icon--branch { -webkit-mask-image: url("../../assets/icons/branch.png"); mask-image: url("../../assets/icons/branch.png"); }
+.wt-col__icon--tree { -webkit-mask-image: url("../../assets/icons/tree.svg"); mask-image: url("../../assets/icons/tree.svg"); }
 .wt-col__icon--terminal { -webkit-mask-image: url("../../assets/icons/terminal.png"); mask-image: url("../../assets/icons/terminal.png"); }
 .wt-col__icon--attention { background: var(--bad); }
 

@@ -98,6 +98,7 @@ function App() {
       {/* data-tauri-drag-region: empty header areas drag the window (overlay titlebar); buttons still click. */}
       <header className="app__header" data-tauri-drag-region>
         <div className="app__brand">
+          <span className="app__logo" aria-hidden />
           <span className="app__name">cockpit</span>
           <span className="app__version">{versionLabel(version, import.meta.env.DEV)}</span>
         </div>

@@ -211,8 +211,12 @@ renders them. Getting this one pattern right makes the Nth integration mechanica
 ## Replacing the logo
 
 The logo (since 2026-07-07: the persimmon-tree drawing, dark ink + orange fruit) is displayed in
-exactly **two** places — the **header is deliberately logo-free** (a 20px logo was too tight next to
-the brand text; `.app__brand` renders the "cockpit" name only — don't re-add an `<img>` there):
+exactly **two** places. The header shows a logo again since 2026-07-08, but NOT this artwork: it's
+the separate monochrome **tree glyph** (`src/assets/icons/tree.svg`, masked `.app__logo` span in
+`.app__brand`, tinted `--tx-hi`) — the detailed persimmon drawing stays out of the header (at 20px
+it was too tight/muddy next to the brand text; don't re-add an `<img>` of it there). The same tree
+glyph is the slot-column identity icon (`.wt-col__icon--tree`, attention-tinted via the shared
+background swap); the git pane + Checkout heading keep `branch.png`.
 
 1. **Favicon** — `public/cockpit-tree.png` (256×256, transparent), referenced from `index.html` as
    `<link rel="icon" type="image/png" href="/cockpit-tree.png" />`.
