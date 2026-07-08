@@ -132,17 +132,22 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd }: UseTerminal
     fit.fit();
   }, [fontScale]);
 
-  // restart: kill then re-ensure (re-runs autostart) at the terminal's CURRENT size for a wedged process.
-  const restart = () => {
+  // Kill then re-ensure at the terminal's CURRENT size. `cmd` decides what comes back:
+  // restart re-runs the role's autostart; close respawns a BARE shell (a dead pane with no
+  // process behind it silently eats keystrokes — pty_write fails on the missing id).
+  const respawn = (cmd: string | undefined, label: string) => {
     const ptyId = ptyIdRef.current;
     const term = termRef.current;
     const cols = term?.cols ?? 80;
     const rows = term?.rows ?? 24;
-    useSettings.getState().clearAttention(ptyId); // a manual restart resets any pending highlight.
+    useSettings.getState().clearAttention(ptyId); // a manual restart/close resets any pending highlight.
     invoke("pty_kill", { ptyId })
-      .then(() => invoke("pty_ensure", { worktreeId, role, cwd, autostartCmd, cols, rows }))
-      .catch((e) => term?.write(`\r\n[restart failed: ${String(e)}]\r\n`));
+      .then(() => invoke("pty_ensure", { worktreeId, role, cwd, autostartCmd: cmd, cols, rows }))
+      .catch((e) => term?.write(`\r\n[${label} failed: ${String(e)}]\r\n`));
   };
+  const restart = () => respawn(autostartCmd, "restart");
+  // close: cut off whatever is running (autostart cmd AND its shell), land on a fresh empty prompt.
+  const close = () => respawn(undefined, "close");
 
-  return { containerRef, restart };
+  return { containerRef, restart, close };
 }

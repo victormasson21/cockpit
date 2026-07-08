@@ -1,11 +1,27 @@
 // WorktreeBody.tsx — the worktree slot body: chips + path + 3 terminal panes (+ links in full variant).
 import { openUrl } from "@tauri-apps/plugin-opener";
-import type { Worktree } from "../../settings/types";
+import type { PaneOpenState, Worktree } from "../../settings/types";
+import { useSettings } from "../../settings/store";
 import { worktreeChips } from "./chips";
 import { WorktreePane } from "./WorktreePane";
 import { LinksList } from "../../tiles/worktree/LinksList";
 
+type PaneRole = keyof PaneOpenState;
+const ALL_OPEN: PaneOpenState = { host: true, git: true, claude: true };
+
 export function WorktreeBody({ worktree, variant }: { worktree: Worktree; variant: "full" | "calm" }) {
+  // Full variant coordinates the 3 panes' open-state so "expand" can collapse a pane's siblings.
+  // Persisted per worktree (cockpit.json paneOpen) so the arrangement survives view switches + restarts.
+  const updateWorktree = useSettings((s) => s.updateWorktree);
+  const openPanes = worktree.paneOpen ?? ALL_OPEN;
+  const paneProps = (role: PaneRole) =>
+    variant === "full"
+      ? {
+          open: openPanes[role],
+          onToggle: () => updateWorktree(worktree.id, { paneOpen: { ...openPanes, [role]: !openPanes[role] } }),
+          onExpand: () => updateWorktree(worktree.id, { paneOpen: { host: false, git: false, claude: false, [role]: true } }),
+        }
+      : {}; // calm: single pane, self-managed, no expand
   return (
     // Re-keyed by id upstream so switching the picker remounts panes (detach old, attach new) without killing PTYs.
     <div className="wt-col__body">
@@ -28,14 +44,15 @@ export function WorktreeBody({ worktree, variant }: { worktree: Worktree; varian
       <div className="wt-col__panes">
         {variant === "full" && (
           <>
-            <WorktreePane title="localhost" icon={<span className="wt-ico wt-ico--chrome" aria-hidden />} worktreeId={worktree.id} role="host" cwd={worktree.worktreePath} autostartCmd={worktree.host.startCmd} />
-            <WorktreePane title="git" icon={<span className="wt-ico wt-ico--branch" aria-hidden />} worktreeId={worktree.id} role="git" cwd={worktree.worktreePath} />
+            <WorktreePane title="localhost" icon={<span className="wt-ico wt-ico--chrome" aria-hidden />} worktreeId={worktree.id} role="host" cwd={worktree.worktreePath} autostartCmd={worktree.host.startCmd} {...paneProps("host")} />
+            <WorktreePane title="git" icon={<span className="wt-ico wt-ico--branch" aria-hidden />} worktreeId={worktree.id} role="git" cwd={worktree.worktreePath} {...paneProps("git")} />
           </>
         )}
         {/* attention highlight (border/glow + badge) is owned by WorktreePane via the live store. */}
         <WorktreePane
           title="Claude Code" icon={<span className="wt-ico wt-ico--claude" aria-hidden />}
           worktreeId={worktree.id} role="claude" cwd={worktree.worktreePath} autostartCmd="claude"
+          {...paneProps("claude")}
         />
       </div>
     </div>

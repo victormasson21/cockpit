@@ -38,6 +38,6 @@
 
 /* SVG-icon size (1em) + position deltas on top of the shared .icon-btn baseline.
    Slim the vertical padding (keeping the wide horizontal click area) to keep the header narrow. */
-.wt-pane__restart, .wt-pane__chevron { font-size: var(--fs-2xl); padding-top: 2px; padding-bottom: 2px; }
+.wt-pane__restart, .wt-pane__close, .wt-pane__expand, .wt-pane__chevron { font-size: var(--fs-2xl); padding-top: 2px; padding-bottom: 2px; }
 .wt-pane__restart { margin-left: auto; }
 .wt-pane__body { flex: 1; min-height: 0; padding: var(--space-1); background: var(--term); }

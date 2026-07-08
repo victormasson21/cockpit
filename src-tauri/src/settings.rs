@@ -59,6 +59,14 @@ pub struct WorktreeLink {
     pub url: String,
 }
 
+// Which of a worktree's 3 terminal panes are open (the expand/collapse arrangement); absent = all open.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PaneOpen {
+    pub host: bool,
+    pub git: bool,
+    pub claude: bool,
+}
+
 // A worktree: a name + git location (repo/branch/worktree) + local host + links + status.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Worktree {
@@ -72,6 +80,8 @@ pub struct Worktree {
     pub host: HostConfig,
     pub links: Vec<WorktreeLink>,
     pub status: String,
+    #[serde(rename = "paneOpen", default, skip_serializing_if = "Option::is_none")]
+    pub pane_open: Option<PaneOpen>,
 }
 
 // Per-integration persisted config (non-secret only). Slack secrets live in Keychain, never here.
@@ -337,6 +347,19 @@ mod tests {
         // host is omitted entirely when None (skip_serializing_if)
         let bare = KnownRepo { path: "/b".into(), host: None };
         assert!(!serde_json::to_string(&bare).unwrap().contains("host"));
+    }
+
+    // Pre-expand-button files have no paneOpen on worktrees; the field is optional and round-trips.
+    #[test]
+    fn worktree_pane_open_is_optional_and_round_trips() {
+        let bare = r#"{"id":"w1","name":"n","repoPath":"/r","branch":"b","worktreePath":"/w","host":{"startCmd":"","address":""},"links":[],"status":"ongoing"}"#;
+        let wt: Worktree = serde_json::from_str(bare).unwrap();
+        assert_eq!(wt.pane_open, None);
+        assert!(!serde_json::to_string(&wt).unwrap().contains("paneOpen")); // omitted when unset
+        let expanded = r#"{"id":"w1","name":"n","repoPath":"/r","branch":"b","worktreePath":"/w","host":{"startCmd":"","address":""},"links":[],"status":"ongoing","paneOpen":{"host":false,"git":false,"claude":true}}"#;
+        let wt: Worktree = serde_json::from_str(expanded).unwrap();
+        let po = wt.pane_open.unwrap();
+        assert!(!po.host && !po.git && po.claude);
     }
 
     #[test]
