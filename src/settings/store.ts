@@ -61,6 +61,9 @@ interface SettingsState {
   attention: Record<string, true>;
   markAttention: (ptyId: string) => void;
   clearAttention: (ptyId: string) => void;
+  // Session-only "send the deduce prompt on the claude pane's first spawn" flags, keyed by worktree id. Not persisted.
+  initialPromptPending: Record<string, true>;
+  clearInitialPrompt: (id: string) => void;
 }
 
 // Text-zoom bounds: clamp to a readable range and quantise to the 0.1 step so repeated +/- stay on grid.
@@ -94,6 +97,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
   pendingSeq: 0,
   worktreeError: null,
   attention: {},
+  initialPromptPending: {},
   fontScale: 1,
   init: (s) => set({ cockpit: s.cockpit, layout: s.layout, loaded: true, slots: initSlots(s.cockpit.worktrees), slotCount: s.cockpit.preferences.panes ?? SLOT_COUNT, fontScale: clampZoom(s.cockpit.preferences.fontScale ?? 1) }),
   setCockpit: (next) => {
@@ -115,6 +119,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
       cockpitWorktreeId: c.cockpitWorktreeId === id ? undefined : c.cockpitWorktreeId,
     }));
     set((st) => ({ slots: clearEntity(st.slots, id) }));
+    get().clearInitialPrompt(id); // sweep the one-shot flag if the pane never consumed it
   },
   // To-do items persist in cockpit.json; ids are random so they survive restarts without a counter.
   addTodo: (text) =>
@@ -210,12 +215,14 @@ export const useSettings = create<SettingsState>((set, get) => ({
         const sl = sourceLinkFrom(d);
         get().addWorktree(makeWorktree({
           id: realId, name: d.name, repoPath: d.repoPath, branch: d.branch, worktreePath,
-          host: { startCmd, address }, links: sl ? [sl] : [],
+          host: { startCmd, address }, links: sl ? [sl] : [], prompt,
         }));
         // Swap in place across both slot surfaces, then drop the pending entity.
+        // The initial-send flag arms the claude pane's one-shot prompt autostart (cleared on first ensure).
         set((st) => ({
           slots: swapSlotId(st.slots, pendingId, realId),
           pendingWorktrees: st.pendingWorktrees.filter((p) => p.id !== pendingId),
+          initialPromptPending: { ...st.initialPromptPending, [realId]: true },
         }));
         get().setCockpit((c) => (c.cockpitWorktreeId === pendingId ? { ...c, cockpitWorktreeId: realId } : c));
       } catch (e) {
@@ -237,6 +244,13 @@ export const useSettings = create<SettingsState>((set, get) => ({
       if (!st.attention[ptyId]) return st;
       const { [ptyId]: _, ...rest } = st.attention;
       return { attention: rest };
+    }),
+  // No-op (same object) when absent, so clearing an unflagged worktree never triggers a re-render.
+  clearInitialPrompt: (id) =>
+    set((st) => {
+      if (!st.initialPromptPending[id]) return st;
+      const { [id]: _, ...rest } = st.initialPromptPending;
+      return { initialPromptPending: rest };
     }),
   // Known repos the deduce agent may pick from; each carries an optional saved host default. add dedupes by path.
   addKnownRepo: (path) =>

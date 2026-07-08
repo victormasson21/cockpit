@@ -299,7 +299,7 @@ describe("startDeduceWorktree — pending worktree flow", () => {
       cockpit: { ...structuredClone(baseCockpit), knownRepos: [{ path: "/a" }] },
       layout: { version: 1, views: {} }, loaded: true,
       slots: [null, null, null], slotCount: 3, scratchTerminals: [], scratchSeq: 0,
-      pendingWorktrees: [], pendingSeq: 0, worktreeError: null,
+      pendingWorktrees: [], pendingSeq: 0, worktreeError: null, initialPromptPending: {},
     });
   });
 
@@ -345,6 +345,25 @@ describe("startDeduceWorktree — pending worktree flow", () => {
     expect(st.slots).toEqual([null, null, null]);
     expect(st.cockpit.worktrees).toHaveLength(0);
     expect(st.worktreeError).toEqual({ prompt: "ENG-1 fix login", message: "couldn't resolve Linear ticket" });
+  });
+
+  it("success: stores the prompt on the model and marks the initial claude send pending", async () => {
+    vi.mocked(deduceWorktree).mockResolvedValue(deduced);
+    vi.mocked(createWorktree).mockResolvedValue("/wt/fix-login");
+    useSettings.getState().startDeduceWorktree("fix the login bug", "worktrees");
+    await flush();
+    const st = useSettings.getState();
+    expect(st.cockpit.worktrees[0].prompt).toBe("fix the login bug");
+    expect(st.initialPromptPending[st.cockpit.worktrees[0].id]).toBe(true);
+  });
+
+  it("clearInitialPrompt removes the flag; no-op (same object) when absent", () => {
+    useSettings.setState({ initialPromptPending: { "wt-1": true } });
+    useSettings.getState().clearInitialPrompt("wt-1");
+    expect(useSettings.getState().initialPromptPending).toEqual({});
+    const before = useSettings.getState().initialPromptPending;
+    useSettings.getState().clearInitialPrompt("wt-ghost");
+    expect(useSettings.getState().initialPromptPending).toBe(before);
   });
 
   it("mid-flight discard: if the pending tile is removed before deduce resolves, no worktree is added", async () => {

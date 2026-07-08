@@ -10,13 +10,14 @@ type PaneChrome = {
   title: string;
   icon?: ReactNode;
   badge?: ReactNode;
+  action?: ReactNode; // extra header control (e.g. the claude pane's copy-prompt button)
   // Controlled open-state (WorktreeBody coordinates sibling panes for expand); omitted → self-managed.
   open?: boolean;
   onToggle?: () => void;
   onExpand?: () => void; // expand = open me, collapse my siblings; button only shown when provided
 };
 
-export function WorktreePane({ title, icon, badge, open: openProp, onToggle, onExpand, ...args }: UseTerminalArgs & PaneChrome) {
+export function WorktreePane({ title, icon, badge, action, open: openProp, onToggle, onExpand, ...args }: UseTerminalArgs & PaneChrome) {
   const { containerRef, restart, close } = useTerminal(args);
   const [openLocal, setOpenLocal] = useState(true); // default: all panes open
   const open = openProp ?? openLocal;
@@ -31,6 +32,7 @@ export function WorktreePane({ title, icon, badge, open: openProp, onToggle, onE
         <span className="wt-pane__title">{title}</span>
         {needsAttention && <span className="wt-attention">Attention</span>}
         {badge}
+        {action}
         <button className="icon-btn wt-pane__restart" title="restart" onClick={restart}><RestartIcon /></button>
         <button className="icon-btn wt-pane__close" title="close" aria-label="close process" onClick={close}><CloseIcon /></button>
         {onExpand && (

@@ -13,6 +13,7 @@ export interface UseTerminalArgs {
   role: string;
   cwd: string;
   autostartCmd?: string;
+  onEnsured?: () => void; // fires after the mount-time pty_ensure resolves (one-shot autostart consumption)
 }
 
 // The xterm base font size at 100% zoom; multiplied by the store's fontScale so terminals zoom too.
@@ -46,11 +47,17 @@ const TERM_THEME = {
 };
 
 // Mount an xterm into a div and keep it attached to the (worktree, role) PTY for the component's lifetime.
-export function useTerminal({ worktreeId, role, cwd, autostartCmd }: UseTerminalArgs) {
+export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured }: UseTerminalArgs) {
   const containerRef = useRef<HTMLDivElement>(null);
   const ptyIdRef = useRef<string>(makePtyId(worktreeId, role));
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
+  // autostartCmd/onEnsured live in refs: a post-mount change (the one-shot prompt being consumed)
+  // must NOT dispose/recreate the terminal — pty_ensure is idempotent, so re-running was pointless.
+  const autostartRef = useRef(autostartCmd);
+  autostartRef.current = autostartCmd;
+  const onEnsuredRef = useRef(onEnsured);
+  onEnsuredRef.current = onEnsured;
   const fontScale = useSettings((s) => s.fontScale);
 
   useEffect(() => {
@@ -86,8 +93,9 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd }: UseTerminal
     (async () => {
       try {
         await invoke("pty_ensure", {
-          worktreeId, role, cwd, autostartCmd, cols: term.cols, rows: term.rows,
+          worktreeId, role, cwd, autostartCmd: autostartRef.current, cols: term.cols, rows: term.rows,
         });
+        onEnsuredRef.current?.(); // autostart consumed (or PTY already alive) — callers clear one-shot flags here
         const scrollback = await invoke<number[]>("pty_attach", { ptyId });
         if (disposed) return;
         term.write(new Uint8Array(scrollback));
@@ -120,7 +128,7 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd }: UseTerminal
       ro.disconnect();
       term.dispose();
     };
-  }, [worktreeId, role, cwd, autostartCmd]);
+  }, [worktreeId, role, cwd]);
 
   // Live zoom: update xterm's font size and refit (onResize -> pty_resize handles the PTY). No remount,
   // so scrollback and the running process are untouched. Skips the initial mount (already sized above).
@@ -145,7 +153,8 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd }: UseTerminal
       .then(() => invoke("pty_ensure", { worktreeId, role, cwd, autostartCmd: cmd, cols, rows }))
       .catch((e) => term?.write(`\r\n[${label} failed: ${String(e)}]\r\n`));
   };
-  const restart = () => respawn(autostartCmd, "restart");
+  // restart reads the ref so it picks up the current autostart (e.g. plain `claude` after the one-shot prompt).
+  const restart = () => respawn(autostartRef.current, "restart");
   // close: cut off whatever is running (autostart cmd AND its shell), land on a fresh empty prompt.
   const close = () => respawn(undefined, "close");
 

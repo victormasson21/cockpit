@@ -477,6 +477,18 @@ prompt pre-filled + the error**. **Checkout / existing-branch flow is untouched.
     effect in the shared `Modal` component (`views/Modal.tsx`), so it's universal (New worktree, Settings,
     TeardownConfirm); it invokes the caller's `onClose`, so a guarded no-op (TeardownConfirm while busy) is respected.
 
+- **Deduce prompt → Claude pane (2026-07-08).** A deduce-created worktree persists the raw user prompt
+  (`Worktree.prompt?`, `#[serde(default)]` + omitted-when-none — back-compat). The claude pane **auto-sends it
+  once**: session-only `initialPromptPending[worktreeId]` (set by `startDeduceWorktree`) switches the autostart to
+  `claude '<escaped prompt>'` (pure `claudeAutostart`/`claudePaneAutostart` in `src/worktrees/claudeCmd.ts`, POSIX
+  `'\''` escaping); the flag clears via `useTerminal`'s new `onEnsured` hook after the first `pty_ensure`, so the
+  restart button and app relaunches run plain `claude` (no re-send into a live session). `useTerminal` now holds
+  `autostartCmd` in a **ref** (dropped from the mount deps) — clearing the flag doesn't recreate the xterm and can't
+  race a plain-command spawn. Backup: a **copy-prompt button** (`CopyIcon`, new `action` header slot on
+  `WorktreePane`) on the claude pane whenever `worktree.prompt` exists. Auto-send is a CLI arg, so Claude queues it
+  behind the trust-folder dialog — no PTY typing race. Checkout/manual/scratch unchanged; **no Rust PTY changes**.
+  GUI acceptance PENDING human eyeball. Spec: `docs/superpowers/specs/2026-07-08-deduce-prompt-to-claude-design.md`.
+
 ✅ **PR Reviews tile (2026-07-07) — code complete.** A manual-refresh tile below the Slack tile (Cockpit TILES
 column) listing PR review requests posted to one configured Slack channel; each item = `repo · #number · Slack
 author` + the **exact PR title** (via `gh pr view --json title`, 10s timeout, Slack-text fallback) + an optional

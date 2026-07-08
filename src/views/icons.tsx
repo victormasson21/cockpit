@@ -87,3 +87,13 @@ export function GhostIcon() {
     </svg>
   );
 }
+
+// Copy: front sheet + peeking back sheet (copy-prompt action on the claude pane).
+export function CopyIcon() {
+  return (
+    <svg viewBox="0 0 16 16" {...base} aria-hidden="true">
+      <rect x="6" y="6" width="7.5" height="7.5" rx="1.5" />
+      <path d="M3.5 10.5A1.5 1.5 0 0 1 2 9V4a2 2 0 0 1 2-2h5a1.5 1.5 0 0 1 1.5 1.5" />
+    </svg>
+  );
+}

@@ -46,6 +46,7 @@ export interface Worktree {
   links: WorktreeLink[];
   status: WorktreeStatus;
   paneOpen?: PaneOpenState;
+  prompt?: string; // the deduce prompt that created this worktree (auto-sent to Claude once; kept copyable)
 }
 
 export interface CockpitConfig {

@@ -5,6 +5,8 @@ import { useSettings } from "../../settings/store";
 import { worktreeChips } from "./chips";
 import { WorktreePane } from "./WorktreePane";
 import { LinksList } from "../../tiles/worktree/LinksList";
+import { claudePaneAutostart } from "../../worktrees/claudeCmd";
+import { CopyIcon } from "../icons";
 
 type PaneRole = keyof PaneOpenState;
 const ALL_OPEN: PaneOpenState = { host: true, git: true, claude: true };
@@ -22,6 +24,9 @@ export function WorktreeBody({ worktree, variant }: { worktree: Worktree; varian
           onExpand: () => updateWorktree(worktree.id, { paneOpen: { host: false, git: false, claude: false, [role]: true } }),
         }
       : {}; // calm: single pane, self-managed, no expand
+  // One-shot: true only in the session that created this worktree, until the claude PTY's first ensure.
+  const promptPending = useSettings((s) => Boolean(s.initialPromptPending[worktree.id]));
+  const prompt = worktree.prompt; // captured so TS narrowing survives into the JSX callbacks (no `!`)
   return (
     // Re-keyed by id upstream so switching the picker remounts panes (detach old, attach new) without killing PTYs.
     <div className="wt-col__body">
@@ -51,7 +56,15 @@ export function WorktreeBody({ worktree, variant }: { worktree: Worktree; varian
         {/* attention highlight (border/glow + badge) is owned by WorktreePane via the live store. */}
         <WorktreePane
           title="Claude Code" icon={<span className="wt-ico wt-ico--claude" aria-hidden />}
-          worktreeId={worktree.id} role="claude" cwd={worktree.worktreePath} autostartCmd="claude"
+          worktreeId={worktree.id} role="claude" cwd={worktree.worktreePath}
+          autostartCmd={claudePaneAutostart(worktree.prompt, promptPending)}
+          onEnsured={() => useSettings.getState().clearInitialPrompt(worktree.id)}
+          action={prompt ? (
+            <button
+              className="icon-btn" title={`copy prompt: ${prompt}`}
+              onClick={() => navigator.clipboard.writeText(prompt).catch((e) => console.error("copy prompt failed", e))}
+            ><CopyIcon /></button>
+          ) : undefined}
           {...paneProps("claude")}
         />
       </div>
