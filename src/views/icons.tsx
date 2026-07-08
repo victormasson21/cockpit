@@ -29,6 +29,16 @@ export function ChevronIcon({ open }: { open: boolean }) {
   );
 }
 
+// Expand: two chevrons pointing apart (grow this pane, collapse its siblings).
+export function ExpandIcon() {
+  return (
+    <svg viewBox="0 0 16 16" {...base} aria-hidden="true">
+      <path d="M4 5.5 8 1.5l4 4" />
+      <path d="M4 10.5 8 14.5l4-4" />
+    </svg>
+  );
+}
+
 // A true cog: a toothed gear ring + centre hub. (The previous path was an 8-ray sun, not a gear.)
 export function GearIcon() {
   return (

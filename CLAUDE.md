@@ -167,6 +167,18 @@ renders them. Getting this one pattern right makes the Nth integration mechanica
   inflate the column, which then visibly shrinks as fit converges (`.cockpit-view__worktree` was the case).
   Plan: `docs/superpowers/plans/2026-07-07-deep-slate-theme.md`.
 
+- **Terminal pane expand + close buttons (2026-07-08, GUI-verified).** Each worktree pane header is now
+  `restart · close · expand · chevron`. **Expand** (new `ExpandIcon`, two opposed chevrons) opens the clicked
+  pane and collapses its two siblings: the full variant's open-state was lifted to `WorktreeBody` (a
+  `{host,git,claude}` map passed to `WorktreePane` as optional controlled props `open`/`onToggle`/`onExpand`;
+  when omitted the pane self-manages as before, so Calm/scratch single panes are unchanged and get no expand
+  button — expanding a lone pane is meaningless). **Close** cuts off whatever is running (autostart cmd AND its
+  shell) and lands on a fresh bare prompt: `pty_kill` → `pty_ensure` with NO autostart (the shared `respawn`
+  helper in `useTerminal.ts`; restart = same path re-running the autostart). **Gotcha:** a kill without respawn
+  leaves a dead xterm that still blinks a cursor and silently eats keystrokes (`pty_write` fails on the missing
+  id with no `.catch`) — the pane looks stuck. Close also clears the attention highlight. No Rust changes
+  (`pty_kill` is idempotent — Ok on a missing id).
+
 ## Replacing the logo
 
 The logo (since 2026-07-07: the persimmon-tree drawing, dark ink + orange fruit) is displayed in

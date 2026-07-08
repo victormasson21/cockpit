@@ -1,14 +1,26 @@
-// WorktreePane.tsx — one themed terminal pane: header (icon + title + badge slot + restart + chevron collapse) over a PTY-bound xterm.
+// WorktreePane.tsx — one themed terminal pane: header (icon + title + badge slot + restart + close + expand + chevron collapse) over a PTY-bound xterm.
 import { useState, type ReactNode } from "react";
 import { useTerminal, type UseTerminalArgs } from "../../worktrees/useTerminal";
 import { useSettings } from "../../settings/store";
 import { makePtyId } from "../../worktrees/ptyId";
-import { RestartIcon, ChevronIcon } from "../icons";
+import { RestartIcon, CloseIcon, ChevronIcon, ExpandIcon } from "../icons";
 import "./WorktreePane.css";
 
-export function WorktreePane({ title, icon, badge, ...args }: UseTerminalArgs & { title: string; icon?: ReactNode; badge?: ReactNode }) {
-  const { containerRef, restart } = useTerminal(args);
-  const [open, setOpen] = useState(true); // default: all panes open
+type PaneChrome = {
+  title: string;
+  icon?: ReactNode;
+  badge?: ReactNode;
+  // Controlled open-state (WorktreeBody coordinates sibling panes for expand); omitted → self-managed.
+  open?: boolean;
+  onToggle?: () => void;
+  onExpand?: () => void; // expand = open me, collapse my siblings; button only shown when provided
+};
+
+export function WorktreePane({ title, icon, badge, open: openProp, onToggle, onExpand, ...args }: UseTerminalArgs & PaneChrome) {
+  const { containerRef, restart, close } = useTerminal(args);
+  const [openLocal, setOpenLocal] = useState(true); // default: all panes open
+  const open = openProp ?? openLocal;
+  const toggle = onToggle ?? (() => setOpenLocal((o) => !o));
   // Live "needs attention" state for this pane (set by useTerminal on a terminal bell).
   const ptyId = makePtyId(args.worktreeId, args.role);
   const needsAttention = useSettings((s) => Boolean(s.attention[ptyId]));
@@ -20,7 +32,13 @@ export function WorktreePane({ title, icon, badge, ...args }: UseTerminalArgs & 
         {needsAttention && <span className="wt-attention">Attention</span>}
         {badge}
         <button className="icon-btn wt-pane__restart" title="restart" onClick={restart}><RestartIcon /></button>
-        <button className="icon-btn wt-pane__chevron" aria-label={open ? "collapse" : "expand"} onClick={() => setOpen((o) => !o)}>
+        <button className="icon-btn wt-pane__close" title="close" aria-label="close process" onClick={close}><CloseIcon /></button>
+        {onExpand && (
+          <button className="icon-btn wt-pane__expand" title="expand" aria-label="expand pane" onClick={onExpand}>
+            <ExpandIcon />
+          </button>
+        )}
+        <button className="icon-btn wt-pane__chevron" aria-label={open ? "collapse" : "open"} onClick={toggle}>
           <ChevronIcon open={open} />
         </button>
       </div>
