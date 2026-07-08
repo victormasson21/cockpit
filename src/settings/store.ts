@@ -119,6 +119,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
       cockpitWorktreeId: c.cockpitWorktreeId === id ? undefined : c.cockpitWorktreeId,
     }));
     set((st) => ({ slots: clearEntity(st.slots, id) }));
+    get().clearInitialPrompt(id); // sweep the one-shot flag if the pane never consumed it
   },
   // To-do items persist in cockpit.json; ids are random so they survive restarts without a counter.
   addTodo: (text) =>

@@ -11,6 +11,7 @@ import { CopyIcon } from "../icons";
 export function WorktreeBody({ worktree, variant }: { worktree: Worktree; variant: "full" | "calm" }) {
   // One-shot: true only in the session that created this worktree, until the claude PTY's first ensure.
   const promptPending = useSettings((s) => Boolean(s.initialPromptPending[worktree.id]));
+  const prompt = worktree.prompt; // captured so TS narrowing survives into the JSX callbacks (no `!`)
   return (
     // Re-keyed by id upstream so switching the picker remounts panes (detach old, attach new) without killing PTYs.
     <div className="wt-col__body">
@@ -43,10 +44,10 @@ export function WorktreeBody({ worktree, variant }: { worktree: Worktree; varian
           worktreeId={worktree.id} role="claude" cwd={worktree.worktreePath}
           autostartCmd={claudePaneAutostart(worktree.prompt, promptPending)}
           onEnsured={() => useSettings.getState().clearInitialPrompt(worktree.id)}
-          action={worktree.prompt ? (
+          action={prompt ? (
             <button
-              className="icon-btn" title={`copy prompt: ${worktree.prompt}`}
-              onClick={() => navigator.clipboard.writeText(worktree.prompt!)}
+              className="icon-btn" title={`copy prompt: ${prompt}`}
+              onClick={() => navigator.clipboard.writeText(prompt).catch((e) => console.error("copy prompt failed", e))}
             ><CopyIcon /></button>
           ) : undefined}
         />
