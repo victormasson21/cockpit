@@ -43,6 +43,7 @@ export interface Worktree {
   host: HostConfig;
   links: WorktreeLink[];
   status: WorktreeStatus;
+  prompt?: string; // the deduce prompt that created this worktree (auto-sent to Claude once; kept copyable)
 }
 
 export interface CockpitConfig {
