@@ -72,6 +72,9 @@ pub struct Worktree {
     pub host: HostConfig,
     pub links: Vec<WorktreeLink>,
     pub status: String,
+    // The deduce prompt that created this worktree (auto-sent to Claude once; kept copyable). Absent for manual/checkout worktrees.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prompt: Option<String>,
 }
 
 // Per-integration persisted config (non-secret only). Slack secrets live in Keychain, never here.
@@ -409,5 +412,17 @@ mod tests {
         let json = r#"{"version":1,"tiles":[],"worktrees":[],"cockpitWorktreeId":"wt-3","preferences":{"theme":"system","defaultView":"main"}}"#;
         let cfg: CockpitConfig = serde_json::from_str(json).unwrap();
         assert_eq!(cfg.cockpit_worktree_id.as_deref(), Some("wt-3"));
+    }
+
+    // Back-compat: pre-prompt cockpit.json worktrees load; None is omitted; Some round-trips.
+    #[test]
+    fn worktree_prompt_optional_and_omitted_when_none() {
+        let json = r#"{"id":"wt-1","name":"n","repoPath":"/r","branch":"b","worktreePath":"/w","host":{"startCmd":"","address":""},"links":[],"status":"ongoing"}"#;
+        let wt: Worktree = serde_json::from_str(json).unwrap();
+        assert_eq!(wt.prompt, None);
+        assert!(!serde_json::to_string(&wt).unwrap().contains("prompt"));
+        let with = Worktree { prompt: Some("fix the login bug".into()), ..wt };
+        let back: Worktree = serde_json::from_str(&serde_json::to_string(&with).unwrap()).unwrap();
+        assert_eq!(back.prompt.as_deref(), Some("fix the login bug"));
     }
 }
