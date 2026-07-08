@@ -1,0 +1,57 @@
+/* Dropdown.css — themed select replacement: heading|form trigger variants + floating popover listbox.
+   Rows/trigger are <button>s: the `.dd button.dd__*` shape (0,2,1) out-specifies both the global
+   button baseline (tokens.css) and form-scoped rules like `.eb-form button` — keep that pattern. */
+.dd { position: relative; min-width: 0; }
+
+/* trigger skeleton — variants below set the box */
+.dd button.dd__trigger {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-width: 0; max-width: 100%; cursor: pointer; text-align: left;
+  font-family: var(--ui);
+}
+.dd__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dd__chevron { display: inline-flex; color: var(--tx-3); flex: 0 0 auto; font-size: 14px; }
+
+/* heading variant — the slot column's bold title-as-picker look */
+.dd--heading { flex: 0 1 auto; }
+.dd--heading button.dd__trigger {
+  background: none; border: none; padding: 0 2px;
+  color: var(--tx-hi); font-size: var(--fs-xl); font-weight: 700;
+}
+.dd--heading button.dd__trigger:hover:not(:disabled) { background: none; background-image: none; }
+
+/* form variant — matches the global input baseline so the closed state blends into forms */
+.dd--form button.dd__trigger {
+  width: 100%; justify-content: space-between;
+  background: var(--bg-3); border: 1px solid var(--bdr); border-radius: var(--r-sm);
+  padding: 6px 8px; font-size: var(--fs-md); color: var(--tx);
+}
+
+/* popover — floating themed listbox; scrolls past ~240px (inside the modal it extends the
+   scrollable content instead of floating over the card — kept usable by the modest cap) */
+.dd__pop {
+  position: absolute; left: 0; top: 100%; z-index: 10; margin-top: 4px;
+  min-width: 100%; max-height: 240px; overflow-y: auto; overflow-x: hidden;
+  background: var(--surface); border: 1px solid var(--bdr); border-radius: var(--r);
+  box-shadow: var(--menu-shadow); padding: var(--space-1);
+}
+
+/* rows — roomy hover pills; one type-step larger than body */
+.dd button.dd__opt {
+  display: flex; align-items: center; gap: var(--space-2);
+  width: 100%; background: none; border: none; border-radius: var(--r-sm); text-align: left;
+  padding: 8px 14px; font-size: var(--fs-lg); color: var(--tx); line-height: 1.2; cursor: pointer;
+  white-space: nowrap;
+}
+.dd button.dd__opt:hover:not(:disabled) { background: var(--hover); background-image: none; }
+.dd button.dd__opt:disabled { color: var(--tx-3); cursor: default; }
+.dd__opt--selected { color: var(--tx-hi); }
+.dd__opt-label { overflow: hidden; text-overflow: ellipsis; }
+.dd__opt-hint { color: var(--tx-3); font-size: var(--fs-sm); flex: 0 0 auto; }
+.dd__tick { display: inline-flex; margin-left: auto; color: var(--accent); font-size: 13px; }
+
+/* group headers — themed optgroup labels */
+.dd__group {
+  padding: 8px 14px 4px; text-transform: uppercase; letter-spacing: 0.08em;
+  font-size: var(--fs-2xs); color: var(--tx-3);
+}

@@ -87,3 +87,12 @@ export function GhostIcon() {
     </svg>
   );
 }
+
+// Tick: selected-row marker in the themed Dropdown popover.
+export function TickIcon() {
+  return (
+    <svg viewBox="0 0 16 16" {...base} aria-hidden="true">
+      <path d="M3.5 8.5 6.5 11.5 12.5 4.5" />
+    </svg>
+  );
+}
