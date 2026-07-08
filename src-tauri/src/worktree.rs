@@ -403,10 +403,26 @@ pub fn remove_worktree(repo_path: String, worktree_path: String, force: bool) ->
     Err(String::from_utf8_lossy(&out.stderr).trim().to_string())
 }
 
+// True when `branch` exists locally. A probe failure reports "exists" so `branch -D` runs and
+// surfaces the real git error instead of us silently swallowing it.
+fn branch_exists(repo_path: &str, branch: &str) -> bool {
+    Command::new("git")
+        .current_dir(repo_path)
+        .args(["rev-parse", "--verify", "--quiet", &format!("refs/heads/{branch}")])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(true)
+}
+
 // Force-delete a branch (Wipe). Must run AFTER the worktree is removed — git refuses to delete a
 // branch still checked out in a worktree.
 #[tauri::command]
 pub fn delete_branch(repo_path: String, branch: String) -> Result<(), String> {
+    // Already gone (e.g. a Claude session cleaned up at wrap-up): Wipe's end state holds — no-op
+    // success, mirroring remove_worktree's prune fallback, instead of a "branch not found" error.
+    if !branch_exists(&repo_path, &branch) {
+        return Ok(());
+    }
     // Guard: never force-delete the repo default branch (e.g. Wipe on a `main`-checked-out worktree).
     // Wipe then degrades to Delete — the worktree is already removed by the caller; the branch is kept.
     let default = repo_default_branch(&repo_path);
@@ -477,6 +493,47 @@ mod tests {
     #[test]
     fn delete_branch_args_builds_force_delete() {
         assert_eq!(delete_branch_args("victor/fix"), vec!["branch", "-D", "victor/fix"]);
+    }
+
+    // Real-git tests for delete_branch's idempotency (a session may have already cleaned up).
+    fn init_test_repo() -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        let run = |args: &[&str]| {
+            let out = Command::new("git").current_dir(dir.path()).args(args).output().unwrap();
+            assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
+        };
+        run(&["init", "-q", "-b", "main"]);
+        run(&["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "init"]);
+        dir
+    }
+
+    #[test]
+    fn delete_branch_ok_when_branch_already_gone() {
+        // Wipe after an external cleanup (Claude already deleted the branch): the desired end
+        // state holds, so this must be a no-op success — not a "branch not found" error.
+        let repo = init_test_repo();
+        let path = repo.path().to_string_lossy().to_string();
+        assert_eq!(delete_branch(path, "feat/already-gone".into()), Ok(()));
+    }
+
+    #[test]
+    fn delete_branch_removes_existing_branch() {
+        let repo = init_test_repo();
+        let path = repo.path().to_string_lossy().to_string();
+        let out = Command::new("git")
+            .current_dir(repo.path())
+            .args(["branch", "feat/x"])
+            .output()
+            .unwrap();
+        assert!(out.status.success());
+        assert_eq!(delete_branch(path.clone(), "feat/x".into()), Ok(()));
+        // And it's actually gone.
+        let verify = Command::new("git")
+            .current_dir(repo.path())
+            .args(["rev-parse", "--verify", "--quiet", "refs/heads/feat/x"])
+            .output()
+            .unwrap();
+        assert!(!verify.status.success());
     }
 
     #[test]

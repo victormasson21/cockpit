@@ -120,7 +120,9 @@ renders them. Getting this one pattern right makes the Nth integration mechanica
   for existing or new branches; managed root is `~/CockpitWorktrees/<repo>/<name>`.
   Teardown is real git cleanup now (see the four-action teardown note below): `remove_worktree`
   runs `git worktree remove [--force]` (with a `git worktree prune` fallback when the dir is
-  already gone), `delete_branch` runs `git branch -D` (local only — never touches the remote),
+  already gone), `delete_branch` runs `git branch -D` (local only — never touches the remote; an
+  already-deleted branch is a no-op success — fixed 2026-07-08: it used to surface git's "branch
+  not found" as a scary warning when a Claude session had self-cleaned at wrap-up),
   and `worktree_status` probes `git status --porcelain` for the dirty-confirm dialog.
 - **Worktree composite tile** lives in `src/tiles/worktree/`: dropdown of recent
   worktrees, collapsible create-form, 3 xterm.js terminals (host / git / claude),
