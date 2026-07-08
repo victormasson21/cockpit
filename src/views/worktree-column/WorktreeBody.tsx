@@ -1,22 +1,25 @@
 // WorktreeBody.tsx — the worktree slot body: chips + path + 3 terminal panes (+ links in full variant).
-import { useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import type { Worktree } from "../../settings/types";
+import type { PaneOpenState, Worktree } from "../../settings/types";
+import { useSettings } from "../../settings/store";
 import { worktreeChips } from "./chips";
 import { WorktreePane } from "./WorktreePane";
 import { LinksList } from "../../tiles/worktree/LinksList";
 
-type PaneRole = "host" | "git" | "claude";
+type PaneRole = keyof PaneOpenState;
+const ALL_OPEN: PaneOpenState = { host: true, git: true, claude: true };
 
 export function WorktreeBody({ worktree, variant }: { worktree: Worktree; variant: "full" | "calm" }) {
   // Full variant coordinates the 3 panes' open-state so "expand" can collapse a pane's siblings.
-  const [openPanes, setOpenPanes] = useState<Record<PaneRole, boolean>>({ host: true, git: true, claude: true });
+  // Persisted per worktree (cockpit.json paneOpen) so the arrangement survives view switches + restarts.
+  const updateWorktree = useSettings((s) => s.updateWorktree);
+  const openPanes = worktree.paneOpen ?? ALL_OPEN;
   const paneProps = (role: PaneRole) =>
     variant === "full"
       ? {
           open: openPanes[role],
-          onToggle: () => setOpenPanes((p) => ({ ...p, [role]: !p[role] })),
-          onExpand: () => setOpenPanes({ host: false, git: false, claude: false, [role]: true }),
+          onToggle: () => updateWorktree(worktree.id, { paneOpen: { ...openPanes, [role]: !openPanes[role] } }),
+          onExpand: () => updateWorktree(worktree.id, { paneOpen: { host: false, git: false, claude: false, [role]: true } }),
         }
       : {}; // calm: single pane, self-managed, no expand
   return (
