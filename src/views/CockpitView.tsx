@@ -1,4 +1,4 @@
-// CockpitView.tsx — dashboard view: left TILES column (Slack) + center (Home widgets | Diff tab) + right worktree column.
+// CockpitView.tsx — dashboard view: left TILES column (Slack / PR reviews / Timer) + center (Home widgets | Diff tab) + right worktree column.
 import { useState } from "react";
 import "./CockpitView.css";
 import { SlackTile } from "../tiles/slack/SlackTile";
@@ -22,6 +22,7 @@ export function CockpitView({ onOpenSettings }: { onOpenSettings: () => void }) 
         <div className="cockpit-view__tiles-label">TILES</div>
         <SlackTile onOpenSettings={onOpenSettings} />
         <PrReviewsTile onOpenSettings={onOpenSettings} />
+        <TimerTile />
       </aside>
       <div className="cockpit-view__main">
         {/* Home | Diff tabs — Home shows the local widgets, Diff swaps in the worktree's branch diff. */}
@@ -32,7 +33,6 @@ export function CockpitView({ onOpenSettings }: { onOpenSettings: () => void }) 
         {tab === "home" ? (
           <div className="cockpit-view__center">
             <TodoTile />
-            <TimerTile />
           </div>
         ) : worktree ? (
           // Re-keyed by id so switching the right-column worktree refetches from scratch.

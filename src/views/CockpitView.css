@@ -10,11 +10,9 @@
 .cockpit-view__tab:hover { color: var(--tx); }
 .cockpit-view__tab--active { color: var(--tx-hi); border-bottom-color: var(--accent); font-weight: 600; }
 
-/* Home widgets: wrap when narrow — the Timer drops below the To Do list and takes the full row
-   (a fixed 2:1 split cropped the 48px digits at small widths). */
-.cockpit-view__center { flex: 1; min-height: 0; display: flex; flex-wrap: wrap; gap: var(--space-3); align-content: flex-start; overflow: auto; }
-.cockpit-view__center > :first-child { flex: 2 1 340px; }
-.cockpit-view__center > :last-child { flex: 1 1 240px; }
+/* Home widgets: the To Do list sits at the top of the centre, sized to its contents (align-items overrides the default stretch). */
+.cockpit-view__center { flex: 1; min-height: 0; display: flex; gap: var(--space-3); align-items: flex-start; overflow: auto; }
+.cockpit-view__center > * { flex: 1; }
 .cockpit-view__diff-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--tx-3); font-size: var(--fs-md); }
 
 /* min-width: 0 is load-bearing: a freshly-mounted xterm is 80 cols (~588px) wide before FitAddon runs,
