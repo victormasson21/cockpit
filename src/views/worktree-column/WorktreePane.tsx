@@ -6,7 +6,7 @@ import { makePtyId } from "../../worktrees/ptyId";
 import { RestartIcon, ChevronIcon } from "../icons";
 import "./WorktreePane.css";
 
-export function WorktreePane({ title, icon, badge, ...args }: UseTerminalArgs & { title: string; icon?: ReactNode; badge?: ReactNode }) {
+export function WorktreePane({ title, icon, badge, action, ...args }: UseTerminalArgs & { title: string; icon?: ReactNode; badge?: ReactNode; action?: ReactNode }) {
   const { containerRef, restart } = useTerminal(args);
   const [open, setOpen] = useState(true); // default: all panes open
   // Live "needs attention" state for this pane (set by useTerminal on a terminal bell).
@@ -19,6 +19,7 @@ export function WorktreePane({ title, icon, badge, ...args }: UseTerminalArgs & 
         <span className="wt-pane__title">{title}</span>
         {needsAttention && <span className="wt-attention">Attention</span>}
         {badge}
+        {action}
         <button className="icon-btn wt-pane__restart" title="restart" onClick={restart}><RestartIcon /></button>
         <button className="icon-btn wt-pane__chevron" aria-label={open ? "collapse" : "expand"} onClick={() => setOpen((o) => !o)}>
           <ChevronIcon open={open} />

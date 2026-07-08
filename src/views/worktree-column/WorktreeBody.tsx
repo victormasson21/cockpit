@@ -4,8 +4,13 @@ import type { Worktree } from "../../settings/types";
 import { worktreeChips } from "./chips";
 import { WorktreePane } from "./WorktreePane";
 import { LinksList } from "../../tiles/worktree/LinksList";
+import { useSettings } from "../../settings/store";
+import { claudePaneAutostart } from "../../worktrees/claudeCmd";
+import { CopyIcon } from "../icons";
 
 export function WorktreeBody({ worktree, variant }: { worktree: Worktree; variant: "full" | "calm" }) {
+  // One-shot: true only in the session that created this worktree, until the claude PTY's first ensure.
+  const promptPending = useSettings((s) => Boolean(s.initialPromptPending[worktree.id]));
   return (
     // Re-keyed by id upstream so switching the picker remounts panes (detach old, attach new) without killing PTYs.
     <div className="wt-col__body">
@@ -35,7 +40,15 @@ export function WorktreeBody({ worktree, variant }: { worktree: Worktree; varian
         {/* attention highlight (border/glow + badge) is owned by WorktreePane via the live store. */}
         <WorktreePane
           title="Claude Code" icon={<span className="wt-ico wt-ico--claude" aria-hidden />}
-          worktreeId={worktree.id} role="claude" cwd={worktree.worktreePath} autostartCmd="claude"
+          worktreeId={worktree.id} role="claude" cwd={worktree.worktreePath}
+          autostartCmd={claudePaneAutostart(worktree.prompt, promptPending)}
+          onEnsured={() => useSettings.getState().clearInitialPrompt(worktree.id)}
+          action={worktree.prompt ? (
+            <button
+              className="icon-btn" title={`copy prompt: ${worktree.prompt}`}
+              onClick={() => navigator.clipboard.writeText(worktree.prompt!)}
+            ><CopyIcon /></button>
+          ) : undefined}
         />
       </div>
     </div>
