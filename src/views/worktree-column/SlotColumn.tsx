@@ -5,6 +5,8 @@ import { useSettings } from "../../settings/store";
 import { makePtyId } from "../../worktrees/ptyId";
 import { resolveSlotEntity } from "../slots";
 import { GearIcon, CloseIcon, PauseIcon, BinIcon, GhostIcon } from "../icons";
+import { Dropdown } from "../Dropdown";
+import type { DropdownGroup } from "../dropdownModel";
 import { WorktreeBody } from "./WorktreeBody";
 import { ScratchBody } from "./ScratchBody";
 import { PendingBody } from "./PendingBody";
@@ -43,30 +45,28 @@ export function SlotColumn({ value, onSelect, variant = "full" }: { value: strin
   const attention = useSettings((s) => (attnPtyId ? Boolean(s.attention[attnPtyId]) : false));
   const iconKind = entity?.kind === "scratch" ? "terminal" : "branch"; // scratch → terminal glyph; worktree & empty slots → branch.
 
+  // Picker rows: clear-action + (synthetic pending) ungrouped, then Worktrees / Scratch groups.
+  const pickerGroups: DropdownGroup[] = [
+    { options: [
+      { value: "", label: "Select…" },
+      // A pending id isn't in the worktree/scratch lists — synthetic disabled row so the trigger reads sensibly.
+      ...(entity?.kind === "pending" ? [{ value: entity.pending.id, label: `${entity.pending.status}…`, disabled: true }] : []),
+    ]},
+    { label: "Worktrees", options: ongoing.map((w) => {
+      // Append the repo basename so each slot's origin is obvious at a glance.
+      const repo = w.repoPath.split("/").pop();
+      return { value: w.id, label: repo ? `${w.name} · ${repo}` : w.name };
+    })},
+    ...(scratchTerminals.length > 0
+      ? [{ label: "Scratch", options: scratchTerminals.map((s) => ({ value: s.id, label: s.title })) }]
+      : []),
+  ];
+
   return (
     <div className="wt-col">
       <div className="wt-col__header">
         <span className={`wt-col__icon wt-col__icon--${iconKind}${attention ? " wt-col__icon--attention" : ""}`} aria-hidden />
-        <div className="wt-col__picker-wrap">
-          <select className="wt-col__picker" value={activeId ?? ""} onChange={(e) => onSelect(e.target.value || null)}>
-            <option value="">Select…</option>
-            {/* A pending id isn't in the worktree/scratch lists — show a synthetic disabled option so the select reads sensibly. */}
-            {entity?.kind === "pending" && <option value={entity.pending.id} disabled>{entity.pending.status}…</option>}
-            <optgroup label="Worktrees">
-              {ongoing.map((w) => {
-                // Append the repo basename to the title so each slot's origin is obvious at a glance.
-                const repo = w.repoPath.split("/").pop();
-                return (<option key={w.id} value={w.id}>{repo ? `${w.name} · ${repo}` : w.name}</option>);
-              })}
-            </optgroup>
-            {scratchTerminals.length > 0 && (
-              <optgroup label="Scratch">
-                {scratchTerminals.map((s) => (<option key={s.id} value={s.id}>{s.title}</option>))}
-              </optgroup>
-            )}
-          </select>
-          <span className="wt-col__caret" aria-hidden>⌄</span>
-        </div>
+        <Dropdown value={activeId} onChange={(v) => onSelect(v || null)} groups={pickerGroups} placeholder="Select…" variant="heading" />
         {entity && entity.kind !== "pending" && (
           <div className="wt-col__menu">
             <button className="icon-btn wt-col__gear" aria-label="column settings" onClick={() => setMenuOpen((o) => !o)}><GearIcon /></button>

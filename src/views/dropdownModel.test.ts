@@ -1,6 +1,6 @@
-// dropdown.test.ts — trigger-label resolution for the themed Dropdown.
+// dropdownModel.test.ts — trigger-label resolution for the themed Dropdown.
 import { describe, it, expect } from "vitest";
-import { selectedLabel, type DropdownGroup } from "./dropdown";
+import { selectedLabel, type DropdownGroup } from "./dropdownModel";
 
 const groups: DropdownGroup[] = [
   { options: [{ value: "", label: "Select…" }] },

@@ -1,6 +1,6 @@
 // Dropdown.tsx — themed <select> replacement: trigger button + popover listbox (macOS renders the native popup; CSS can't style it).
 import { useEffect, useRef, useState } from "react";
-import { selectedLabel, type DropdownGroup } from "./dropdown";
+import { selectedLabel, type DropdownGroup } from "./dropdownModel";
 import { ChevronIcon, TickIcon } from "./icons";
 import "./Dropdown.css";
 

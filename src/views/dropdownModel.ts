@@ -1,4 +1,5 @@
-// dropdown.ts — pure types + trigger-label resolution for the themed Dropdown component.
+// dropdownModel.ts — pure types + trigger-label resolution for the themed Dropdown component.
+// (Named dropdownModel, not dropdown: macOS's case-insensitive FS would collide `dropdown.ts` with `Dropdown.tsx` on import resolution.)
 export type DropdownOption = { value: string; label: string; hint?: string; disabled?: boolean };
 export type DropdownGroup = { label?: string; options: DropdownOption[] };
 
