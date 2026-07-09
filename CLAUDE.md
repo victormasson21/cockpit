@@ -445,7 +445,10 @@ worktree column; moved to the centre to match the design.)*
   **working tree**, so it captures both committed changes and Claude's **uncommitted** edits ("what does this branch
   contain right now"). `base` is **not** persisted: the frontend passes `base=""` and the backend derives the repo
   default branch from `origin/HEAD` (a self-contained `symbolic-ref` helper in `worktree.rs`, decoupled from
-  `deduce.rs`); no `origin/HEAD` → inline error.
+  `deduce.rs`). When that symref is absent — locally-init-ed repos never get one, only `git clone` creates it; the
+  cockpit repo itself was the case (fixed 2026-07-09, plus a one-off `git remote set-head origin -a` there) — it
+  falls back to `refs/remotes/origin/main` then `origin/master` if the remote-tracking ref exists (same convention
+  as `is_default_branch`); neither → inline error.
 - **Backend (`src-tauri/src/worktree.rs`, mirrors `worktree_status`):** pure tested `diff_stat_args`
   (`diff --merge-base <base> --numstat`), `file_diff_args`, `parse_numstat` (binary files → `-`/`-` → `binary:true`,
   0 counts); structs `DiffFile`/`DiffResult` (`camelCase`); private `repo_default_branch` + `resolve_base`; commands

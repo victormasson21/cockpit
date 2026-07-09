@@ -313,19 +313,29 @@ pub fn worktree_status(worktree_path: String) -> Result<WorktreeStatus, String> 
     Ok(WorktreeStatus { exists: true, dirty })
 }
 
-// Read the repo's default branch from origin/HEAD (e.g. "main"); None when there's no remote HEAD.
+// Read the repo's default branch from origin/HEAD (e.g. "main"); when that symref is absent
+// (locally-init-ed repos never get one — only clone creates it), fall back to the conventional
+// names main/master if the remote-tracking ref exists (same convention as is_default_branch).
 // Self-contained (not shared with deduce.rs's private copy) to keep this module decoupled.
 fn repo_default_branch(repo_path: &str) -> Option<String> {
     let out = Command::new("git")
         .args(["-C", repo_path, "symbolic-ref", "--short", "refs/remotes/origin/HEAD"])
         .output()
         .ok()?;
-    if !out.status.success() {
-        return None;
+    if out.status.success() {
+        let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        let short = s.strip_prefix("origin/").unwrap_or(&s).to_string();
+        if !short.is_empty() {
+            return Some(short);
+        }
     }
-    let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    let short = s.strip_prefix("origin/").unwrap_or(&s).to_string();
-    if short.is_empty() { None } else { Some(short) }
+    ["main", "master"].iter().find_map(|name| {
+        let probe = Command::new("git")
+            .args(["-C", repo_path, "show-ref", "--verify", "--quiet", &format!("refs/remotes/origin/{name}")])
+            .output()
+            .ok()?;
+        probe.status.success().then(|| name.to_string())
+    })
 }
 
 // Resolve the base ref to diff against: an explicit base wins; else the repo default branch;
@@ -541,6 +551,55 @@ mod tests {
             .output()
             .unwrap();
         assert!(!verify.status.success());
+    }
+
+    // Real-git tests for repo_default_branch's fallback: a locally-init-ed repo (git init +
+    // remote add + fetch) never gets a refs/remotes/origin/HEAD symref — only clone creates it.
+    #[test]
+    fn repo_default_branch_falls_back_to_origin_main_without_origin_head() {
+        let repo = init_test_repo();
+        let run = |args: &[&str]| {
+            let out = Command::new("git").current_dir(repo.path()).args(args).output().unwrap();
+            assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
+        };
+        run(&["update-ref", "refs/remotes/origin/main", "HEAD"]);
+        let path = repo.path().to_string_lossy().to_string();
+        assert_eq!(repo_default_branch(&path), Some("main".to_string()));
+    }
+
+    #[test]
+    fn repo_default_branch_falls_back_to_origin_master_without_origin_head() {
+        let repo = init_test_repo();
+        let run = |args: &[&str]| {
+            let out = Command::new("git").current_dir(repo.path()).args(args).output().unwrap();
+            assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
+        };
+        run(&["update-ref", "refs/remotes/origin/master", "HEAD"]);
+        let path = repo.path().to_string_lossy().to_string();
+        assert_eq!(repo_default_branch(&path), Some("master".to_string()));
+    }
+
+    #[test]
+    fn repo_default_branch_prefers_origin_head_over_conventional_names() {
+        // origin/HEAD is authoritative: a repo whose default is "develop" must not fall back to main.
+        let repo = init_test_repo();
+        let run = |args: &[&str]| {
+            let out = Command::new("git").current_dir(repo.path()).args(args).output().unwrap();
+            assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
+        };
+        run(&["update-ref", "refs/remotes/origin/main", "HEAD"]);
+        run(&["update-ref", "refs/remotes/origin/develop", "HEAD"]);
+        run(&["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/develop"]);
+        let path = repo.path().to_string_lossy().to_string();
+        assert_eq!(repo_default_branch(&path), Some("develop".to_string()));
+    }
+
+    #[test]
+    fn repo_default_branch_none_without_any_origin_refs() {
+        // No remote refs at all: still None, so the UI keeps its honest inline error (no guessing).
+        let repo = init_test_repo();
+        let path = repo.path().to_string_lossy().to_string();
+        assert_eq!(repo_default_branch(&path), None);
     }
 
     #[test]
