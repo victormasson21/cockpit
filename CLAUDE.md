@@ -123,7 +123,12 @@ renders them. Getting this one pattern right makes the Nth integration mechanica
   already gone), `delete_branch` runs `git branch -D` (local only — never touches the remote; an
   already-deleted branch is a no-op success — fixed 2026-07-08: it used to surface git's "branch
   not found" as a scary warning when a Claude session had self-cleaned at wrap-up),
-  and `worktree_status` probes `git status --porcelain` for the dirty-confirm dialog.
+  and `worktree_status` probes `git status --porcelain` for the dirty-confirm dialog. The confirm
+  dialog is the gate: once approved, teardown reaches its end state even when the worktree/branch is
+  already gone — `remove_worktree`'s fallback (fixed 2026-07-09) also covers a dir that *exists* but
+  is no longer a working tree (external cleanup, then a dev process recreating cache files like
+  `.vite/`): it prunes the stale registration and deletes the leftover dir instead of surfacing
+  git's "is not a working tree" error.
 - **Worktree composite tile** lives in `src/tiles/worktree/`: dropdown of recent
   worktrees, collapsible create-form, 3 xterm.js terminals (host / git / claude),
   editable links, status toggle. The `worktrees` array in `cockpit.json` is the

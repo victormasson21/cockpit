@@ -375,8 +375,10 @@ pub fn worktree_file_diff(worktree_path: String, repo_path: String, base: String
 }
 
 // Remove the git worktree (Delete/Wipe). `force` allows removing a dirty worktree. If `git worktree
-// remove` fails but the dir is already gone (manually deleted), fall back to `git worktree prune` to
-// deregister the stale `.git/worktrees/<ref>` entry — the core of the stuck-branch bug fix.
+// remove` fails because the worktree is already gone — dir deleted, or only leftover files remain
+// with the `.git` link missing (e.g. an external cleanup then a dev process recreating cache files:
+// git refuses with "is not a working tree") — fall back to `git worktree prune` + clearing the
+// leftovers. The confirm dialog is the gate: once the user approves, the desired end state holds.
 #[tauri::command]
 pub fn remove_worktree(repo_path: String, worktree_path: String, force: bool) -> Result<(), String> {
     let args = worktree_remove_args(&worktree_path, force);
@@ -388,17 +390,22 @@ pub fn remove_worktree(repo_path: String, worktree_path: String, force: bool) ->
     if out.status.success() {
         return Ok(());
     }
-    // Fallback: the dir is gone, so remove can't operate — prune the dangling registration instead.
-    if !Path::new(&worktree_path).exists() {
+    // Fallback: no longer a valid worktree (dir gone, or a plain dir without a `.git` link) —
+    // remove can't operate; deregister the stale entry and delete any leftover files instead.
+    let path = Path::new(&worktree_path);
+    if !path.exists() || !path.join(".git").exists() {
         let pruned = Command::new("git")
             .current_dir(&repo_path)
             .args(["worktree", "prune"])
             .output()
             .map_err(|e| e.to_string())?;
-        if pruned.status.success() {
-            return Ok(());
+        if !pruned.status.success() {
+            return Err(String::from_utf8_lossy(&pruned.stderr).trim().to_string());
         }
-        return Err(String::from_utf8_lossy(&pruned.stderr).trim().to_string());
+        if path.exists() {
+            std::fs::remove_dir_all(path).map_err(|e| e.to_string())?;
+        }
+        return Ok(());
     }
     Err(String::from_utf8_lossy(&out.stderr).trim().to_string())
 }
@@ -534,6 +541,51 @@ mod tests {
             .output()
             .unwrap();
         assert!(!verify.status.success());
+    }
+
+    #[test]
+    fn remove_worktree_cleans_leftover_dir_when_no_longer_a_worktree() {
+        // Regression: after an external cleanup (dir deleted + registration pruned), a dev process
+        // can recreate cache files in the dir. `git worktree remove` then refuses with "is not a
+        // working tree" — Delete must prune + clear the leftovers instead of surfacing that error.
+        let repo = init_test_repo();
+        let repo_path = repo.path().to_string_lossy().to_string();
+        let holder = tempfile::tempdir().unwrap();
+        let wt_path = holder.path().join("wt");
+        let wt = wt_path.to_string_lossy().to_string();
+        let run = |args: &[&str]| {
+            let out = Command::new("git").current_dir(repo.path()).args(args).output().unwrap();
+            assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
+        };
+        run(&["worktree", "add", "-q", "-b", "feat/leftover", &wt, "main"]);
+        std::fs::remove_dir_all(&wt_path).unwrap();
+        run(&["worktree", "prune"]);
+        std::fs::create_dir_all(wt_path.join(".vite")).unwrap();
+        std::fs::write(wt_path.join("package-lock.json"), "{}").unwrap();
+        assert_eq!(remove_worktree(repo_path, wt.clone(), true), Ok(()));
+        assert!(!wt_path.exists(), "leftover dir should be deleted");
+    }
+
+    #[test]
+    fn remove_worktree_cleans_leftover_dir_even_without_force() {
+        // The confirm dialog is the gate: once the user approves Delete/Wipe, cleanup proceeds
+        // regardless of the force flag — the worktree is already gone, only junk remains.
+        let repo = init_test_repo();
+        let repo_path = repo.path().to_string_lossy().to_string();
+        let holder = tempfile::tempdir().unwrap();
+        let wt_path = holder.path().join("wt");
+        let wt = wt_path.to_string_lossy().to_string();
+        let run = |args: &[&str]| {
+            let out = Command::new("git").current_dir(repo.path()).args(args).output().unwrap();
+            assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
+        };
+        run(&["worktree", "add", "-q", "-b", "feat/leftover2", &wt, "main"]);
+        std::fs::remove_dir_all(&wt_path).unwrap();
+        run(&["worktree", "prune"]);
+        std::fs::create_dir_all(&wt_path).unwrap();
+        std::fs::write(wt_path.join("stray.txt"), "x").unwrap();
+        assert_eq!(remove_worktree(repo_path, wt.clone(), false), Ok(()));
+        assert!(!wt_path.exists(), "leftover dir should be deleted");
     }
 
     #[test]
