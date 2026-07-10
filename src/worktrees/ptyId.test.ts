@@ -14,4 +14,14 @@ describe("ptyId", () => {
     expect(isAttentionRole("host")).toBe(false);
     expect(isAttentionRole("git")).toBe(false);
   });
+
+  it("arms worktree extra shells (shell-<n>)", () => {
+    expect(isAttentionRole("shell-1")).toBe(true);
+    expect(isAttentionRole("shell-2")).toBe(true);
+  });
+
+  it("still excludes host and git", () => {
+    expect(isAttentionRole("host")).toBe(false);
+    expect(isAttentionRole("git")).toBe(false);
+  });
 });
