@@ -106,3 +106,21 @@ export function TickIcon() {
     </svg>
   );
 }
+
+// Play: triangle (Run — start the worktree's localhost dev server).
+export function PlayIcon() {
+  return (
+    <svg viewBox="0 0 16 16" {...base} aria-hidden="true">
+      <path d="M5.5 3.5v9l7-4.5z" />
+    </svg>
+  );
+}
+
+// Plus: add an extra terminal pane in the worktree.
+export function PlusIcon() {
+  return (
+    <svg viewBox="0 0 16 16" {...base} aria-hidden="true">
+      <path d="M8 3.5v9M3.5 8h9" />
+    </svg>
+  );
+}
