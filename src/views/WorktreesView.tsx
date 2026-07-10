@@ -10,7 +10,7 @@ export function WorktreesView() {
   return (
     <div className="wt-view">
       {Array.from({ length: slotCount }, (_, i) => (
-        <SlotColumn key={i} value={slots[i]} onSelect={(id) => setSlot(i, id)} />
+        <SlotColumn key={i} value={slots[i]} onSelect={(id) => setSlot(i, id)} pinnable />
       ))}
     </div>
   );

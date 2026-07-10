@@ -14,7 +14,7 @@ import { TeardownConfirm } from "./TeardownConfirm";
 import { killWorktreePtys } from "../../worktrees/teardown";
 import "./WorktreeColumn.css";
 
-export function SlotColumn({ value, onSelect, variant = "full" }: { value: string | null; onSelect: (id: string | null) => void; variant?: "full" | "calm" }) {
+export function SlotColumn({ value, onSelect, variant = "full", pinnable = false }: { value: string | null; onSelect: (id: string | null) => void; variant?: "full" | "calm"; pinnable?: boolean }) {
   const { cockpit, removeScratch, scratchTerminals, pendingWorktrees } = useSettings();
   const ongoing = cockpit.worktrees.filter((w) => w.status === "ongoing");
   const activeId = value;
@@ -93,7 +93,7 @@ export function SlotColumn({ value, onSelect, variant = "full" }: { value: strin
         <div className="wt-col__empty">Nothing in this slot.</div>
       ) : entity.kind === "worktree" ? (
         // Key on the component (not a wrapper div) so the remount preserves the .wt-col → .wt-col__body flex chain.
-        <WorktreeBody key={entity.worktree.id} worktree={entity.worktree} variant={variant} />
+        <WorktreeBody key={entity.worktree.id} worktree={entity.worktree} variant={variant} pinnable={pinnable} />
       ) : entity.kind === "scratch" ? (
         <ScratchBody key={entity.scratch.id} scratchId={entity.scratch.id} />
       ) : (
