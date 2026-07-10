@@ -154,12 +154,20 @@ impl Default for SlackManager {
     }
 }
 
+// Shared HTTP agent with a hard per-request timeout: ureq's default has NO timeout, so a stalled
+// socket (typical right after wake-from-sleep) would otherwise hang a refresh indefinitely.
+fn http_agent() -> &'static ureq::Agent {
+    static AGENT: std::sync::OnceLock<ureq::Agent> = std::sync::OnceLock::new();
+    AGENT.get_or_init(|| ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(15)).build())
+}
+
 // One authenticated GET to the Slack Web API; treats `ok:false` as an error.
 // On a 429 (rate limited) Slack sends a Retry-After header; we wait once and retry, so a transient
 // throttle becomes a brief pause instead of a dropped conversation + error banner.
 pub fn api_get(token: &str, method: &str, params: &[(&str, &str)]) -> Result<serde_json::Value, String> {
     let build = || {
-        let mut req = ureq::get(&format!("https://slack.com/api/{method}"))
+        let mut req = http_agent()
+            .get(&format!("https://slack.com/api/{method}"))
             .set("Authorization", &format!("Bearer {token}"));
         for (k, v) in params {
             req = req.query(k, v);
@@ -186,7 +194,8 @@ pub fn api_get(token: &str, method: &str, params: &[(&str, &str)]) -> Result<ser
 
 // Exchange an OAuth code for the user token; returns (user_token, user_name-ish display).
 pub fn exchange_code(client_id: &str, client_secret: &str, code: &str, redirect_uri: &str) -> Result<(String, String), String> {
-    let resp: serde_json::Value = ureq::post("https://slack.com/api/oauth.v2.access")
+    let resp: serde_json::Value = http_agent()
+        .post("https://slack.com/api/oauth.v2.access")
         .send_form(&[
             ("client_id", client_id),
             ("client_secret", client_secret),
@@ -228,8 +237,13 @@ pub struct ConversationMeta {
 
 const REDIRECT_PORT_RANGE: std::ops::Range<u16> = 9000..9010;
 
+// NOTE: plain (non-async) tauri commands run INLINE ON THE MACOS MAIN THREAD (webview IPC →
+// WKURLSchemeHandler → command body), so any blocking work beachballs the whole app. Every
+// command below that touches the network, the Keychain, or a subprocess is `(async)` — Tauri
+// then runs it on the tokio pool instead. Memory-only commands (e.g. slack_snapshot) stay sync.
+
 // Store client_id in session state; persist client_secret to Keychain when provided.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn slack_set_credentials(manager: State<SlackManager>, client_id: String, client_secret: Option<String>) -> Result<(), String> {
     if let Some(secret) = client_secret.filter(|s| !s.is_empty()) {
         manager.store.set(ACCOUNT_SECRET, &secret)?;
@@ -239,14 +253,14 @@ pub fn slack_set_credentials(manager: State<SlackManager>, client_id: String, cl
 }
 
 // Update the watched set and immediately re-poll so the tile reflects the new selection.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn slack_set_watched(app: AppHandle, manager: State<SlackManager>, ids: Vec<String>) -> Result<(), String> {
     manager.state.lock().unwrap().watched = ids;
     refresh_now(&app, &manager);
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn slack_status(manager: State<SlackManager>) -> SlackStatus {
     let st = manager.state.lock().unwrap();
     let has_credentials = st.client_id.is_some() && manager.store.get(ACCOUNT_SECRET).ok().flatten().is_some();
@@ -282,7 +296,7 @@ pub fn list_row(c: &serde_json::Value, user_names: &HashMap<String, String>) -> 
 
 // List the user's channels + DMs for the picker (all opt-in). One users.conversations call, no
 // per-DM lookups — DM names come from the cache, filled in as selected DMs get polled.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn slack_list_conversations(manager: State<SlackManager>) -> Result<Vec<ConversationMeta>, String> {
     let token = manager.store.get(ACCOUNT_TOKEN)?.ok_or("not connected")?;
     let resp = api_get(&token, "users.conversations", &[("types", "public_channel,private_channel,im,mpim"), ("limit", "200")])?;
@@ -296,7 +310,7 @@ pub fn slack_list_conversations(manager: State<SlackManager>) -> Result<Vec<Conv
 }
 
 // Forget the token + secret, stop polling, and mark disconnected.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn slack_disconnect(manager: State<SlackManager>) -> Result<(), String> {
     // Bump generation to signal any live poll thread to exit; no new thread is started.
     manager.poll_gen.fetch_add(1, Ordering::SeqCst);
@@ -309,7 +323,7 @@ pub fn slack_disconnect(manager: State<SlackManager>) -> Result<(), String> {
 }
 
 // Start OAuth: bind a loopback callback server, return the authorize URL for the frontend to open.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn slack_connect(app: AppHandle, manager: State<SlackManager>) -> Result<String, String> {
     let client_id = manager.state.lock().unwrap().client_id.clone().ok_or("set client_id first")?;
     let client_secret = manager.store.get(ACCOUNT_SECRET)?.ok_or("set client_secret first")?;
@@ -402,7 +416,7 @@ fn refresh_now(app: &AppHandle, manager: &SlackManager) {
     let _ = app.emit("slack://unread", snap);
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn slack_refresh(app: AppHandle, manager: State<SlackManager>) -> Result<(), String> {
     refresh_now(&app, &manager);
     Ok(())
@@ -472,7 +486,7 @@ pub fn start_polling(app: AppHandle) {
 }
 
 // Hydrate the provider from persisted config at startup; start polling if a token already exists.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn slack_init(app: AppHandle, manager: State<SlackManager>, client_id: Option<String>, watched_channel_ids: Vec<String>) -> Result<(), String> {
     {
         let mut st = manager.state.lock().unwrap();

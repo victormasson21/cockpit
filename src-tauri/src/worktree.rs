@@ -199,7 +199,7 @@ pub fn worktree_add_args(worktree_path: &str, spec: &BranchSpec) -> Vec<String> 
 }
 
 // Run `git worktree add` into the managed location; returns the resolved worktree path or git's stderr.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn create_worktree(
     app: tauri::AppHandle,
     repo_path: String,
@@ -261,7 +261,7 @@ pub fn create_worktree(
 }
 
 // List a repo's local branches, most-recently-committed first, for the "open existing branch" picker.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn list_branches(repo_path: String) -> Result<Vec<BranchInfo>, String> {
     let out = Command::new("git")
         .current_dir(&repo_path)
@@ -295,7 +295,7 @@ pub fn list_branches(repo_path: String) -> Result<Vec<BranchInfo>, String> {
 // Probe a worktree for uncommitted changes (for the Delete/Wipe confirm dialog). Missing dir → not
 // dirty (Delete still proceeds); a git error on an existing dir → dirty (safe default: force the user
 // to acknowledge force-removal rather than silently risk losing data).
-#[tauri::command]
+#[tauri::command(async)]
 pub fn worktree_status(worktree_path: String) -> Result<WorktreeStatus, String> {
     if !Path::new(&worktree_path).exists() {
         return Ok(WorktreeStatus { exists: false, dirty: false });
@@ -350,7 +350,7 @@ fn resolve_base(base: &str, repo_path: &str) -> Result<String, String> {
 
 // Branch-vs-base diff summary for the Cockpit Diff tab: run `git diff --merge-base <base>
 // --numstat` in the worktree dir and parse the per-file line counts. Read-only.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn worktree_diff(worktree_path: String, repo_path: String, base: String) -> Result<DiffResult, String> {
     let base = resolve_base(&base, &repo_path)?;
     if !Path::new(&worktree_path).exists() {
@@ -370,7 +370,7 @@ pub fn worktree_diff(worktree_path: String, repo_path: String, base: String) -> 
 
 // One file's raw unified patch (fetched lazily when the user expands a file row). Coloring is
 // the frontend's job — we return git's raw output verbatim.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn worktree_file_diff(worktree_path: String, repo_path: String, base: String, path: String) -> Result<String, String> {
     let base = resolve_base(&base, &repo_path)?;
     let out = Command::new("git")
@@ -389,7 +389,7 @@ pub fn worktree_file_diff(worktree_path: String, repo_path: String, base: String
 // with the `.git` link missing (e.g. an external cleanup then a dev process recreating cache files:
 // git refuses with "is not a working tree") — fall back to `git worktree prune` + clearing the
 // leftovers. The confirm dialog is the gate: once the user approves, the desired end state holds.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn remove_worktree(repo_path: String, worktree_path: String, force: bool) -> Result<(), String> {
     let args = worktree_remove_args(&worktree_path, force);
     let out = Command::new("git")
@@ -433,7 +433,7 @@ fn branch_exists(repo_path: &str, branch: &str) -> bool {
 
 // Force-delete a branch (Wipe). Must run AFTER the worktree is removed — git refuses to delete a
 // branch still checked out in a worktree.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn delete_branch(repo_path: String, branch: String) -> Result<(), String> {
     // Already gone (e.g. a Claude session cleaned up at wrap-up): Wipe's end state holds — no-op
     // success, mirroring remove_worktree's prune fallback, instead of a "branch not found" error.

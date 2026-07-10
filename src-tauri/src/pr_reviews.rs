@@ -17,7 +17,7 @@ pub struct PrFetchResult {
 
 // One-shot fetch of channel messages since the cursor. No cursor yet ("start empty" first refresh):
 // just report the newest message ts so the frontend can seed the cursor — no parsing, no gh calls.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn pr_reviews_fetch(
     manager: State<SlackManager>,
     channel_id: String,

@@ -466,8 +466,9 @@ worktree column; moved to the centre to match the design.)*
 Deduce, wait 15–43s staring at it → review pre-filled fields + banner → click Create, wait on git) is **replaced**:
 the **Worktree** modal is now just a **prompt textarea + Create** (no fields, no separate Deduce step, no
 review/confirm). On submit the **modal closes immediately** and a **spinning pending tile** claims a slot; the
-`deduce_worktree` → `create_worktree` chain runs in the **background** (non-blocking — Tauri runs each `invoke` on
-its own thread, so awaiting from JS doesn't block the webview; **no Rust changes**). When create resolves, the real
+`deduce_worktree` → `create_worktree` chain runs in the **background** (non-blocking *since the 2026-07-10
+`(async)` fix below* — plain sync commands actually run on the macOS main thread; these are now
+`#[tauri::command(async)]`). When create resolves, the real
 worktree **swaps into the same slot in place**. On failure the tile is discarded and the modal **reopens with the
 prompt pre-filled + the error**. **Checkout / existing-branch flow is untouched.**
   - **Pending entity** = a third session-only `SlotEntity` kind (`{ kind:"pending"; pending }`), mirroring the
@@ -552,6 +553,21 @@ added to `SlackConnections`. "Refreshed Xm ago" is session-only; a mid-fetch cha
 result (guard in the tile's refresh). 94 Rust + 113 JS tests green; builds clean. Code-reviewed (subagent);
 both Important findings fixed (in-batch dedupe, history pagination).
 **GUI + live acceptance PENDING human eyeball.** Spec: `docs/superpowers/specs/2026-07-07-pr-reviews-tile-design.md`.
+
+- **Main-thread beachball fix (2026-07-10): I/O-bound commands are `#[tauri::command(async)]`.** Root cause of
+  the "spinning wheel blocks the app on refocus" bug: **plain sync `#[tauri::command]` fns run INLINE ON THE
+  MACOS MAIN THREAD** (verified through tauri 2.11.2 + wry 0.55.1 source: JS `invoke` → `ipc://` custom
+  protocol → WKURLSchemeHandler on the main thread → command body). `SlackTile` fires `slack_refresh` on every
+  window focus; it did 2+ blocking HTTP calls per watched conversation (+ Keychain read + `users.info` misses)
+  with **no ureq timeout** and an up-to-30s 429 `thread::sleep` — after wake-from-sleep a stalled socket froze
+  the whole app. The earlier belief "Tauri runs each invoke on its own thread" is true only for `(async)`/
+  `async fn` commands (those go to the tokio pool). Fix: every command touching network/Keychain/subprocess/git
+  is now `#[tauri::command(async)]` (slack ×8, `pr_reviews_fetch`, `deduce_worktree`, worktree ×7); memory-only
+  ones (`slack_snapshot`, `list_connections`, `pty_*`, settings) stay sync — `pty_write` deliberately so for
+  keystroke latency. Plus a shared `http_agent()` (ureq, **15s hard timeout**) in `slack.rs` replaces the
+  timeout-less `ureq::get/post` so no refresh can hang indefinitely even off the main thread. No frontend
+  changes (`invoke` was already promise-based). Threading isn't unit-testable headlessly — GUI smoke:
+  beachball gone on refocus + app stays interactive during a deduce.
 
 **Next / resuming work — read `docs/ROADMAP.md` first.** It is the single prioritized backlog, split into
 **main build sub-projects** (the big sequential arc — sub-project 5 onward: Linear tile, then GitHub/Calendar

@@ -427,7 +427,7 @@ fn run_claude(call: ClaudeCall) -> Result<String, String> {
 }
 
 // Deduce worktree params from a prompt + the known-repos list; reads digests, calls the agent, validates the pick.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn deduce_worktree(prompt: String, repo_paths: Vec<String>) -> Result<DeducedWorktree, String> {
     if repo_paths.is_empty() {
         return Err("no known repos configured".into());
