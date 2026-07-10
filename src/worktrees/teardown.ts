@@ -4,12 +4,10 @@ import { invoke } from "@tauri-apps/api/core";
 import { makePtyId } from "./ptyId";
 import { removeWorktreeGit, deleteBranch } from "./api";
 
-// A worktree's three terminal roles. Lives here so SlotColumn and teardown share one source.
-export const WORKTREE_ROLES = ["git", "host", "claude"] as const;
-
-// Pause: kill the 3 PTYs. Idempotent — pty_kill is a no-op on missing ids.
-export async function killWorktreePtys(worktreeId: string): Promise<void> {
-  for (const role of WORKTREE_ROLES) await invoke("pty_kill", { ptyId: makePtyId(worktreeId, role) });
+// Pause/teardown kill the worktree's LIVE pane roles (claude + host? + shell-*), passed by the
+// caller from the session pane-set. Idempotent — pty_kill is a no-op on missing ids.
+export async function killWorktreePtys(worktreeId: string, roles: string[]): Promise<void> {
+  for (const role of roles) await invoke("pty_kill", { ptyId: makePtyId(worktreeId, role) });
 }
 
 // Delete/Wipe: kill PTYs → git worktree remove(force) → [Wipe: delete branch] → drop model. If remove
@@ -20,8 +18,9 @@ export async function teardownWorktree(
   wt: { id: string; repoPath: string; worktreePath: string; branch: string },
   opts: { wipe: boolean; force: boolean },
   removeWorktreeModel: (id: string) => void,
+  roles: string[],
 ): Promise<string | null> {
-  await killWorktreePtys(wt.id); // 1. kill first — frees the dir so git worktree remove can't be blocked.
+  await killWorktreePtys(wt.id, roles); // 1. kill first — frees the dir so git worktree remove can't be blocked.
   await removeWorktreeGit(wt.repoPath, wt.worktreePath, opts.force); // 2. throws → abort, keep model.
   let warning: string | null = null;
   if (opts.wipe) {

@@ -5,6 +5,7 @@ import type { Worktree } from "../../settings/types";
 import { useSettings } from "../../settings/store";
 import { worktreeStatus, type WorktreeStatus } from "../../worktrees/api";
 import { teardownWorktree } from "../../worktrees/teardown";
+import { paneRoles, EMPTY_PANE_SET } from "../../worktrees/paneSet";
 import { Modal } from "../Modal";
 
 export function TeardownConfirm({ worktree, action, onClose, onDone }: {
@@ -30,10 +31,12 @@ export function TeardownConfirm({ worktree, action, onClose, onDone }: {
     setBusy(true);
     setError(null);
     try {
+      const st = useSettings.getState();
       const w = await teardownWorktree(
         worktree,
         { wipe: action === "wipe", force: status?.dirty ?? true },
         removeWorktree,
+        paneRoles(st.worktreePanes[worktree.id] ?? EMPTY_PANE_SET),
       );
       if (w) {
         setWarning(w); // teardown succeeded with a caveat — show it, let the user dismiss.

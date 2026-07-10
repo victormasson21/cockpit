@@ -12,6 +12,7 @@ import { ScratchBody } from "./ScratchBody";
 import { PendingBody } from "./PendingBody";
 import { TeardownConfirm } from "./TeardownConfirm";
 import { killWorktreePtys } from "../../worktrees/teardown";
+import { paneRoles, EMPTY_PANE_SET } from "../../worktrees/paneSet";
 import "./WorktreeColumn.css";
 
 export function SlotColumn({ value, onSelect, variant = "full", pinnable = false }: { value: string | null; onSelect: (id: string | null) => void; variant?: "full" | "calm"; pinnable?: boolean }) {
@@ -23,11 +24,16 @@ export function SlotColumn({ value, onSelect, variant = "full", pinnable = false
   // Delete/Wipe open a confirmation dialog (worktree only); state is local to each column instance.
   const [confirm, setConfirm] = useState<"delete" | "wipe" | null>(null);
 
-  // Pause: kill the worktree's processes and unassign the slot; keep model + dir + branch (re-selectable).
+  // Pause: kill the worktree's live processes and unassign the slot; keep model + dir + branch.
+  // Also reset the pane set — a paused worktree comes back Claude-only (re-showing it must not
+  // silently re-run the dev server).
   const pauseActive = async () => {
     if (entity?.kind !== "worktree") return;
     setMenuOpen(false);
-    await killWorktreePtys(entity.worktree.id);
+    const id = entity.worktree.id;
+    const st = useSettings.getState();
+    await killWorktreePtys(id, paneRoles(st.worktreePanes[id] ?? EMPTY_PANE_SET));
+    st.resetWorktreePanes(id);
     onSelect(null);
   };
 
