@@ -70,6 +70,7 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured }: 
     ptyIdRef.current = ptyId;
     // Mount at the current zoom; a separate effect reflows on later zoom changes without remounting.
     const term = new Terminal({
+      allowProposedApi: true, // required by the Unicode11 addon's term.unicode.activeVersion = "11"
       convertEol: false,
       scrollback: 10000, // Claude sessions blow past xterm's 1000-line default
       fontSize: termFontSize(useSettings.getState().fontScale),
