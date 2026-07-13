@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
+import { WebglAddon } from "@xterm/addon-webgl";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import "@xterm/xterm/css/xterm.css";
@@ -82,6 +83,15 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured }: 
     term.loadAddon(unicode11);
     term.unicode.activeVersion = "11";
     term.open(containerRef.current!);
+    // GPU renderer for smooth streaming/spinner redraws across many live panes. Best-effort:
+    // on context loss (or if WebGL is unavailable) dispose so xterm falls back to the DOM renderer.
+    try {
+      const webgl = new WebglAddon();
+      webgl.onContextLoss(() => webgl.dispose());
+      term.loadAddon(webgl);
+    } catch {
+      /* WebGL unavailable in this webview — xterm keeps its DOM renderer */
+    }
     fit.fit();
 
     let unlisten: UnlistenFn | undefined;
