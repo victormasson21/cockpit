@@ -36,6 +36,16 @@ pub struct PtyManager {
     table: Mutex<HashMap<String, LivePty>>,
 }
 
+// The environment Claude Code reads for display: advertise truecolor + a known TERM for capability
+// detection, and CLAUDE_CODE_NO_FLICKER so it renders in its fullscreen alternate-screen TUI.
+fn terminal_env() -> [(&'static str, &'static str); 3] {
+    [
+        ("TERM", "xterm-256color"),
+        ("COLORTERM", "truecolor"),
+        ("CLAUDE_CODE_NO_FLICKER", "1"),
+    ]
+}
+
 // Spawn a shell for (worktree, role) if one isn't already alive; idempotent so the tile can call it on every mount.
 #[tauri::command]
 pub fn pty_ensure(
@@ -61,6 +71,9 @@ pub fn pty_ensure(
     let mut cmd = CommandBuilder::new(&shell);
     cmd.arg("-l");
     cmd.cwd(&cwd);
+    for (k, v) in terminal_env() {
+        cmd.env(k, v);
+    }
     let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
     drop(pair.slave); // master then sees EOF when the child exits
     let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
@@ -144,5 +157,13 @@ mod tests {
         let b = buf.lock().unwrap();
         assert_eq!(b.len(), SCROLLBACK_CAP);
         assert_eq!(&b[b.len() - 3..], b"END");
+    }
+
+    #[test]
+    fn terminal_env_advertises_truecolor_term_and_fullscreen() {
+        let env = terminal_env();
+        assert!(env.contains(&("TERM", "xterm-256color")));
+        assert!(env.contains(&("COLORTERM", "truecolor")));
+        assert!(env.contains(&("CLAUDE_CODE_NO_FLICKER", "1")));
     }
 }
