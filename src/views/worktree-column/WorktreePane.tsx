@@ -15,9 +15,12 @@ type PaneChrome = {
   open?: boolean;
   onToggle?: () => void;
   onExpand?: () => void; // expand = open me, collapse my siblings; button only shown when provided
+  // Overrides the built-in close (kill + respawn bare). Removable panes (host/extras) pass a
+  // handler that kills the PTY and removes the pane from the column instead.
+  onClose?: () => void;
 };
 
-export function WorktreePane({ title, icon, badge, action, open: openProp, onToggle, onExpand, ...args }: UseTerminalArgs & PaneChrome) {
+export function WorktreePane({ title, icon, badge, action, open: openProp, onToggle, onExpand, onClose, ...args }: UseTerminalArgs & PaneChrome) {
   const { containerRef, restart, close } = useTerminal(args);
   const [openLocal, setOpenLocal] = useState(true); // default: all panes open
   const open = openProp ?? openLocal;
@@ -34,7 +37,7 @@ export function WorktreePane({ title, icon, badge, action, open: openProp, onTog
         {badge}
         {action}
         <button className="icon-btn wt-pane__restart" title="restart" onClick={restart}><RestartIcon /></button>
-        <button className="icon-btn wt-pane__close" title="close" aria-label="close process" onClick={close}><CloseIcon /></button>
+        <button className="icon-btn wt-pane__close" title="close" aria-label="close process" onClick={onClose ?? close}><CloseIcon /></button>
         {onExpand && (
           <button className="icon-btn wt-pane__expand" title="expand" aria-label="expand pane" onClick={onExpand}>
             <ExpandIcon />

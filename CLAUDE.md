@@ -102,7 +102,9 @@ renders them. Getting this one pattern right makes the Nth integration mechanica
   running worktree), and `Calm` (same columns, Claude pane only). The active view + the
   per-column **slot→worktree assignment** are **session-only** store state (not persisted; on
   load the first 3 ongoing worktrees auto-fill the slots). Each `WorktreePane` reuses the
-  unchanged `useTerminal` hook and adds a chevron collapse (open panes flex-fill). `+ New
+  unchanged `useTerminal` hook and adds a chevron collapse (open panes flex-fill). Panes are
+  **Claude-first + on-demand** since 2026-07-10 (see the lazy-panes note): one Claude pane, with
+  host/extras added via Run/Add — the old always-on host+git panes are gone. `+ New
   worktree` opens `NewWorktreeModal`, which hosts the unchanged `NewWorktreeForm`. Chips
   (Linear/PR/issue/preview) derive from the worktree model; the **CI chip is a styled stub**
   (live detection deferred). The **Claude "Attention" highlight is live** (see the attention note below).
@@ -130,7 +132,8 @@ renders them. Getting this one pattern right makes the Nth integration mechanica
   `.vite/`): it prunes the stale registration and deletes the leftover dir instead of surfacing
   git's "is not a working tree" error.
 - **Worktree composite tile** lives in `src/tiles/worktree/`: dropdown of recent
-  worktrees, collapsible create-form, 3 xterm.js terminals (host / git / claude),
+  worktrees, collapsible create-form, xterm.js terminals (originally host / git / claude;
+  since 2026-07-10 it's Claude-first with host/extras on demand — see the lazy-panes note),
   editable links, status toggle. The `worktrees` array in `cockpit.json` is the
   persistent model; `worktree-1` is now in the default config so the tile appears
   on first launch.
@@ -187,7 +190,10 @@ renders them. Getting this one pattern right makes the Nth integration mechanica
   helper in `useTerminal.ts`; restart = same path re-running the autostart). **Gotcha:** a kill without respawn
   leaves a dead xterm that still blinks a cursor and silently eats keystrokes (`pty_write` fails on the missing
   id with no `.catch`) — the pane looks stuck. Close also clears the attention highlight. No Rust changes
-  (`pty_kill` is idempotent — Ok on a missing id).
+  (`pty_kill` is idempotent — Ok on a missing id). **Superseded 2026-07-10 (worktree lazy panes):** the
+  persisted `paneOpen` field is DELETED — pane existence + collapse/expand state are session-only via the
+  `worktreePanes` store slice; Close on host/extra panes now REMOVES the pane instead of respawning it bare
+  (only the Claude pane keeps the respawn-bare Close). The expand/collapse coordination is otherwise unchanged.
 
 - **Themed Dropdown (custom select) (2026-07-08, merged to `main`).** All 3 native `<select>`s (slot-column
   picker + Checkout's repo/branch) are replaced by one shared **`Dropdown`** component — macOS renders the
@@ -414,8 +420,9 @@ create-only (placement is `placeNewEntity`'s job). Right column is `500px` wide.
 ✅ **Worktree teardown actions (Close/Pause/Delete/Wipe) — complete & merged to `main`. Fixes a major bug.** The
 slot column's old `Hide`/`Delete` never ran `git worktree remove`, so git's `.git/worktrees/<ref>` registration
 survived and the branch stayed checked out there — uncheckoutable anywhere else. The gear menu now has **four
-cumulative actions**, each removing one more attached thing: **Close** (unassign slot) ⊂ **Pause** (+ kill the 3
-PTYs; keep model/dir/branch, re-selectable) ⊂ **Delete** (+ `git worktree remove [--force]` + drop model; **branch
+cumulative actions**, each removing one more attached thing: **Close** (unassign slot) ⊂ **Pause** (+ kill the
+worktree's live PTYs — since 2026-07-10 the live pane set, not a fixed 3; keep model/dir/branch, re-selectable) ⊂
+**Delete** (+ `git worktree remove [--force]` + drop model; **branch
 kept**) ⊂ **Wipe** (+ `git branch -D` — **local branch only, remote untouched**). Scratch entities get only
 Close + Delete (no git). **Delete/Wipe open `TeardownConfirm`** (reuses `<Modal>`), which probes dirtiness via
 `worktree_status` (`git status --porcelain`; missing dir → `{exists:false,dirty:false}`, git error on an existing
@@ -527,6 +534,30 @@ prompt pre-filled + the error**. **Checkout / existing-branch flow is untouched.
   `WorktreePane`) on the claude pane whenever `worktree.prompt` exists. Auto-send is a CLI arg, so Claude queues it
   behind the trust-folder dialog — no PTY typing race. Checkout/manual/scratch unchanged; **no Rust PTY changes**.
   GUI acceptance PENDING human eyeball. Spec: `docs/superpowers/specs/2026-07-08-deduce-prompt-to-claude-design.md`.
+
+- **Worktree lazy panes (2026-07-10).** A worktree column now starts as ONE full-height Claude pane; the
+  **git pane is gone** and the localhost pane is no longer spawned at creation. A bottom action bar
+  (`.wt-col__actions`, `WorktreeBody`) has **▶ Run** (`PlayIcon` — spawns the `host` pane running
+  `host.startCmd`; disabled while running or when startCmd is blank, with a title hint) and **+ Add**
+  (`PlusIcon` — up to `MAX_EXTRAS = 2` plain shells, roles `shell-<n>` with a **monotonic per-worktree seq**
+  so a closed pane's PTY scrollback is never reattached; cwd = the worktree, no autostart), each ~50% width.
+  State is the **session-only** `worktreePanes` store slice over pure helpers in `src/worktrees/paneSet.ts`
+  (`paneRoles`/`runHost`/`addExtra`/`removePane`/`isPaneOpen`/`togglePane`/`expandPane`; `EMPTY_PANE_SET` =
+  Claude-only, all open). The persisted **`paneOpen` field was deleted** (TS `PaneOpenState` + Rust `PaneOpen`
+  / `pane_open`; legacy `cockpit.json` still loads — serde ignores unknown fields, proven by
+  `worktree_ignores_legacy_pane_open`), so pane existence AND collapse/expand are session-only now: on
+  restart every worktree is Claude-only again. **Close on host/extras REMOVES the pane** (`WorktreePane`'s new
+  optional `onClose`: `pty_kill` + `removeWorktreePane` + clear attention); Close on the Claude pane keeps the
+  built-in respawn-bare behavior (it can't be removed). Extra shells arm the attention highlight
+  (`isAttentionRole` now matches `shell-<n>`). **Teardown/Pause kill the LIVE pane set** —
+  `killWorktreePtys(id, roles)` + `teardownWorktree(…, roles)` derive roles from
+  `paneRoles(worktreePanes[id] ?? EMPTY_PANE_SET)` (the fixed `WORKTREE_ROLES` list is deleted); **Pause also
+  resets the pane set** so a paused worktree returns Claude-only instead of silently re-running the dev server.
+  A **pin button** (`PinIcon`, end of the chips row, `pinnable` prop threaded only from `WorktreesView`;
+  Calm/Cockpit don't pass it) toggles `cockpitWorktreeId`. `calm` variant = single self-managed Claude pane,
+  no bar, no expand. **No new Rust surface** (only the `pane_open` field deletion). GUI acceptance PENDING
+  human eyeball. Spec: `docs/superpowers/specs/2026-07-10-worktree-lazy-panes-design.md`;
+  plan: `docs/superpowers/plans/2026-07-10-worktree-lazy-panes.md`.
 
 ✅ **PR Reviews tile (2026-07-07) — code complete.** A manual-refresh tile below the Slack tile (Cockpit TILES
 column) listing PR review requests posted to one configured Slack channel; each item = `repo · #number · Slack

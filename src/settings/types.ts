@@ -34,8 +34,6 @@ export interface Integrations { slack?: SlackIntegration; prReviews?: PrReviewsI
 export type TodoState = "todo" | "in_progress" | "done";
 export interface TodoItem { id: string; text: string; state: TodoState }
 export type WorktreeStatus = "ongoing" | "completed";
-// Which of the 3 terminal panes are open (the expand/collapse arrangement); absent = all open.
-export interface PaneOpenState { host: boolean; git: boolean; claude: boolean }
 export interface Worktree {
   id: string;
   name: string;
@@ -45,7 +43,6 @@ export interface Worktree {
   host: HostConfig;
   links: WorktreeLink[];
   status: WorktreeStatus;
-  paneOpen?: PaneOpenState;
   prompt?: string; // the deduce prompt that created this worktree (auto-sent to Claude once; kept copyable)
 }
 

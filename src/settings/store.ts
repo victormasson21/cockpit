@@ -7,6 +7,7 @@ import { mergePrItems } from "../tiles/pr/merge";
 import { initSlots, setSlotAt, assignNewWorktree, fillFreeSlot, clearEntity, swapSlotId, hideSlotsBeyond, SLOT_COUNT, type Slots, type ScratchTerminal, type PendingWorktree } from "../views/slots";
 import { deduceWorktree, createWorktree } from "../worktrees/api";
 import { makeWorktree, sourceLinkFrom, branchSpecFrom } from "../worktrees/model";
+import { runHost, addExtra, removePane, togglePane, expandPane, EMPTY_PANE_SET, type WorktreePaneSet } from "../worktrees/paneSet";
 
 type View = "cockpit" | "worktrees" | "calm";
 
@@ -64,6 +65,15 @@ interface SettingsState {
   // Session-only "send the deduce prompt on the claude pane's first spawn" flags, keyed by worktree id. Not persisted.
   initialPromptPending: Record<string, true>;
   clearInitialPrompt: (id: string) => void;
+  // Session-only dynamic pane set per worktree (claude + Run host + Add shells). Not persisted:
+  // the Rust PTY registry dies with the app, so on restart every worktree is Claude-only again.
+  worktreePanes: Record<string, WorktreePaneSet>;
+  runHostPane: (id: string) => void;
+  addShellPane: (id: string) => void;
+  removeWorktreePane: (id: string, role: string) => void;
+  toggleWorktreePane: (id: string, role: string) => void;
+  expandWorktreePane: (id: string, role: string) => void;
+  resetWorktreePanes: (id: string) => void;
 }
 
 // Text-zoom bounds: clamp to a readable range and quantise to the 0.1 step so repeated +/- stay on grid.
@@ -98,6 +108,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
   worktreeError: null,
   attention: {},
   initialPromptPending: {},
+  worktreePanes: {},
   fontScale: 1,
   init: (s) => set({ cockpit: s.cockpit, layout: s.layout, loaded: true, slots: initSlots(s.cockpit.worktrees), slotCount: s.cockpit.preferences.panes ?? SLOT_COUNT, fontScale: clampZoom(s.cockpit.preferences.fontScale ?? 1) }),
   setCockpit: (next) => {
@@ -120,6 +131,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
     }));
     set((st) => ({ slots: clearEntity(st.slots, id) }));
     get().clearInitialPrompt(id); // sweep the one-shot flag if the pane never consumed it
+    get().resetWorktreePanes(id); // the pane set is meaningless once the worktree is gone
   },
   // To-do items persist in cockpit.json; ids are random so they survive restarts without a counter.
   addTodo: (text) =>
@@ -251,6 +263,24 @@ export const useSettings = create<SettingsState>((set, get) => ({
       if (!st.initialPromptPending[id]) return st;
       const { [id]: _, ...rest } = st.initialPromptPending;
       return { initialPromptPending: rest };
+    }),
+  // Pane-set actions: thin wrappers over the pure paneSet helpers, keyed by worktree id.
+  runHostPane: (id) =>
+    set((st) => ({ worktreePanes: { ...st.worktreePanes, [id]: runHost(st.worktreePanes[id] ?? EMPTY_PANE_SET) } })),
+  addShellPane: (id) =>
+    set((st) => ({ worktreePanes: { ...st.worktreePanes, [id]: addExtra(st.worktreePanes[id] ?? EMPTY_PANE_SET) } })),
+  removeWorktreePane: (id, role) =>
+    set((st) => ({ worktreePanes: { ...st.worktreePanes, [id]: removePane(st.worktreePanes[id] ?? EMPTY_PANE_SET, role) } })),
+  toggleWorktreePane: (id, role) =>
+    set((st) => ({ worktreePanes: { ...st.worktreePanes, [id]: togglePane(st.worktreePanes[id] ?? EMPTY_PANE_SET, role) } })),
+  expandWorktreePane: (id, role) =>
+    set((st) => ({ worktreePanes: { ...st.worktreePanes, [id]: expandPane(st.worktreePanes[id] ?? EMPTY_PANE_SET, role) } })),
+  // No-op (same object) when absent, so resetting an untouched worktree never re-renders.
+  resetWorktreePanes: (id) =>
+    set((st) => {
+      if (!st.worktreePanes[id]) return st;
+      const { [id]: _, ...rest } = st.worktreePanes;
+      return { worktreePanes: rest };
     }),
   // Known repos the deduce agent may pick from; each carries an optional saved host default. add dedupes by path.
   addKnownRepo: (path) =>

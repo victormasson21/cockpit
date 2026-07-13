@@ -71,8 +71,25 @@
 .wt-chip--add { background: none; border-style: dashed; color: var(--tx-2); }
 .wt-chip--add::before { display: none; }
 
+/* pin-to-Cockpit toggle: pushed to the right edge of the chips row; accent when active. */
+.wt-col__pin { margin-left: auto; color: var(--tx-3); }
+.wt-col__pin:hover { color: var(--tx); }
+.wt-col__pin--active { color: var(--accent); }
+
 .wt-col__path { padding: 0 var(--space-3) var(--space-2); color: var(--tx-3); font-family: var(--mono); font-size: var(--fs-xs); }
 .wt-col__panes { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--space-2); padding: 0 var(--space-3) var(--space-2); }
+
+/* bottom action bar: Run (start the dev server) + Add (extra shell), 50/50 width. */
+.wt-col__actions { display: flex; gap: var(--space-2); padding: 0 var(--space-3) var(--space-3); }
+.wt-col__action {
+  flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  background: var(--surface); color: var(--tx); border: 1px solid var(--bdr);
+  border-radius: var(--r-sm); padding: 6px 0; font-size: var(--fs-md); cursor: pointer;
+}
+.wt-col__action:not(:disabled):hover { background: var(--hover); }
+.wt-col__action:disabled { opacity: 0.5; cursor: default; }
+.wt-col__action svg { width: 13px; height: 13px; }
+
 .wt-col__empty { padding: var(--space-4); color: var(--tx-3); }
 
 /* Pending worktree tile: centred spinner + status + the prompt, shown while deduce/create run. */

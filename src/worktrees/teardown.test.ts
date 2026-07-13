@@ -35,15 +35,22 @@ beforeEach(() => {
 });
 
 describe("teardownWorktree", () => {
-  it("kills all 3 PTYs before removing the worktree", async () => {
+  it("kills every live pane role, in order, before removing the worktree", async () => {
     const removeModel = vi.fn();
-    await teardownWorktree(WT, { wipe: false, force: false }, removeModel);
-    expect(calls).toEqual(["pty_kill:wt-1:git", "pty_kill:wt-1:host", "pty_kill:wt-1:claude", "remove"]);
+    await teardownWorktree(WT, { wipe: false, force: false }, removeModel, ["claude", "host", "shell-1", "shell-3"]);
+    expect(calls).toEqual([
+      "pty_kill:wt-1:claude", "pty_kill:wt-1:host", "pty_kill:wt-1:shell-1", "pty_kill:wt-1:shell-3", "remove",
+    ]);
+  });
+
+  it("a Claude-only worktree kills just the claude PTY", async () => {
+    await teardownWorktree(WT, { wipe: false, force: false }, vi.fn(), ["claude"]);
+    expect(calls).toEqual(["pty_kill:wt-1:claude", "remove"]);
   });
 
   it("delete (wipe:false) never deletes the branch and drops the model once", async () => {
     const removeModel = vi.fn();
-    const warning = await teardownWorktree(WT, { wipe: false, force: false }, removeModel);
+    const warning = await teardownWorktree(WT, { wipe: false, force: false }, removeModel, ["claude"]);
     expect(deleteBranch).not.toHaveBeenCalled();
     expect(removeModel).toHaveBeenCalledExactlyOnceWith("wt-1");
     expect(warning).toBeNull();
@@ -51,7 +58,7 @@ describe("teardownWorktree", () => {
 
   it("wipe success deletes the branch, returns null, and drops the model", async () => {
     const removeModel = vi.fn();
-    const warning = await teardownWorktree(WT, { wipe: true, force: false }, removeModel);
+    const warning = await teardownWorktree(WT, { wipe: true, force: false }, removeModel, ["claude"]);
     expect(deleteBranch).toHaveBeenCalledWith("/r", "feat/x");
     expect(warning).toBeNull();
     expect(removeModel).toHaveBeenCalledExactlyOnceWith("wt-1");
@@ -60,7 +67,7 @@ describe("teardownWorktree", () => {
   it("wipe with branch-delete failure returns a warning but still drops the model", async () => {
     vi.mocked(deleteBranch).mockRejectedValueOnce("not fully merged");
     const removeModel = vi.fn();
-    const warning = await teardownWorktree(WT, { wipe: true, force: false }, removeModel);
+    const warning = await teardownWorktree(WT, { wipe: true, force: false }, removeModel, ["claude"]);
     expect(warning).toContain("branch could not be deleted");
     expect(removeModel).toHaveBeenCalledExactlyOnceWith("wt-1");
   });
@@ -68,13 +75,13 @@ describe("teardownWorktree", () => {
   it("remove failure does NOT drop the model and propagates", async () => {
     vi.mocked(removeWorktreeGit).mockRejectedValueOnce("worktree is dirty");
     const removeModel = vi.fn();
-    await expect(teardownWorktree(WT, { wipe: false, force: false }, removeModel)).rejects.toBe("worktree is dirty");
+    await expect(teardownWorktree(WT, { wipe: false, force: false }, removeModel, ["claude"])).rejects.toBe("worktree is dirty");
     expect(removeModel).not.toHaveBeenCalled();
     expect(deleteBranch).not.toHaveBeenCalled();
   });
 
   it("threads the force flag through to removeWorktreeGit", async () => {
-    await teardownWorktree(WT, { wipe: false, force: true }, vi.fn());
+    await teardownWorktree(WT, { wipe: false, force: true }, vi.fn(), ["claude"]);
     expect(removeWorktreeGit).toHaveBeenCalledWith("/r", "/wt", true);
   });
 });

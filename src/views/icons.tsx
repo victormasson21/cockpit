@@ -106,3 +106,31 @@ export function TickIcon() {
     </svg>
   );
 }
+
+// Play: triangle (Run — start the worktree's localhost dev server).
+export function PlayIcon() {
+  return (
+    <svg viewBox="0 0 16 16" {...base} aria-hidden="true">
+      <path d="M5.5 3.5v9l7-4.5z" />
+    </svg>
+  );
+}
+
+// Plus: add an extra terminal pane in the worktree.
+export function PlusIcon() {
+  return (
+    <svg viewBox="0 0 16 16" {...base} aria-hidden="true">
+      <path d="M8 3.5v9M3.5 8h9" />
+    </svg>
+  );
+}
+
+// Pin: map-pin (set this worktree as the Cockpit view's right-column worktree).
+export function PinIcon() {
+  return (
+    <svg viewBox="0 0 16 16" {...base} aria-hidden="true">
+      <path d="M8 14.5S3.5 9.9 3.5 7a4.5 4.5 0 1 1 9 0c0 2.9-4.5 7.5-4.5 7.5z" />
+      <circle cx="8" cy="7" r="1.6" />
+    </svg>
+  );
+}
