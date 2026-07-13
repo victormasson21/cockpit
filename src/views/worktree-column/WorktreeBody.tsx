@@ -9,19 +9,15 @@ import { LinksList } from "../../tiles/worktree/LinksList";
 import { claudePaneAutostart } from "../../worktrees/claudeCmd";
 import { makePtyId } from "../../worktrees/ptyId";
 import { EMPTY_PANE_SET, MAX_EXTRAS, isPaneOpen } from "../../worktrees/paneSet";
-import { CopyIcon, PlayIcon, PlusIcon, PinIcon } from "../icons";
+import { CopyIcon, PlayIcon, PlusIcon } from "../icons";
 
-export function WorktreeBody({ worktree, variant, pinnable = false }: { worktree: Worktree; variant: "full" | "calm"; pinnable?: boolean }) {
+export function WorktreeBody({ worktree, variant }: { worktree: Worktree; variant: "full" | "calm" }) {
   // Session-only dynamic pane set: which panes exist + their collapse state (absent = Claude only).
   const paneSet = useSettings((s) => s.worktreePanes[worktree.id]) ?? EMPTY_PANE_SET;
   const runHostPane = useSettings((s) => s.runHostPane);
   const addShellPane = useSettings((s) => s.addShellPane);
   const toggleWorktreePane = useSettings((s) => s.toggleWorktreePane);
   const expandWorktreePane = useSettings((s) => s.expandWorktreePane);
-
-  // Pin (Worktrees view only): toggles this worktree as the Cockpit view's right-column worktree.
-  const pinned = useSettings((s) => s.cockpit.cockpitWorktreeId === worktree.id);
-  const setCockpitWorktree = useSettings((s) => s.setCockpitWorktree);
 
   // Full variant routes collapse/expand through the slice so expand can collapse the LIVE siblings.
   const paneProps = (role: string) =>
@@ -65,14 +61,6 @@ export function WorktreeBody({ worktree, variant, pinnable = false }: { worktree
             ))}
             {/* user links live in the same row as the derived chips, with + link at the end. */}
             <LinksList worktreeId={worktree.id} links={worktree.links} />
-            {pinnable && (
-              <button
-                className={`icon-btn wt-col__pin${pinned ? " wt-col__pin--active" : ""}`}
-                title={pinned ? "unpin from Cockpit view" : "pin to Cockpit view"}
-                aria-pressed={pinned}
-                onClick={() => setCockpitWorktree(pinned ? null : worktree.id)}
-              ><PinIcon /></button>
-            )}
           </div>
           <div className="wt-col__path">
             {worktree.repoPath.split("/").pop()} · {worktree.branch} · {worktree.worktreePath.split("/").pop()}

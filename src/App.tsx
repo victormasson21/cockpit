@@ -28,6 +28,7 @@ function normalizeView(v: string): View {
 
 function App() {
   const { loaded, init, slotCount, setSlotCount } = useSettings();
+  const setCockpitWorktree = useSettings((s) => s.setCockpitWorktree);
   const worktreeError = useSettings((s) => s.worktreeError);
   const clearWorktreeError = useSettings((s) => s.clearWorktreeError);
   const fontScale = useSettings((s) => s.fontScale);
@@ -91,6 +92,9 @@ function App() {
     if (worktreeError) setCreating(true);
   }, [worktreeError]);
 
+  // Pin a worktree as the Cockpit view's right column, then jump straight to that view (unpin lives in Cockpit).
+  const pinToCockpit = (id: string) => { setCockpitWorktree(id); setView("cockpit"); };
+
   if (!loaded) return <div className="app__loading">Loading…</div>;
 
   return (
@@ -131,7 +135,7 @@ function App() {
       </header>
       <main className="app__body">
         {view === "cockpit" && <CockpitView onOpenSettings={() => setSettingsOpen(true)} />}
-        {view === "worktrees" && <WorktreesView />}
+        {view === "worktrees" && <WorktreesView onPin={pinToCockpit} />}
         {view === "calm" && <CalmView />}
       </main>
       {creating && <NewWorktreeModal view={view} onClose={() => { setCreating(false); clearWorktreeError(); }} />}

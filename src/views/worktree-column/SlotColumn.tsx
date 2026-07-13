@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useSettings } from "../../settings/store";
 import { makePtyId } from "../../worktrees/ptyId";
 import { resolveSlotEntity } from "../slots";
-import { GearIcon, CloseIcon, PauseIcon, BinIcon, GhostIcon } from "../icons";
+import { GearIcon, CloseIcon, PauseIcon, BinIcon, GhostIcon, PinIcon } from "../icons";
 import { Dropdown } from "../Dropdown";
 import type { DropdownGroup } from "../dropdownModel";
 import { WorktreeBody } from "./WorktreeBody";
@@ -15,7 +15,7 @@ import { killWorktreePtys } from "../../worktrees/teardown";
 import { paneRoles, EMPTY_PANE_SET } from "../../worktrees/paneSet";
 import "./WorktreeColumn.css";
 
-export function SlotColumn({ value, onSelect, variant = "full", pinnable = false }: { value: string | null; onSelect: (id: string | null) => void; variant?: "full" | "calm"; pinnable?: boolean }) {
+export function SlotColumn({ value, onSelect, variant = "full", onPin }: { value: string | null; onSelect: (id: string | null) => void; variant?: "full" | "calm"; onPin?: (id: string) => void }) {
   const { cockpit, removeScratch, scratchTerminals, pendingWorktrees } = useSettings();
   const ongoing = cockpit.worktrees.filter((w) => w.status === "ongoing");
   const activeId = value;
@@ -78,6 +78,10 @@ export function SlotColumn({ value, onSelect, variant = "full", pinnable = false
             <button className="icon-btn wt-col__gear" aria-label="column settings" onClick={() => setMenuOpen((o) => !o)}><GearIcon /></button>
             {menuOpen && (
               <div className="wt-col__menu-pop" onMouseLeave={() => setMenuOpen(false)}>
+                {/* Pin sits above the teardown set: it adds an attachment (Cockpit column) + jumps there; unpin lives in Cockpit. */}
+                {entity.kind === "worktree" && onPin && (
+                  <button onClick={() => { onPin(entity.worktree.id); setMenuOpen(false); }}><PinIcon />Pin to Cockpit</button>
+                )}
                 {/* Close ⊂ Pause ⊂ Delete ⊂ Wipe — each removes one more attached thing. Scratch has no git. */}
                 <button onClick={() => { onSelect(null); setMenuOpen(false); }}><CloseIcon />Close</button>
                 {entity.kind === "worktree" ? (
@@ -99,7 +103,7 @@ export function SlotColumn({ value, onSelect, variant = "full", pinnable = false
         <div className="wt-col__empty">Nothing in this slot.</div>
       ) : entity.kind === "worktree" ? (
         // Key on the component (not a wrapper div) so the remount preserves the .wt-col → .wt-col__body flex chain.
-        <WorktreeBody key={entity.worktree.id} worktree={entity.worktree} variant={variant} pinnable={pinnable} />
+        <WorktreeBody key={entity.worktree.id} worktree={entity.worktree} variant={variant} />
       ) : entity.kind === "scratch" ? (
         <ScratchBody key={entity.scratch.id} scratchId={entity.scratch.id} />
       ) : (
