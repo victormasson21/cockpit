@@ -2,6 +2,7 @@
 import { useEffect, useRef } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import "@xterm/xterm/css/xterm.css";
@@ -66,6 +67,7 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured }: 
     // Mount at the current zoom; a separate effect reflows on later zoom changes without remounting.
     const term = new Terminal({
       convertEol: false,
+      scrollback: 10000, // Claude sessions blow past xterm's 1000-line default
       fontSize: termFontSize(useSettings.getState().fontScale),
       fontFamily: '"JetBrains Mono", ui-monospace, monospace',
       theme: TERM_THEME,
@@ -74,6 +76,11 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured }: 
     const fit = new FitAddon();
     fitRef.current = fit;
     term.loadAddon(fit);
+    // Unicode 11 width tables: match Claude Code's assumption that emoji/wide glyphs are width-2,
+    // so its box-drawing UI and input box stay aligned. Must be set before term.open().
+    const unicode11 = new Unicode11Addon();
+    term.loadAddon(unicode11);
+    term.unicode.activeVersion = "11";
     term.open(containerRef.current!);
     fit.fit();
 
