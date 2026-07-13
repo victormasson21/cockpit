@@ -47,7 +47,8 @@ The heart — terminals + worktrees — is done. The product arc from here is th
 ### Worktrees & Checkout
 - **Remote-branch checkout.** Let the Checkout picker offer remote-only branches (a teammate's pushed branch you don't have locally) — needs tracking-branch logic (`git worktree add -b <name> <path> origin/<name>`). Deferred from the existing-branch iteration.
 - **Persist slot assignments to disk.** Survive restarts — add one field to the Rust `CockpitConfig` serde struct (the only reason slots are session-only today).
-- **"Path not found" banner.** Dedicated header banner when a worktree's dir is missing/deleted (spec §G) — today each pane just shows an in-pane `[failed to start]`.
+- **"Path not found" banner.** Dedicated header banner when a worktree's dir is missing/deleted (spec §G) — today the Claude pane (and any Run/Add pane) just shows an in-pane `[failed to start]`.
+- **Run button when the dev server exits.** The host pane stays after the process ends (restart re-runs it); consider auto-detecting exit and re-enabling a fresh Run affordance.
 - **Branch picker quality-of-life.** Search/filter for repos with many branches; optionally show last-author alongside the relative date.
 
 ### Scratch terminals
