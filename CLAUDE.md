@@ -600,6 +600,20 @@ both Important findings fixed (in-batch dedupe, history pagination).
   changes (`invoke` was already promise-based). Threading isn't unit-testable headlessly — GUI smoke:
   beachball gone on refocus + app stays interactive during a deduce.
 
+- **Terminal UX batch (2026-07-13, branch `worktree-terminal-ux`).** `useTerminal.ts` now loads three
+  xterm v6 addons — **Unicode 11** width tables (`term.unicode.activeVersion="11"`, fixes emoji/box-drawing
+  misalignment in Claude's UI), **WebGL** renderer (best-effort; `onContextLoss` → dispose falls back to the
+  DOM renderer), and **web-links** (Cmd+click → `openUrl`) — plus `scrollback: 10000` and a
+  `attachCustomKeyEventHandler` that turns **Shift+Enter** into Claude's backslash-newline escape
+  (`[0x5c,0x0d]`) instead of submitting (pure `shouldInsertNewline`/`NEWLINE_ESCAPE` in
+  `src/worktrees/keys.ts`, tested). `pty.rs` sets `TERM=xterm-256color`, `COLORTERM=truecolor`, and
+  `CLAUDE_CODE_NO_FLICKER=1` on the child shell (pure `terminal_env()`, tested) — truecolor + Claude's
+  **fullscreen alternate-screen TUI**; Claude keeps its own default theme ("look like Claude", not
+  `dark-ansi`). Each change is one line and independently revertible — see the **Revert Map** in
+  `docs/superpowers/plans/2026-07-13-terminal-ux-improvements.md`. 149 JS + 109 Rust tests green; Rust +
+  Vite builds clean. **GUI acceptance PENDING human eyeball** (checklist in that plan: Unicode alignment,
+  fullscreen TUI, truecolor, Shift+Enter, Cmd+click links, WebGL smoothness).
+
 **Next / resuming work — read `docs/ROADMAP.md` first.** It is the single prioritized backlog, split into
 **main build sub-projects** (the big sequential arc — sub-project 5 onward: Linear tile, then GitHub/Calendar
 tiles, reusing the SP4 provider+panel + Keychain seam) and **smaller iterations** (scoped polish/enhancements). When
