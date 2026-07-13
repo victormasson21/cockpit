@@ -10,6 +10,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import "@xterm/xterm/css/xterm.css";
 import { makePtyId, isAttentionRole } from "./ptyId";
+import { shouldInsertNewline, NEWLINE_ESCAPE } from "./keys";
 import { useSettings } from "../settings/store";
 
 export interface UseTerminalArgs {
@@ -108,6 +109,17 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured }: 
     const onBell = armed
       ? term.onBell(() => { if (bellLive) useSettings.getState().markAttention(ptyId); })
       : undefined;
+
+    // Shift+Enter → insert a newline (Claude Code's backslash-escape) instead of submitting the prompt.
+    // Returning false tells xterm we handled the key, so it does not also emit a submitting CR.
+    term.attachCustomKeyEventHandler((e) => {
+      if (shouldInsertNewline(e)) {
+        if (armed) useSettings.getState().clearAttention(ptyId);
+        invoke("pty_write", { ptyId, bytes: NEWLINE_ESCAPE });
+        return false;
+      }
+      return true;
+    });
 
     // ensure the PTY exists, replay its scrollback, then live-stream new output.
     // A failed spawn (e.g. missing worktree path / bad shell) rejects here and is shown in-pane (spec §G).
