@@ -34,10 +34,17 @@ export function WorktreeBody({ worktree, variant, pinnable = false }: { worktree
       : {}; // calm: single pane, self-managed, no expand
 
   // Close on host/extras REMOVES the pane: kill the PTY, drop any attention mark, drop it from the set.
-  const closePane = (role: string) => {
+  // Await the kill before dropping the pane: the `host` role reuses a fixed pty id, so a fire-and-forget
+  // kill racing an immediate re-Run could let pty_ensure reattach the still-alive entry, then the lagging
+  // kill removes it — leaving a dead pane. Extras are immune (monotonic role) but share this path.
+  const closePane = async (role: string) => {
     const ptyId = makePtyId(worktree.id, role);
     useSettings.getState().clearAttention(ptyId);
-    invoke("pty_kill", { ptyId }).catch((e) => console.error("pty_kill failed", e));
+    try {
+      await invoke("pty_kill", { ptyId });
+    } catch (e) {
+      console.error("pty_kill failed", e);
+    }
     useSettings.getState().removeWorktreePane(worktree.id, role);
   };
 
