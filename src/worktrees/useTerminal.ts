@@ -4,6 +4,8 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebglAddon } from "@xterm/addon-webgl";
+import { WebLinksAddon } from "@xterm/addon-web-links";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import "@xterm/xterm/css/xterm.css";
@@ -92,6 +94,8 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured }: 
     } catch {
       /* WebGL unavailable in this webview — xterm keeps its DOM renderer */
     }
+    // Cmd+click URLs Claude prints (PRs, docs, localhost previews) → open in the real browser.
+    term.loadAddon(new WebLinksAddon((_event, uri) => { void openUrl(uri); }));
     fit.fit();
 
     let unlisten: UnlistenFn | undefined;
