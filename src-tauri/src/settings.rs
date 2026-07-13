@@ -59,14 +59,6 @@ pub struct WorktreeLink {
     pub url: String,
 }
 
-// Which of a worktree's 3 terminal panes are open (the expand/collapse arrangement); absent = all open.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct PaneOpen {
-    pub host: bool,
-    pub git: bool,
-    pub claude: bool,
-}
-
 // A worktree: a name + git location (repo/branch/worktree) + local host + links + status.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Worktree {
@@ -80,8 +72,6 @@ pub struct Worktree {
     pub host: HostConfig,
     pub links: Vec<WorktreeLink>,
     pub status: String,
-    #[serde(rename = "paneOpen", default, skip_serializing_if = "Option::is_none")]
-    pub pane_open: Option<PaneOpen>,
     // The deduce prompt that created this worktree (auto-sent to Claude once; kept copyable). Absent for manual/checkout worktrees.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prompt: Option<String>,
@@ -352,17 +342,14 @@ mod tests {
         assert!(!serde_json::to_string(&bare).unwrap().contains("host"));
     }
 
-    // Pre-expand-button files have no paneOpen on worktrees; the field is optional and round-trips.
+    // Pre-lazy-panes files persisted a paneOpen arrangement; the field is gone and must be
+    // silently ignored on load (serde default: unknown fields are skipped), never re-written.
     #[test]
-    fn worktree_pane_open_is_optional_and_round_trips() {
-        let bare = r#"{"id":"w1","name":"n","repoPath":"/r","branch":"b","worktreePath":"/w","host":{"startCmd":"","address":""},"links":[],"status":"ongoing"}"#;
-        let wt: Worktree = serde_json::from_str(bare).unwrap();
-        assert_eq!(wt.pane_open, None);
-        assert!(!serde_json::to_string(&wt).unwrap().contains("paneOpen")); // omitted when unset
-        let expanded = r#"{"id":"w1","name":"n","repoPath":"/r","branch":"b","worktreePath":"/w","host":{"startCmd":"","address":""},"links":[],"status":"ongoing","paneOpen":{"host":false,"git":false,"claude":true}}"#;
-        let wt: Worktree = serde_json::from_str(expanded).unwrap();
-        let po = wt.pane_open.unwrap();
-        assert!(!po.host && !po.git && po.claude);
+    fn worktree_ignores_legacy_pane_open() {
+        let legacy = r#"{"id":"w1","name":"n","repoPath":"/r","branch":"b","worktreePath":"/w","host":{"startCmd":"","address":""},"links":[],"status":"ongoing","paneOpen":{"host":false,"git":false,"claude":true}}"#;
+        let wt: Worktree = serde_json::from_str(legacy).unwrap();
+        assert_eq!(wt.id, "w1");
+        assert!(!serde_json::to_string(&wt).unwrap().contains("paneOpen"));
     }
 
     #[test]
