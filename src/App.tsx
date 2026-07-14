@@ -12,6 +12,7 @@ import { NewWorktreeModal } from "./views/NewWorktreeModal";
 import { SettingsModal } from "./views/SettingsModal";
 import { MIN_SLOTS, SLOT_COUNT } from "./views/slots";
 import { GearIcon } from "./views/icons";
+import { HeaderTimer } from "./tiles/timer/HeaderTimer";
 import "./App.css";
 
 type View = "cockpit" | "worktrees" | "calm";
@@ -31,6 +32,8 @@ function App() {
   const setCockpitWorktree = useSettings((s) => s.setCockpitWorktree);
   const worktreeError = useSettings((s) => s.worktreeError);
   const clearWorktreeError = useSettings((s) => s.clearWorktreeError);
+  const timerRunning = useSettings((s) => s.timerRunning);
+  const tickTimer = useSettings((s) => s.tickTimer);
   const fontScale = useSettings((s) => s.fontScale);
   const zoomIn = useSettings((s) => s.zoomIn);
   const zoomOut = useSettings((s) => s.zoomOut);
@@ -43,6 +46,13 @@ function App() {
   useEffect(() => {
     getVersion().then(setVersion).catch(() => {});
   }, []);
+
+  // Drive the countdown here (App never unmounts), so the timer keeps ticking across view switches.
+  useEffect(() => {
+    if (!timerRunning) return;
+    const id = setInterval(tickTimer, 1000);
+    return () => clearInterval(id);
+  }, [timerRunning, tickTimer]);
 
   // Push the zoom multiplier onto <html> so every --fs-* token (calc(base * var(--font-scale))) recomputes.
   useEffect(() => {
@@ -129,6 +139,7 @@ function App() {
               ))}
             </div>
           )}
+          <HeaderTimer />
           <button className="app__new" onClick={() => setCreating(true)}>+ New</button>
           <button className="app__new app__new--icon" aria-label="settings" onClick={() => setSettingsOpen(true)}><GearIcon /></button>
         </div>

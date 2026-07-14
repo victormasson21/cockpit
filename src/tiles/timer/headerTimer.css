@@ -1,0 +1,7 @@
+/* headerTimer.css — compact countdown shown in the app header, left of "+ New". */
+.header-timer { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px 2px 10px; border: 1px solid var(--bdr); border-radius: var(--r-sm); background: var(--bg-3); }
+.header-timer__time { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: var(--fs-md); font-weight: 600; color: var(--tx-hi); min-width: 44px; text-align: center; }
+.header-timer--done .header-timer__time { color: var(--warn-tx); }
+.header-timer__btn { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0; background: none; border: none; border-radius: var(--r-sm); color: var(--tx-2); cursor: pointer; }
+.header-timer__btn:hover:not(:disabled) { color: var(--tx-hi); background-image: linear-gradient(var(--hover), var(--hover)); }
+.header-timer__btn:disabled { opacity: 0.4; cursor: default; }

@@ -8,6 +8,9 @@ import { initSlots, setSlotAt, assignNewWorktree, fillFreeSlot, clearEntity, swa
 import { deduceWorktree, createWorktree } from "../worktrees/api";
 import { makeWorktree, sourceLinkFrom, branchSpecFrom } from "../worktrees/model";
 import { runHost, addExtra, removePane, togglePane, expandPane, EMPTY_PANE_SET, type WorktreePaneSet } from "../worktrees/paneSet";
+import { tick } from "../tiles/timer/timer";
+
+const TIMER_DEFAULT_MIN = 25;
 
 type View = "cockpit" | "worktrees" | "calm";
 
@@ -58,6 +61,16 @@ interface SettingsState {
   // Last failed deduce/create (prompt + message); App watches it to reopen the modal prefilled.
   worktreeError: { prompt: string; message: string } | null;
   clearWorktreeError: () => void;
+  // Session-only countdown timer (mm:ss), shared by the header + the Cockpit tile so it survives
+  // view switches (the tile unmounts, the store doesn't). Not persisted; App drives the 1s tick.
+  timerMinutes: number;
+  timerRemaining: number; // seconds
+  timerRunning: boolean;
+  startTimer: () => void;
+  pauseTimer: () => void;
+  resetTimer: () => void;
+  setTimerMinutes: (m: number) => void;
+  tickTimer: () => void;
   // Session-only "needs attention" set, keyed by ptyId (presence = highlight). Not persisted.
   attention: Record<string, true>;
   markAttention: (ptyId: string) => void;
@@ -106,6 +119,9 @@ export const useSettings = create<SettingsState>((set, get) => ({
   pendingWorktrees: [],
   pendingSeq: 0,
   worktreeError: null,
+  timerMinutes: TIMER_DEFAULT_MIN,
+  timerRemaining: TIMER_DEFAULT_MIN * 60,
+  timerRunning: false,
   attention: {},
   initialPromptPending: {},
   worktreePanes: {},
@@ -248,6 +264,21 @@ export const useSettings = create<SettingsState>((set, get) => ({
       }
     })();
   },
+  // Countdown actions (session-only). App runs a 1s interval calling tickTimer while timerRunning.
+  startTimer: () => set((st) => (st.timerRemaining > 0 ? { timerRunning: true } : st)),
+  pauseTimer: () => set({ timerRunning: false }),
+  resetTimer: () => set((st) => ({ timerRunning: false, timerRemaining: st.timerMinutes * 60 })),
+  // Clamp to 1..180 min; resets the countdown to the new full duration (editable only while idle in the UI).
+  setTimerMinutes: (m) => {
+    const v = Math.max(1, Math.min(180, Math.floor(m) || 0));
+    set({ timerMinutes: v, timerRemaining: v * 60 });
+  },
+  tickTimer: () =>
+    set((st) => {
+      if (!st.timerRunning) return st;
+      const { remaining, running } = tick(st.timerRemaining);
+      return { timerRemaining: remaining, timerRunning: running };
+    }),
   // Attention highlight (session-only): a pane bells -> mark; user focuses/types in it -> clear.
   markAttention: (ptyId) => set((st) => ({ attention: { ...st.attention, [ptyId]: true } })),
   // No-op (same object) when absent, so clearing an unmarked pane never triggers a re-render.
