@@ -1,4 +1,5 @@
 // WorktreeBody.tsx — the worktree slot body: chips + path + dynamic panes (claude always; host via Run; extra shells via Add) + the bottom Run/Add bar.
+import type { ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { Worktree } from "../../settings/types";
@@ -11,7 +12,9 @@ import { makePtyId } from "../../worktrees/ptyId";
 import { EMPTY_PANE_SET, MAX_EXTRAS, isPaneOpen } from "../../worktrees/paneSet";
 import { CopyIcon, PlayIcon, PlusIcon } from "../icons";
 
-export function WorktreeBody({ worktree, variant }: { worktree: Worktree; variant: "full" | "calm" }) {
+// `switcher` (calm only) is the icon+dropdown unit, injected into the Claude pane header so the
+// dropdown sits level with the restart button (calm has no separate column header).
+export function WorktreeBody({ worktree, variant, switcher }: { worktree: Worktree; variant: "full" | "calm"; switcher?: ReactNode }) {
   // Session-only dynamic pane set: which panes exist + their collapse state (absent = Claude only).
   const paneSet = useSettings((s) => s.worktreePanes[worktree.id]) ?? EMPTY_PANE_SET;
   const runHostPane = useSettings((s) => s.runHostPane);
@@ -71,10 +74,11 @@ export function WorktreeBody({ worktree, variant }: { worktree: Worktree; varian
         {/* attention highlight (border/glow + badge) is owned by WorktreePane via the live store. */}
         <WorktreePane
           title="Claude Code" icon={<span className="wt-ico wt-ico--claude" aria-hidden />}
+          lead={variant === "calm" ? switcher : undefined}
           worktreeId={worktree.id} role="claude" cwd={worktree.worktreePath}
           autostartCmd={claudePaneAutostart(worktree.prompt, promptPending)}
           onEnsured={() => useSettings.getState().clearInitialPrompt(worktree.id)}
-          action={prompt ? (
+          action={variant !== "calm" && prompt ? (
             <button
               className="icon-btn" title={`copy prompt: ${prompt}`}
               onClick={() => navigator.clipboard.writeText(prompt).catch((e) => console.error("copy prompt failed", e))}

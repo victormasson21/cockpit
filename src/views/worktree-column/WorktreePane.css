@@ -41,3 +41,19 @@
 .wt-pane__restart, .wt-pane__close, .wt-pane__expand, .wt-pane__chevron { font-size: var(--fs-2xl); padding-top: 2px; padding-bottom: 2px; }
 .wt-pane__restart { margin-left: auto; }
 .wt-pane__body { flex: 1; min-height: 0; padding: var(--space-1); background: var(--term); }
+
+/* Calm variant: no card. Drop the pane border + surface background + header divider so the
+   terminal floats on the app ground; keep only the icon/title/restart (+ attention badge). */
+.wt-col--calm .wt-pane { background: none; border: none; }
+.wt-col--calm .wt-pane__header { background: none; border-bottom: none; }
+/* single self-managed pane — collapse/expand/close are meaningless here */
+.wt-col--calm .wt-pane__close,
+.wt-col--calm .wt-pane__expand,
+.wt-col--calm .wt-pane__chevron { display: none; }
+/* the terminal body is still the terminal (always-dark --term); soft radius, no border → floating */
+.wt-col--calm .wt-pane__body { border-radius: var(--r); }
+/* attention: keep the "Attention" text badge, drop the box glow (a glow is a frame) */
+.wt-col--calm .wt-pane--attention { border: none; box-shadow: none; }
+/* slightly lighter switcher here only — the shared .dd--heading also serves the Worktrees view,
+   so this stays scoped to the calm pane header (higher specificity → wins without touching that). */
+.wt-col--calm .wt-pane__header .dd--heading button.dd__trigger { font-size: var(--fs-lg); font-weight: 600; }

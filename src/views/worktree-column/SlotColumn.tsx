@@ -68,12 +68,23 @@ export function SlotColumn({ value, onSelect, variant = "full", onPin }: { value
       : []),
   ];
 
+  // The switcher = identity glyph + worktree dropdown. In calm mode over a worktree it's injected
+  // into the Claude pane header (level with restart) instead of a standalone column header.
+  const switcher = (
+    <>
+      <span className={`wt-col__icon wt-col__icon--${iconKind}${attention ? " wt-col__icon--attention" : ""}`} aria-hidden />
+      <Dropdown value={activeId} onChange={(v) => onSelect(v || null)} groups={pickerGroups} placeholder="Select…" variant="heading" />
+    </>
+  );
+  const calmWorktree = variant === "calm" && entity?.kind === "worktree";
+
   return (
-    <div className="wt-col">
+    <div className={`wt-col${variant === "calm" ? " wt-col--calm" : ""}`}>
+      {!calmWorktree && (
       <div className="wt-col__header">
-        <span className={`wt-col__icon wt-col__icon--${iconKind}${attention ? " wt-col__icon--attention" : ""}`} aria-hidden />
-        <Dropdown value={activeId} onChange={(v) => onSelect(v || null)} groups={pickerGroups} placeholder="Select…" variant="heading" />
-        {entity && entity.kind !== "pending" && (
+        {switcher}
+        {/* Calm mode is the decluttered view: switcher + Claude terminal only — no gear menu. */}
+        {variant !== "calm" && entity && entity.kind !== "pending" && (
           <div className="wt-col__menu">
             <button className="icon-btn wt-col__gear" aria-label="column settings" onClick={() => setMenuOpen((o) => !o)}><GearIcon /></button>
             {menuOpen && (
@@ -98,12 +109,14 @@ export function SlotColumn({ value, onSelect, variant = "full", onPin }: { value
           </div>
         )}
       </div>
+      )}
 
       {!entity ? (
         <div className="wt-col__empty">Nothing in this slot.</div>
       ) : entity.kind === "worktree" ? (
         // Key on the component (not a wrapper div) so the remount preserves the .wt-col → .wt-col__body flex chain.
-        <WorktreeBody key={entity.worktree.id} worktree={entity.worktree} variant={variant} />
+        // calm: hand the switcher down so it renders inside the Claude pane header (no column header above).
+        <WorktreeBody key={entity.worktree.id} worktree={entity.worktree} variant={variant} switcher={calmWorktree ? switcher : undefined} />
       ) : entity.kind === "scratch" ? (
         <ScratchBody key={entity.scratch.id} scratchId={entity.scratch.id} />
       ) : (
