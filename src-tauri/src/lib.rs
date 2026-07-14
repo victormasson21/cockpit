@@ -33,6 +33,7 @@ pub fn run() {
             worktree::delete_branch,
             worktree::worktree_diff,
             worktree::worktree_file_diff,
+            worktree::resolve_repo_root,
             deduce::deduce_worktree,
             slack::slack_set_credentials,
             slack::slack_set_watched,
