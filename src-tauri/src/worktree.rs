@@ -138,6 +138,11 @@ pub fn delete_branch_args(branch: &str) -> Vec<String> {
     vec!["branch".into(), "-D".into(), branch.into()]
 }
 
+// git args to print a path's repo root; non-zero exit if the path is not inside a work tree.
+pub fn repo_root_args(path: &str) -> Vec<String> {
+    vec!["-C".into(), path.into(), "rev-parse".into(), "--show-toplevel".into()]
+}
+
 // True when `branch` is a branch we refuse to force-delete on Wipe. It matches the repo's known
 // default (from origin/HEAD) when we have one; when that's absent (fresh clones often lack a local
 // origin/HEAD ref), it falls back to the conventional names main/master so the common case is still
@@ -311,6 +316,20 @@ pub fn worktree_status(worktree_path: String) -> Result<WorktreeStatus, String> 
         true // existing dir but git can't read it: treat as dirty so the dialog forces force-removal.
     };
     Ok(WorktreeStatus { exists: true, dirty })
+}
+
+// Validate a picked folder is a git work tree and normalize it to its repo root.
+// One `rev-parse --show-toplevel` does both: non-zero exit => not a repo; stdout => the root.
+#[tauri::command(async)]
+pub fn resolve_repo_root(path: String) -> Result<String, String> {
+    let out = Command::new("git")
+        .args(repo_root_args(&path))
+        .output()
+        .map_err(|e| e.to_string())?;
+    if !out.status.success() {
+        return Err(format!("Not a git repository: {path}"));
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
 }
 
 // Read the repo's default branch from origin/HEAD (e.g. "main"); when that symref is absent
@@ -531,6 +550,45 @@ mod tests {
         let repo = init_test_repo();
         let path = repo.path().to_string_lossy().to_string();
         assert_eq!(delete_branch(path, "feat/already-gone".into()), Ok(()));
+    }
+
+    #[test]
+    fn repo_root_args_builds_rev_parse_toplevel() {
+        assert_eq!(
+            repo_root_args("/some/dir"),
+            vec!["-C", "/some/dir", "rev-parse", "--show-toplevel"]
+        );
+    }
+
+    #[test]
+    fn resolve_repo_root_returns_root_for_a_repo() {
+        let repo = init_test_repo();
+        let path = repo.path().to_string_lossy().to_string();
+        let root = resolve_repo_root(path).unwrap();
+        // canonicalize both sides: macOS /var is a symlink to /private/var, so git's
+        // --show-toplevel and tempdir()'s path can differ only by that prefix.
+        let got = std::fs::canonicalize(&root).unwrap();
+        let want = std::fs::canonicalize(repo.path()).unwrap();
+        assert_eq!(got, want);
+    }
+
+    #[test]
+    fn resolve_repo_root_normalizes_a_subdirectory_to_the_root() {
+        let repo = init_test_repo();
+        let sub = repo.path().join("pkg/inner");
+        std::fs::create_dir_all(&sub).unwrap();
+        let root = resolve_repo_root(sub.to_string_lossy().to_string()).unwrap();
+        let got = std::fs::canonicalize(&root).unwrap();
+        let want = std::fs::canonicalize(repo.path()).unwrap();
+        assert_eq!(got, want);
+    }
+
+    #[test]
+    fn resolve_repo_root_errors_for_a_non_repo() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().to_string_lossy().to_string();
+        let err = resolve_repo_root(path.clone()).unwrap_err();
+        assert!(err.contains("Not a git repository"), "got: {err}");
     }
 
     #[test]
