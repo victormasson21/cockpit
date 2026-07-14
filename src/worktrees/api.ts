@@ -31,6 +31,10 @@ export interface DeducedWorktree {
 export const deduceWorktree = (prompt: string, repoPaths: string[]) =>
   invoke<DeducedWorktree>("deduce_worktree", { prompt, repoPaths });
 
+// Resolve a picked folder to its git repo root; rejects with a message if the folder is not a repo.
+export const resolveRepoRoot = (path: string) =>
+  invoke<string>("resolve_repo_root", { path });
+
 // One local branch row for the existing-branch picker (mirrors Rust BranchInfo).
 // checkedOut flags a branch git won't let us worktree-add (already checked out somewhere); checkedOutPath says where.
 export interface BranchInfo {

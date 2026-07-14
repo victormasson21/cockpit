@@ -8,6 +8,8 @@
 .known-repos__head { display: flex; gap: var(--space-1); align-items: center; }
 .known-repos__path { flex: 1; font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* add-repo row: path input flexes, button sits at the end. */
+/* add-repo row: the Browse button opens the native folder picker. */
 .known-repos__add { display: flex; gap: var(--space-1); }
-.known-repos__add input { flex: 1; }
+
+/* inline error when a picked folder is not a git repo. */
+.known-repos__error { font-size: var(--fs-sm); color: var(--bad); }

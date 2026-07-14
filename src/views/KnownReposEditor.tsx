@@ -1,6 +1,9 @@
-// KnownReposEditor.tsx — Settings pane: add/remove known repo paths + edit each repo's saved host default (start cmd + address).
+// KnownReposEditor.tsx — Settings pane: add (via native folder picker) / remove known repo paths
+// + edit each repo's saved host default (start cmd + address).
 import { useState } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useSettings } from "../settings/store";
+import { resolveRepoRoot } from "../worktrees/api";
 import type { HostConfig } from "../settings/types";
 import "./KnownReposEditor.css";
 
@@ -13,14 +16,18 @@ export function mergeHost(current: HostConfig | undefined, patch: Partial<HostCo
 export function KnownReposEditor() {
   const { cockpit, addKnownRepo, removeKnownRepo, setRepoHost } = useSettings();
   const repos = cockpit.knownRepos;
-  const [path, setPath] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
-  // add the trimmed path, then clear the field (store dedupes).
-  const add = () => {
-    const p = path.trim();
-    if (!p) return;
-    addKnownRepo(p);
-    setPath("");
+  // Open the native folder picker; validate + normalize the pick to its repo root, then add it.
+  const browse = async () => {
+    setError(null);
+    const picked = await open({ directory: true, multiple: false, title: "Select a repo folder" });
+    if (typeof picked !== "string") return; // cancelled (null) — silent no-op.
+    try {
+      addKnownRepo(await resolveRepoRoot(picked)); // store dedupes by path.
+    } catch (e) {
+      setError(String(e));
+    }
   };
 
   // Patch one field of a repo's host default; seed the missing half from the current host (or empty).
@@ -31,7 +38,7 @@ export function KnownReposEditor() {
   return (
     <div className="known-repos">
       <strong>Known repos</strong>
-      {repos.length === 0 && <div className="known-repos__empty">Add a repo path so deduction can pick one.</div>}
+      {repos.length === 0 && <div className="known-repos__empty">Add a repo so deduction can pick one.</div>}
       {repos.map((r) => (
         <div key={r.path} className="known-repos__row">
           <div className="known-repos__head">
@@ -46,10 +53,9 @@ export function KnownReposEditor() {
         </div>
       ))}
       <div className="known-repos__add">
-        <input placeholder="/Users/…/repo" value={path}
-          onChange={(e) => setPath(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} />
-        <button disabled={!path.trim()} onClick={add}>+ repo</button>
+        <button onClick={browse}>+ Browse for repo…</button>
       </div>
+      {error && <div className="known-repos__error">{error}</div>}
     </div>
   );
 }
