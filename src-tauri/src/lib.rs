@@ -16,6 +16,7 @@ pub fn run() {
     shell_env::fix_path();
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(pty::PtyManager::default())
         .manage(slack::SlackManager::default())
         .invoke_handler(tauri::generate_handler![
