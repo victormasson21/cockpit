@@ -95,6 +95,16 @@
 @keyframes wt-spin { to { transform: rotate(360deg); } }
 .wt-attention { color: var(--bg-0); background: var(--bad); border-radius: var(--r-sm); padding: 1px 6px; font-size: var(--fs-2xs); font-weight: 700; }
 
+/* Calm variant: declutter to switcher + Claude terminal, centred and floating.
+   No divider, gear menu, chips, path, or pane card — those come off via .wt-col--calm here
+   and in WorktreePane.css. The terminal is width-constrained + centred so it floats. */
+.wt-col--calm { border-right: none; }
+/* header only renders for scratch/pending in calm (a worktree's switcher moves into the pane header) */
+.wt-col--calm .wt-col__header { justify-content: center; }
+/* ~10% vertical breathing room top+bottom; centre the width-capped tile horizontally so it floats */
+.wt-col--calm .wt-col__panes { align-items: center; padding: 10vh var(--space-3); }
+.wt-col--calm .wt-pane { width: 100%; max-width: 760px; }
+
 /* Teardown confirm dialog (rendered inside <Modal>): identity line, dirty/wipe warnings, actions row. */
 .tc__line { color: var(--tx-2); font-size: var(--fs-md); margin: 0 0 var(--space-2); }
 .tc__path { font-family: var(--mono); color: var(--tx-3); font-size: var(--fs-xs); }
