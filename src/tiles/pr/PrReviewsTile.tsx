@@ -1,6 +1,6 @@
 // PrReviewsTile.tsx — manual-refresh list of PR review requests from the configured Slack channel;
 // Remove drops an item, Review fires the existing background deduce→create worktree flow.
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Tile } from "../Tile";
 import { RestartIcon } from "../../views/icons";
@@ -19,13 +19,19 @@ export function PrReviewsTile({ onOpenSettings }: { onOpenSettings: () => void }
   const [refreshing, setRefreshing] = useState(false);
   const [refreshedAt, setRefreshedAt] = useState<number | null>(null); // session-only
   const [error, setError] = useState<string | null>(null);
+  const inFlight = useRef(false); // overlap guard for interval/focus vs a slow fetch (state is async)
 
-  // Manual refresh: fetch messages since the cursor; the store merge dedupes and advances the cursor.
-  const refresh = async () => {
-    if (!pr?.channelId || refreshing) return;
+  // Fetch messages since the cursor; the store merge dedupes and advances the cursor.
+  // silent=true (auto: interval + focus) skips the spinner and swallows errors; the
+  // manual button (silent=false) shows both. New items + the timestamp update either way.
+  const doRefresh = async ({ silent }: { silent: boolean }) => {
+    if (!pr?.channelId || inFlight.current) return;
     const channelId = pr.channelId; // captured: guard against the user switching channels mid-fetch
-    setRefreshing(true);
-    setError(null);
+    inFlight.current = true;
+    if (!silent) {
+      setRefreshing(true);
+      setError(null);
+    }
     try {
       const res = await prReviewsFetch(channelId, pr.lastSeenTs);
       // Only apply if the picked channel is still the one we fetched (else drop the stale result).
@@ -34,10 +40,21 @@ export function PrReviewsTile({ onOpenSettings }: { onOpenSettings: () => void }
         setRefreshedAt(Date.now());
       }
     } catch (e) {
-      setError(String(e));
+      if (!silent) setError(String(e));
+      else console.warn("PR reviews auto-refresh failed:", e);
     }
-    setRefreshing(false);
+    inFlight.current = false;
+    if (!silent) setRefreshing(false);
   };
+
+  // Auto-refresh: every 2 min while open + on window focus (mirrors the Slack tile), both silent.
+  useEffect(() => {
+    const auto = () => doRefresh({ silent: true });
+    const timer = setInterval(auto, 120_000);
+    window.addEventListener("focus", auto);
+    return () => { clearInterval(timer); window.removeEventListener("focus", auto); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pr?.channelId, pr?.lastSeenTs]);
 
   // Review: hand the PR to the existing deduce flow (its GitHub path checks the PR out deterministically).
   const review = (item: PrReviewItem) => startDeduceWorktree(`${item.title} ${item.url}`, "cockpit");
@@ -52,7 +69,7 @@ export function PrReviewsTile({ onOpenSettings }: { onOpenSettings: () => void }
         className={`slack-tile__gear${refreshing ? " slack-tile__gear--spin" : ""}`}
         aria-label="refresh pr reviews"
         disabled={!pr?.channelId || refreshing}
-        onClick={refresh}
+        onClick={() => doRefresh({ silent: false })}
       >
         <RestartIcon />
       </button>
