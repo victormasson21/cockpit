@@ -91,7 +91,7 @@ export function SlotColumn({ value, onSelect, variant = "full", onPin }: { value
               <div className="wt-col__menu-pop" onMouseLeave={() => setMenuOpen(false)}>
                 {/* Pin sits above the teardown set: it adds an attachment (Cockpit column) + jumps there; unpin lives in Cockpit. */}
                 {entity.kind === "worktree" && onPin && (
-                  <button onClick={() => { onPin(entity.worktree.id); setMenuOpen(false); }}><PinIcon />Pin to Cockpit</button>
+                  <button onClick={() => { onPin(entity.worktree.id); setMenuOpen(false); }}><PinIcon />Cockpit</button>
                 )}
                 {/* Close ⊂ Pause ⊂ Delete ⊂ Wipe — each removes one more attached thing. Scratch has no git. */}
                 <button onClick={() => { onSelect(null); setMenuOpen(false); }}><CloseIcon />Close</button>
