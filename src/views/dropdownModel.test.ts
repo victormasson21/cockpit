@@ -1,6 +1,6 @@
 // dropdownModel.test.ts — trigger-label resolution for the themed Dropdown.
 import { describe, it, expect } from "vitest";
-import { selectedLabel, type DropdownGroup } from "./dropdownModel";
+import { selectedLabel, sanitizeTitle, type DropdownGroup } from "./dropdownModel";
 
 const groups: DropdownGroup[] = [
   { options: [{ value: "", label: "Select…" }] },
@@ -23,5 +23,17 @@ describe("selectedLabel", () => {
   });
   it("a disabled option's label still shows on the trigger (pending tiles)", () => {
     expect(selectedLabel(groups, "pending-1", "Select…")).toBe("deducing…");
+  });
+});
+
+describe("sanitizeTitle", () => {
+  it("returns the trimmed value for non-blank input", () => {
+    expect(sanitizeTitle("  Fix the login bug  ")).toBe("Fix the login bug");
+  });
+  it("returns null for an empty string", () => {
+    expect(sanitizeTitle("")).toBeNull();
+  });
+  it("returns null for whitespace-only input", () => {
+    expect(sanitizeTitle("   ")).toBeNull();
   });
 });

@@ -12,3 +12,9 @@ export function selectedLabel(groups: DropdownGroup[], value: string | null, pla
   }
   return placeholder;
 }
+
+// A rename commits only a non-blank, trimmed value; blank input is a no-op revert (no clear mechanism).
+export function sanitizeTitle(raw: string): string | null {
+  const t = raw.trim();
+  return t.length > 0 ? t : null;
+}
