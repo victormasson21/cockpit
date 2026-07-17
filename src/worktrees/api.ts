@@ -67,3 +67,8 @@ export const worktreeDiff = (worktreePath: string, repoPath: string, base: strin
 // One file's raw unified patch, fetched lazily when a file row is expanded.
 export const worktreeFileDiff = (worktreePath: string, repoPath: string, base: string, path: string) =>
   invoke<string>("worktree_file_diff", { worktreePath, repoPath, base, path });
+
+// The PR for the worktree's current branch (mirrors Rust WorktreePr); null when no PR exists yet.
+export interface WorktreePr { number: number; url: string }
+export const worktreePr = (worktreePath: string) =>
+  invoke<WorktreePr | null>("worktree_pr", { worktreePath });
