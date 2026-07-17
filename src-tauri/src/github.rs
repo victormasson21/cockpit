@@ -142,8 +142,17 @@ fn run_gh(args: &[&str]) -> Result<String, String> {
 
 // Same, with a caller-chosen timeout (e.g. best-effort title enrichment wants to give up sooner).
 pub(crate) fn run_gh_timeout(args: &[&str], timeout: Duration) -> Result<String, String> {
-    let mut child = Command::new("gh")
-        .args(args)
+    run_gh_cwd(None, args, timeout)
+}
+
+// Core gh runner: optionally in a given cwd (so `gh pr view` resolves that dir's branch).
+fn run_gh_cwd(cwd: Option<&str>, args: &[&str], timeout: Duration) -> Result<String, String> {
+    let mut cmd = Command::new("gh");
+    cmd.args(args);
+    if let Some(dir) = cwd {
+        cmd.current_dir(dir);
+    }
+    let mut child = cmd
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -170,9 +179,63 @@ pub(crate) fn run_gh_timeout(args: &[&str], timeout: Duration) -> Result<String,
     }
 }
 
+// The PR associated with a worktree's current branch (render-ready for a WorktreeLink).
+#[derive(serde::Serialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct WorktreePr {
+    pub number: u64,
+    pub url: String,
+}
+
+// Query the PR for the worktree's current branch via gh. Ok(None) = no PR yet; Err = real failure.
+#[tauri::command(async)]
+pub fn worktree_pr(worktree_path: String) -> Result<Option<WorktreePr>, String> {
+    match run_gh_cwd(Some(&worktree_path), &["pr", "view", "--json", "url,number"], GH_TIMEOUT) {
+        Ok(out) => parse_pr_json(&out).map(Some),
+        Err(e) if is_no_pr(&e) => Ok(None),
+        Err(e) => Err(e),
+    }
+}
+
+// Parse `gh pr view --json url,number` output into a WorktreePr.
+fn parse_pr_json(stdout: &str) -> Result<WorktreePr, String> {
+    let v: serde_json::Value =
+        serde_json::from_str(stdout.trim()).map_err(|e| format!("couldn't parse gh output: {e}"))?;
+    let number = v.get("number").and_then(|x| x.as_u64()).ok_or("gh output missing PR number")?;
+    let url = v.get("url").and_then(|x| x.as_str()).filter(|s| !s.is_empty()).ok_or("gh output missing PR url")?;
+    Ok(WorktreePr { number, url: url.to_string() })
+}
+
+// gh signals "no PR for this branch" via stderr; classify it so it becomes Ok(None), not an error.
+fn is_no_pr(err: &str) -> bool {
+    // Tolerate the optional "open" qualifier: "no pull requests found" / "no open pull requests found".
+    err.to_lowercase().replace("open ", "").contains("no pull request")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parse_pr_json_reads_number_and_url() {
+        let pr = parse_pr_json(r#"{"url":"https://github.com/elder/cockpit/pull/42","number":42}"#).unwrap();
+        assert_eq!(pr, WorktreePr { number: 42, url: "https://github.com/elder/cockpit/pull/42".into() });
+    }
+
+    #[test]
+    fn parse_pr_json_errors_on_missing_fields() {
+        assert!(parse_pr_json(r#"{"number":42}"#).is_err()); // no url
+        assert!(parse_pr_json(r#"{"url":"https://x/pull/1"}"#).is_err()); // no number
+        assert!(parse_pr_json("not json").is_err());
+    }
+
+    #[test]
+    fn is_no_pr_classifies_gh_stderr() {
+        assert!(is_no_pr(r#"gh failed: no pull requests found for branch "feature-x""#));
+        assert!(is_no_pr("gh failed: no open pull requests found")); // case/phrasing tolerant
+        assert!(!is_no_pr("gh failed: could not resolve repository")); // a real error
+        assert!(!is_no_pr("gh timed out"));
+    }
 
     #[test]
     fn detect_github_ref_matches_pr_and_issue_urls() {

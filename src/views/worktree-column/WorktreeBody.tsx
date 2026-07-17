@@ -63,7 +63,7 @@ export function WorktreeBody({ worktree, variant, switcher }: { worktree: Worktr
               </button>
             ))}
             {/* user links live in the same row as the derived chips, with + link at the end. */}
-            <LinksList worktreeId={worktree.id} links={worktree.links} />
+            <LinksList worktreeId={worktree.id} worktreePath={worktree.worktreePath} links={worktree.links} />
           </div>
           <div className="wt-col__path">
             {worktree.repoPath.split("/").pop()} · {worktree.branch} · {worktree.worktreePath.split("/").pop()}

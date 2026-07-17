@@ -35,6 +35,7 @@ pub fn run() {
             worktree::worktree_diff,
             worktree::worktree_file_diff,
             worktree::resolve_repo_root,
+            github::worktree_pr,
             deduce::deduce_worktree,
             slack::slack_set_credentials,
             slack::slack_set_watched,

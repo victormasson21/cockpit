@@ -1,6 +1,6 @@
 // model.ts — pure helpers for worktree domain data (creation defaults + immutable link editing + deduction link). No IO.
 import type { Worktree, WorktreeLink } from "../settings/types";
-import type { DeducedWorktree, BranchSpec } from "./api";
+import type { DeducedWorktree, BranchSpec, WorktreePr } from "./api";
 
 // Build a worktree model from resolved fields, applying defaults (ongoing, no links).
 export function makeWorktree(
@@ -28,6 +28,12 @@ export function removeLink(links: WorktreeLink[], i: number): WorktreeLink[] {
 export function sourceLinkFrom(d: DeducedWorktree): WorktreeLink | null {
   if (!d.sourceUrl) return null;
   return { label: d.sourceTitle || d.sourceUrl, url: d.sourceUrl };
+}
+
+// Build the link to add for a detected PR, or null if a link with that URL already exists (dedupe).
+export function prLinkToAdd(links: WorktreeLink[], pr: WorktreePr): WorktreeLink | null {
+  if (links.some((l) => l.url === pr.url)) return null;
+  return { label: `PR #${pr.number}`, url: pr.url };
 }
 
 // Default editable-field values for a fresh new-worktree form (single source for init + reset).
