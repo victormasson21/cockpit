@@ -54,6 +54,7 @@ interface SettingsState {
   scratchSeq: number;
   addScratch: () => string;
   removeScratch: (id: string) => void;
+  renameScratch: (id: string, title: string) => void;
   // Session-only pending worktrees (spinner tiles) + the whole deduce→create background chain.
   pendingWorktrees: PendingWorktree[];
   pendingSeq: number;
@@ -208,6 +209,9 @@ export const useSettings = create<SettingsState>((set, get) => ({
     get().setCockpit((c) => ({ ...c, cockpitWorktreeId: c.cockpitWorktreeId === id ? undefined : c.cockpitWorktreeId }));
     set((st) => ({ scratchTerminals: st.scratchTerminals.filter((s) => s.id !== id), slots: clearEntity(st.slots, id) }));
   },
+  // Session-only: overwrite a scratch terminal's display title in place (scratch is never persisted).
+  renameScratch: (id, title) =>
+    set((st) => ({ scratchTerminals: st.scratchTerminals.map((s) => (s.id === id ? { ...s, title } : s)) })),
   clearWorktreeError: () => set({ worktreeError: null }),
   // startDeduceWorktree: place a spinning pending tile immediately, then run deduce→create in the
   // background (this action outlives the modal, so the fire-and-forget async survives modal close).
