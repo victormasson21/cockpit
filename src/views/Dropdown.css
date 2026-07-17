@@ -55,3 +55,20 @@
   padding: 8px 14px 4px; text-transform: uppercase; letter-spacing: 0.08em;
   font-size: var(--fs-2xs); color: var(--tx-3);
 }
+
+/* editable heading — label is its own click-to-edit button; chevron is a sibling icon-btn (matches the gear) */
+.dd--heading button.dd__trigger--editable {
+  background: none; border: none; padding: 0 2px;
+  color: var(--tx-hi); font-size: var(--fs-xl); font-weight: 700;
+  min-width: 0; max-width: 100%; cursor: text; text-align: left;
+}
+.dd--heading button.dd__trigger--editable:hover:not(:disabled) { background: none; background-image: none; }
+/* chevron-as-button: shares the .icon-btn baseline (padding 6px 12px, hover) with the gear for a comfy target */
+.dd button.dd__chevron-btn { flex: 0 0 auto; font-size: 14px; }
+/* inline edit input — mirrors the heading type so the box doesn't jump when entering edit mode */
+.dd__edit {
+  min-width: 0; max-width: 100%; width: 12ch;
+  font-family: var(--ui); font-size: var(--fs-xl); font-weight: 700;
+  color: var(--tx-hi); background: var(--bg-3);
+  border: 1px solid var(--bdr); border-radius: var(--r-sm); padding: 0 4px;
+}
