@@ -92,4 +92,6 @@ under `~/CockpitWorktrees/<repo>/<name>`.
 
 ## Current state
 
+![Cockpit — Cockpit view](docs/assets/cockpit-view.png)
+
 ![Cockpit — current state](docs/assets/current-state.png)
