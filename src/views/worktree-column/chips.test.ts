@@ -11,16 +11,22 @@ const kinds = (w: Worktree) => worktreeChips(w).map((c) => c.kind);
 const chip = (w: Worktree, k: string) => worktreeChips(w).find((c) => c.kind === k);
 
 describe("worktreeChips", () => {
-  it("extracts a Linear id from the name (uppercase)", () => {
-    expect(chip({ ...base, name: "ENG-2841 fix checkout" }, "linear")?.label).toBe("ENG-2841");
+  it("shows a Linear chip (label 'Linear') from a Linear branch ref", () => {
+    expect(chip({ ...base, branch: "eng-2841-fix-checkout" }, "linear")?.label).toBe("Linear");
   });
-  it("links the Linear chip to a linear.app link when present", () => {
-    const w = { ...base, name: "ENG-1 x", links: [{ label: "t", url: "https://linear.app/acme/issue/ENG-1" }] };
+  it("shows a Linear chip from a linear.app link even with no branch ref", () => {
+    const w = { ...base, branch: "", links: [{ label: "t", url: "https://linear.app/acme/issue/ENG-1" }] };
+    expect(chip(w, "linear")?.label).toBe("Linear");
     expect(chip(w, "linear")?.url).toContain("linear.app");
   });
-  it("does not treat 'React 19' or 'pr-4790' as a Linear id", () => {
-    expect(kinds({ ...base, name: "Upgrade to React 19" })).not.toContain("linear");
-    expect(kinds({ ...base, name: "saved cards", branch: "pr-4790" })).not.toContain("linear");
+  it("still shows Linear after the worktree name is renamed (branch retains the ref)", () => {
+    const w = { ...base, name: "Fix the login bug", branch: "eng-2841-fix" };
+    expect(kinds(w)).toContain("linear");
+  });
+  it("does not treat a plain branch, 'pr-<N>', or 'issue-<N>' as Linear", () => {
+    expect(kinds({ ...base, branch: "" })).not.toContain("linear");
+    expect(kinds({ ...base, branch: "pr-4790" })).not.toContain("linear");
+    expect(kinds({ ...base, branch: "issue-12" })).not.toContain("linear");
   });
   it("derives a PR chip from pr-<N> in the branch", () => {
     expect(chip({ ...base, branch: "pr-4790" }, "pr")?.label).toBe("PR #4790");
