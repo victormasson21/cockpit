@@ -57,7 +57,7 @@ export function Dropdown({ value, onChange, groups, placeholder, variant, onRena
       ) : onRename ? (
         // Split trigger: label click → edit; chevron button → popover (styled like the nearby gear).
         <>
-          <button type="button" className="dd__trigger dd__trigger--editable" onClick={() => setEditing(true)}>
+          <button type="button" className="dd__trigger dd__trigger--editable" onClick={() => { setEditing(true); setOpen(false); }}>
             {label}
           </button>
           <button type="button" className="dd__chevron-btn icon-btn" aria-label="switch worktree" onClick={() => setOpen((o) => !o)}>
