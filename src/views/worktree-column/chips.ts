@@ -9,13 +9,16 @@ function findLink(links: WorktreeLink[], needle: string): string | undefined {
   return links.find((l) => l.url.toLowerCase().includes(needle))?.url;
 }
 
-// worktreeChips: linear (from name) / pr / issue (from name+branch) / localhost (from host.address).
+// worktreeChips: linear (from branch ref + linear.app link) / pr / issue (from name+branch) / localhost (from host.address).
 export function worktreeChips(w: Worktree): Chip[] {
   const chips: Chip[] = [];
 
-  // Canonical Linear ids are uppercase in the name (ENG-1234); searching the name avoids lowercase branch noise.
-  const linear = w.name.match(/\b[A-Z]{2,}-\d+\b/);
-  if (linear) chips.push({ kind: "linear", label: linear[0], url: findLink(w.links, "linear.app") });
+  // Linear detection is rename-robust: the name is user-editable, so read the immutable branch ref
+  // (e.g. eng-1234-…) and/or a linear.app link. Exclude pr-/issue- prefixes so those aren't misread.
+  const linearLink = findLink(w.links, "linear.app");
+  const branchRef = w.branch.match(/\b([a-z]{2,})-\d+\b/i);
+  const branchIsLinear = branchRef !== null && !["pr", "issue"].includes(branchRef[1].toLowerCase());
+  if (linearLink || branchIsLinear) chips.push({ kind: "linear", label: "Linear", url: linearLink });
 
   const hay = `${w.name} ${w.branch}`;
   const pr = hay.match(/\bpr-(\d+)\b/i);

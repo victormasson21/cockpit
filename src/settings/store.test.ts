@@ -386,3 +386,17 @@ describe("startDeduceWorktree — pending worktree flow", () => {
     expect(useSettings.getState().worktreeError).toBeNull();
   });
 });
+
+describe("renameScratch", () => {
+  beforeEach(() => {
+    useSettings.setState({ scratchTerminals: [], scratchSeq: 0 });
+  });
+  it("overwrites the matching scratch terminal's title only", () => {
+    const a = useSettings.getState().addScratch();
+    const b = useSettings.getState().addScratch();
+    useSettings.getState().renameScratch(a, "My shell");
+    const list = useSettings.getState().scratchTerminals;
+    expect(list.find((s) => s.id === a)?.title).toBe("My shell");
+    expect(list.find((s) => s.id === b)?.title).toBe("Scratch 2");
+  });
+});

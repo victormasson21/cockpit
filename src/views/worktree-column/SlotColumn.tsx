@@ -16,7 +16,7 @@ import { paneRoles, EMPTY_PANE_SET } from "../../worktrees/paneSet";
 import "./WorktreeColumn.css";
 
 export function SlotColumn({ value, onSelect, variant = "full", onPin }: { value: string | null; onSelect: (id: string | null) => void; variant?: "full" | "calm"; onPin?: (id: string) => void }) {
-  const { cockpit, removeScratch, scratchTerminals, pendingWorktrees } = useSettings();
+  const { cockpit, removeScratch, scratchTerminals, pendingWorktrees, updateWorktree, renameScratch } = useSettings();
   const ongoing = cockpit.worktrees.filter((w) => w.status === "ongoing");
   const activeId = value;
   const entity = resolveSlotEntity(activeId, cockpit.worktrees, scratchTerminals, pendingWorktrees);
@@ -68,12 +68,21 @@ export function SlotColumn({ value, onSelect, variant = "full", onPin }: { value
       : []),
   ];
 
+  // Rename wiring: worktree → persisted name; scratch → session-only title; pending/empty → not editable.
+  const editValue = entity?.kind === "worktree" ? entity.worktree.name
+    : entity?.kind === "scratch" ? entity.scratch.title : undefined;
+  const onRename = entity?.kind === "worktree" ? (t: string) => updateWorktree(entity.worktree.id, { name: t })
+    : entity?.kind === "scratch" ? (t: string) => renameScratch(entity.scratch.id, t) : undefined;
+
   // The switcher = identity glyph + worktree dropdown. In calm mode over a worktree it's injected
   // into the Claude pane header (level with restart) instead of a standalone column header.
   const switcher = (
     <>
       <span className={`wt-col__icon wt-col__icon--${iconKind}${attention ? " wt-col__icon--attention" : ""}`} aria-hidden />
-      <Dropdown value={activeId} onChange={(v) => onSelect(v || null)} groups={pickerGroups} placeholder="Select…" variant="heading" />
+      <Dropdown
+        value={activeId} onChange={(v) => onSelect(v || null)} groups={pickerGroups}
+        placeholder="Select…" variant="heading" onRename={onRename} editValue={editValue}
+      />
     </>
   );
   const calmWorktree = variant === "calm" && entity?.kind === "worktree";
