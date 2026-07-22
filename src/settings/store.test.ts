@@ -336,6 +336,18 @@ describe("startDeduceWorktree — pending worktree flow", () => {
     expect(st.pendingWorktrees).toEqual([]);
   });
 
+  it("prepends the per-source context to the pane prompt; deduce still gets the bare input", async () => {
+    vi.mocked(deduceWorktree).mockResolvedValue(deduced);
+    vi.mocked(createWorktree).mockResolvedValue("/wt/fix-login");
+    useSettings.getState().startDeduceWorktree("review https://github.com/a/b/pull/3", "cockpit", "pr-review");
+    await flush();
+    const st = useSettings.getState();
+    expect(st.cockpit.worktrees[0].prompt).toBe(
+      "use the /code-review tool to review this PR\n\nreview https://github.com/a/b/pull/3"
+    );
+    expect(deduceWorktree).toHaveBeenCalledWith("review https://github.com/a/b/pull/3", ["/a"]);
+  });
+
   it("deduce failure: discards the tile, clears the slot, sets worktreeError", async () => {
     vi.mocked(deduceWorktree).mockRejectedValue("couldn't resolve Linear ticket");
     useSettings.getState().startDeduceWorktree("ENG-1 fix login", "worktrees");

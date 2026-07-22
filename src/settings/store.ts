@@ -9,7 +9,7 @@ import { deduceWorktree, createWorktree } from "../worktrees/api";
 import { makeWorktree, sourceLinkFrom, branchSpecFrom } from "../worktrees/model";
 import { runHost, addExtra, removePane, togglePane, expandPane, EMPTY_PANE_SET, type WorktreePaneSet } from "../worktrees/paneSet";
 import { tick } from "../tiles/timer/timer";
-import { type WorktreeSource } from "../worktrees/worktreeContext";
+import { effectiveContext, type WorktreeSource } from "../worktrees/worktreeContext";
 
 const TIMER_DEFAULT_MIN = 25;
 
@@ -60,7 +60,7 @@ interface SettingsState {
   // Session-only pending worktrees (spinner tiles) + the whole deduce→create background chain.
   pendingWorktrees: PendingWorktree[];
   pendingSeq: number;
-  startDeduceWorktree: (prompt: string, view: View) => void;
+  startDeduceWorktree: (prompt: string, view: View, source?: WorktreeSource) => void;
   // Last failed deduce/create (prompt + message); App watches it to reopen the modal prefilled.
   worktreeError: { prompt: string; message: string } | null;
   clearWorktreeError: () => void;
@@ -219,7 +219,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
   // background (this action outlives the modal, so the fire-and-forget async survives modal close).
   // On success the pending id is swapped in place for the real `wt-*` id; on failure the tile is
   // discarded and worktreeError is set so App reopens the modal prefilled.
-  startDeduceWorktree: (prompt, view) => {
+  startDeduceWorktree: (prompt, view, source = "manual") => {
     const n = get().pendingSeq + 1;
     const pendingId = `pending-${n}`;
     set((st) => ({
@@ -247,9 +247,12 @@ export const useSettings = create<SettingsState>((set, get) => ({
         if (!isLive()) return;
         const realId = `wt-${Date.now()}`;
         const sl = sourceLinkFrom(d);
+        // Prepend the per-source context to the pane prompt (step 2 only); deduce used the bare prompt.
+        const ctx = effectiveContext(source, get().cockpit.worktreeContexts);
+        const panePrompt = ctx ? `${ctx}\n\n${prompt}` : prompt;
         get().addWorktree(makeWorktree({
           id: realId, name: d.name, repoPath: d.repoPath, branch: d.branch, worktreePath,
-          host: { startCmd, address }, links: sl ? [sl] : [], prompt,
+          host: { startCmd, address }, links: sl ? [sl] : [], prompt: panePrompt,
         }));
         // Swap in place across both slot surfaces, then drop the pending entity.
         // The initial-send flag arms the claude pane's one-shot prompt autostart (cleared on first ensure).
