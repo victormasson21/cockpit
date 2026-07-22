@@ -5,9 +5,9 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { Tile } from "../Tile";
 import { RestartIcon } from "../../views/icons";
 import { useSettings } from "../../settings/store";
+import { CreateWorktreeButton } from "../../views/CreateWorktreeButton";
 import { prReviewsFetch } from "./api";
 import { relativeTime } from "../slack/time";
-import type { PrReviewItem } from "../../settings/types";
 import "../slack/slack.css"; // reuse the gear/cta/empty styles
 import "./pr.css";
 
@@ -15,7 +15,6 @@ export function PrReviewsTile({ onOpenSettings }: { onOpenSettings: () => void }
   const pr = useSettings((s) => s.cockpit.integrations?.prReviews);
   const applyPrFetch = useSettings((s) => s.applyPrFetch);
   const removePrItem = useSettings((s) => s.removePrItem);
-  const startDeduceWorktree = useSettings((s) => s.startDeduceWorktree);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshedAt, setRefreshedAt] = useState<number | null>(null); // session-only
   const [error, setError] = useState<string | null>(null);
@@ -55,9 +54,6 @@ export function PrReviewsTile({ onOpenSettings }: { onOpenSettings: () => void }
     return () => { clearInterval(timer); window.removeEventListener("focus", auto); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pr?.channelId, pr?.lastSeenTs]);
-
-  // Review: hand the PR to the existing deduce flow (its GitHub path checks the PR out deterministically).
-  const review = (item: PrReviewItem) => startDeduceWorktree(`${item.title} ${item.url}`, "cockpit");
 
   const items = pr?.items ?? [];
   // relativeTime says "now" for <60s — read as "just now" here to avoid "Refreshed now ago".
@@ -101,7 +97,7 @@ export function PrReviewsTile({ onOpenSettings }: { onOpenSettings: () => void }
                   </div>
                   <div className="pr-tile__actions">
                     <button className="pr-tile__remove" onClick={() => removePrItem(i.id)}>Remove</button>
-                    <button className="pr-tile__review" onClick={() => review(i)}>+ Review</button>
+                    <CreateWorktreeButton source="pr-review" view="cockpit" getInput={() => `${i.title} ${i.url}`} title="Create worktree to review this PR" />
                   </div>
                 </li>
               ))}

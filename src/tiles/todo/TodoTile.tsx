@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Tile } from "../Tile";
 import { useSettings } from "../../settings/store";
 import { groupByState } from "./todo";
+import { CreateWorktreeButton } from "../../views/CreateWorktreeButton";
 import type { TodoState } from "../../settings/types";
 import "./todo.css";
 
@@ -64,6 +65,7 @@ export function TodoTile() {
                   ) : (
                     <span className="todo__text" onClick={() => startEdit(t.id, t.text)}>{t.text}</span>
                   )}
+                  <CreateWorktreeButton source="todo" view="cockpit" getInput={() => t.text} title="Create worktree from this to-do" />
                   <button className="todo__del" aria-label="delete" onClick={() => removeTodo(t.id)}>✕</button>
                 </div>
               ))}

@@ -4,7 +4,8 @@ import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Tile } from "../Tile";
 import { GearIcon, RestartIcon } from "../../views/icons";
-import { slackSnapshot, slackRefresh } from "./api";
+import { CreateWorktreeButton } from "../../views/CreateWorktreeButton";
+import { slackSnapshot, slackRefresh, slackPermalink } from "./api";
 import type { SlackSnapshot } from "./types";
 import { relativeTime } from "./time";
 import { sortByRecency } from "./rows";
@@ -59,6 +60,12 @@ export function SlackTile({ onOpenSettings }: { onOpenSettings: () => void }) {
                 <span className="slack-tile__time">{relativeTime(Number(c.latestTs), now)}</span>
                 <span className="slack-tile__badge">{c.unreadCount}</span>
               </span>
+              <CreateWorktreeButton
+                source="slack"
+                view="cockpit"
+                getInput={() => slackPermalink(c.id, c.latestTs)}
+                title="Create worktree from this message"
+              />
             </li>
           ))}
         </ul>
