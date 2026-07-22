@@ -34,6 +34,7 @@ export function CreateWorktreeButton({
   return (
     <button className="create-wt-btn" aria-label={title} title={title} disabled={busy} onClick={onClick}>
       <span className="create-wt-btn__ico" aria-hidden />
+      <span className="create-wt-btn__label">Add</span>
     </button>
   );
 }
