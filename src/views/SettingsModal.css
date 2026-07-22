@@ -14,3 +14,9 @@
 
 /* right side: the active pane fills the remaining width. */
 .settings__pane { min-width: 0; }
+
+/* Worktree-contexts pane: labelled textareas (textarea inherits the global form-control theme). */
+.wt-ctx__hint { color: var(--tx-3); font-size: var(--fs-sm); margin-bottom: var(--space-4); }
+.wt-ctx__field { display: block; margin-bottom: var(--space-4); }
+.wt-ctx__label { display: block; font-size: var(--fs-sm); color: var(--tx-2); margin-bottom: var(--space-1); }
+.wt-ctx__input { width: 100%; resize: vertical; }
