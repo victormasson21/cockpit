@@ -33,3 +33,6 @@ export const slackInit = (
     clientId: clientId ?? null,
     watchedChannelIds,
   });
+
+export const slackPermalink = (channelId: string, ts: string) =>
+  invoke<string>("slack_permalink", { channelId, ts });

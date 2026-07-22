@@ -46,6 +46,7 @@ pub fn run() {
             slack::slack_refresh,
             slack::slack_list_conversations,
             slack::slack_init,
+            slack::slack_permalink,
             pr_reviews::pr_reviews_fetch,
             auth::list_connections,
         ])

@@ -294,6 +294,23 @@ pub fn list_row(c: &serde_json::Value, user_names: &HashMap<String, String>) -> 
     Some(ConversationMeta { id, name, kind: raw.to_string() })
 }
 
+// Pure: the chat.getPermalink query params (target channel + message timestamp).
+pub fn permalink_args<'a>(channel_id: &'a str, ts: &'a str) -> [(&'a str, &'a str); 2] {
+    [("channel", channel_id), ("message_ts", ts)]
+}
+
+// slack_permalink: resolve an archives permalink for a message so the deduce Slack MCP path can
+// fetch the real message + thread. Uses the existing authed Web API client.
+#[tauri::command(async)]
+pub fn slack_permalink(manager: State<SlackManager>, channel_id: String, ts: String) -> Result<String, String> {
+    let token = manager.store.get(ACCOUNT_TOKEN)?.ok_or("not connected")?;
+    let resp = api_get(&token, "chat.getPermalink", &permalink_args(&channel_id, &ts))?;
+    resp.get("permalink")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .ok_or_else(|| "no permalink in response".to_string())
+}
+
 // List the user's channels + DMs for the picker (all opt-in). One users.conversations call, no
 // per-DM lookups — DM names come from the cache, filled in as selected DMs get polled.
 #[tauri::command(async)]
@@ -635,6 +652,14 @@ mod tests {
         let messages = vec![json!({ "text": "x", "ts": "1700000000.000300" })];
         let row = parse_conversation(&info, &messages, None).unwrap();
         assert_eq!(row.kind, "mpim");
+    }
+
+    #[test]
+    fn permalink_args_names_channel_and_message_ts() {
+        assert_eq!(
+            permalink_args("C123", "1700000000.000100"),
+            [("channel", "C123"), ("message_ts", "1700000000.000100")]
+        );
     }
 
 }
