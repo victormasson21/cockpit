@@ -1,0 +1,14 @@
+/* CreateWorktreeButton — small icon button showing the masked tree glyph, tinted to accent on hover. */
+.create-wt-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: var(--space-1); background: none; border: none; cursor: pointer;
+  color: var(--tx-3); font-size: var(--fs-lg);
+}
+.create-wt-btn:hover { color: var(--accent); }
+.create-wt-btn:disabled { opacity: 0.5; cursor: default; }
+/* Alpha-only glyph tinted via background-color + mask (same idiom as .wt-col__icon). */
+.create-wt-btn__ico {
+  width: 1em; height: 1em; display: block; background-color: currentColor;
+  -webkit-mask: url("../assets/icons/tree.svg") center / contain no-repeat;
+  mask: url("../assets/icons/tree.svg") center / contain no-repeat;
+}
