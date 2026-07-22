@@ -9,6 +9,7 @@ import { deduceWorktree, createWorktree } from "../worktrees/api";
 import { makeWorktree, sourceLinkFrom, branchSpecFrom } from "../worktrees/model";
 import { runHost, addExtra, removePane, togglePane, expandPane, EMPTY_PANE_SET, type WorktreePaneSet } from "../worktrees/paneSet";
 import { tick } from "../tiles/timer/timer";
+import { type WorktreeSource } from "../worktrees/worktreeContext";
 
 const TIMER_DEFAULT_MIN = 25;
 
@@ -38,6 +39,7 @@ interface SettingsState {
   setPrChannel: (id: string | null) => void;
   applyPrFetch: (items: PrReviewItem[], newestTs?: string) => void;
   removePrItem: (id: string) => void;
+  setWorktreeContext: (source: WorktreeSource, text: string) => void;
   // Text zoom (Cmd +/-/0): a multiplier applied to every font-size token; persisted in preferences.
   fontScale: number;
   setFontScale: (n: number) => void;
@@ -110,7 +112,7 @@ function scheduleSave(get: () => SettingsState) {
 }
 
 export const useSettings = create<SettingsState>((set, get) => ({
-  cockpit: { version: 1, tiles: [], worktrees: [], knownRepos: [], integrations: {}, todos: [], preferences: { theme: "system", defaultView: "worktrees", panes: SLOT_COUNT } },
+  cockpit: { version: 1, tiles: [], worktrees: [], knownRepos: [], integrations: {}, todos: [], worktreeContexts: {}, preferences: { theme: "system", defaultView: "worktrees", panes: SLOT_COUNT } },
   layout: { version: 1, views: {} },
   loaded: false,
   slots: [null, null, null],
@@ -358,4 +360,6 @@ export const useSettings = create<SettingsState>((set, get) => ({
       if (!pr) return c;
       return { ...c, integrations: { ...c.integrations, prReviews: { ...pr, items: pr.items.filter((i) => i.id !== id) } } };
     }),
+  setWorktreeContext: (source, text) =>
+    get().setCockpit((c) => ({ ...c, worktreeContexts: { ...c.worktreeContexts, [source]: text } })),
 }));

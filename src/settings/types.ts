@@ -53,6 +53,7 @@ export interface CockpitConfig {
   knownRepos: KnownRepo[];
   integrations?: Integrations;
   todos: TodoItem[];
+  worktreeContexts?: Record<string, string>;
   cockpitWorktreeId?: string;
   preferences: Preferences;
 }

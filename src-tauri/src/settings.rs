@@ -164,6 +164,8 @@ pub struct CockpitConfig {
     pub integrations: Integrations,
     #[serde(default)]
     pub todos: Vec<TodoItem>,
+    #[serde(default, rename = "worktreeContexts", skip_serializing_if = "std::collections::HashMap::is_empty")]
+    pub worktree_contexts: std::collections::HashMap<String, String>,
     // The Cockpit view's single right-column worktree slot (persisted; the Worktrees-view slots are session-only).
     #[serde(rename = "cockpitWorktreeId", default, skip_serializing_if = "Option::is_none")]
     pub cockpit_worktree_id: Option<String>,
@@ -190,6 +192,7 @@ impl Default for CockpitConfig {
             known_repos: vec![],
             integrations: Integrations::default(),
             todos: vec![],
+            worktree_contexts: std::collections::HashMap::new(),
             cockpit_worktree_id: None,
             preferences: Preferences { theme: "system".into(), default_view: "main".into(), panes: 3, font_scale: 1.0 },
         }
