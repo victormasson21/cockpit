@@ -41,6 +41,27 @@ pub fn package_fields(pkg_json: &str) -> (String, String, serde_json::Value) {
     (name, description, scripts)
 }
 
+// routing_hint: a short signal for the lightweight deduce call — the first ~2 sentences of the
+// prompt, hard-capped at 200 chars (UTF-8 safe). Keeps step-1 (repo/branch pick) fast and focused
+// even when the prompt is long task context meant for the Claude work pane.
+pub fn routing_hint(prompt: &str) -> String {
+    // Walk chars, keeping bytes up to the end of the 2nd sentence-terminator (. ! ?).
+    let mut end = prompt.len();
+    let mut sentences = 0;
+    for (i, c) in prompt.char_indices() {
+        if c == '.' || c == '!' || c == '?' {
+            sentences += 1;
+            if sentences == 2 {
+                end = i + c.len_utf8(); // include the terminator
+                break;
+            }
+        }
+    }
+    let sliced = &prompt[..end];
+    // Hard cap at 200 chars on a char boundary (take is char-based, so never splits a codepoint).
+    sliced.chars().take(200).collect()
+}
+
 // Compose the user-prompt text: the task prompt plus the per-repo digests the agent picks from.
 pub fn compose_user(prompt: &str, digests: &[serde_json::Value]) -> String {
     format!(
@@ -776,5 +797,42 @@ mod tests {
         assert!(out.contains("do this in the web-app"));
         assert!(out.contains("https://x.slack.com/archives/C1/p1"));
         assert!(out.contains("web-app"));
+    }
+
+    #[test]
+    fn routing_hint_takes_first_two_sentences() {
+        // Third sentence is dropped; first two are kept verbatim (with their terminators).
+        let out = routing_hint("Fix login. It 500s on submit. Also unrelated cleanup here.");
+        assert_eq!(out, "Fix login. It 500s on submit.");
+    }
+
+    #[test]
+    fn routing_hint_handles_question_and_bang_terminators() {
+        let out = routing_hint("Why is it slow? Make it fast! And more prose after.");
+        assert_eq!(out, "Why is it slow? Make it fast!");
+    }
+
+    #[test]
+    fn routing_hint_fewer_than_two_sentences_returns_whole_prompt() {
+        assert_eq!(routing_hint("just one clause no terminator"), "just one clause no terminator");
+        assert_eq!(routing_hint("only one sentence."), "only one sentence.");
+    }
+
+    #[test]
+    fn routing_hint_hard_caps_at_200_chars() {
+        // A single 300-char sentence (no early terminator) must be cut to exactly 200 chars.
+        let long = "a".repeat(300);
+        let out = routing_hint(&long);
+        assert_eq!(out.chars().count(), 200);
+    }
+
+    #[test]
+    fn routing_hint_cap_never_splits_a_utf8_char() {
+        // 199 ASCII chars then a multi-byte char at the boundary: cap must not slice mid-codepoint.
+        let s = format!("{}é and more text to exceed the cap so truncation actually happens here now", "x".repeat(199));
+        let out = routing_hint(&s);
+        assert!(out.chars().count() <= 200);
+        // Round-trips as valid UTF-8 (String guarantees this; the assert documents intent).
+        assert_eq!(out, out.clone());
     }
 }
