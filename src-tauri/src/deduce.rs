@@ -454,6 +454,9 @@ pub fn deduce_worktree(prompt: String, repo_paths: Vec<String>) -> Result<Deduce
         return Err("no known repos configured".into());
     }
     let digests: Vec<serde_json::Value> = repo_paths.iter().map(|p| read_repo_digest(p)).collect();
+    // Bound the free-prose fed to the deduce LLM: refs are detected on the FULL prompt below and
+    // passed as their own args, so this only trims low-value context that would slow step 1.
+    let hint = routing_hint(&prompt);
 
     // One branch point: a GitHub URL, a Linear ref, or a plain prompt. Each arm yields the deduced
     // worktree (or an error); the shared tail below folds the install step into the start command.
@@ -467,7 +470,7 @@ pub fn deduce_worktree(prompt: String, repo_paths: Vec<String>) -> Result<Deduce
                 format!("{e}\n({}/{} is one of your known repos — this is likely a gh account/auth issue: check `gh auth status` (you may have the wrong account active) or `gh auth switch`)", r.owner, r.repo)
             })?;
             let stdout = run_claude(ClaudeCall {
-                user_prompt: &compose_user_github(&prompt, &ctx, &digests),
+                user_prompt: &compose_user_github(&hint, &ctx, &digests),
                 system_prompt: SYSTEM_PROMPT,
                 schema: DEDUCE_SCHEMA,
                 model: "claude-haiku-4-5",
@@ -482,7 +485,7 @@ pub fn deduce_worktree(prompt: String, repo_paths: Vec<String>) -> Result<Deduce
         // Linear: MCP-enabled ticket path (unchanged from the Linear iteration).
         Source::Linear(id) => {
             let stdout = run_claude(ClaudeCall {
-                user_prompt: &compose_user_ticket(&prompt, &id, &digests),
+                user_prompt: &compose_user_ticket(&hint, &id, &digests),
                 system_prompt: SYSTEM_PROMPT_TICKET,
                 schema: DEDUCE_SCHEMA_SOURCE,
                 model: LINEAR_MODEL,
@@ -503,7 +506,7 @@ pub fn deduce_worktree(prompt: String, repo_paths: Vec<String>) -> Result<Deduce
         // Slack: MCP-enabled call so the agent fetches the message+thread. New branch, no id pinned.
         Source::Slack(url) => {
             let stdout = run_claude(ClaudeCall {
-                user_prompt: &compose_user_slack(&prompt, &url, &digests),
+                user_prompt: &compose_user_slack(&hint, &url, &digests),
                 system_prompt: SYSTEM_PROMPT_SLACK,
                 schema: DEDUCE_SCHEMA_SOURCE,
                 model: SLACK_MODEL,
@@ -525,7 +528,7 @@ pub fn deduce_worktree(prompt: String, repo_paths: Vec<String>) -> Result<Deduce
         // Plain: byte-identical to before (no tools, haiku).
         Source::Plain => {
             let stdout = run_claude(ClaudeCall {
-                user_prompt: &compose_user(&prompt, &digests),
+                user_prompt: &compose_user(&hint, &digests),
                 system_prompt: SYSTEM_PROMPT,
                 schema: DEDUCE_SCHEMA,
                 model: "claude-haiku-4-5",
