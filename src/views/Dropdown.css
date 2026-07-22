@@ -12,9 +12,11 @@
 .dd__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dd__chevron { display: inline-flex; color: var(--tx-3); flex: 0 0 auto; font-size: 14px; }
 
-/* heading variant — the slot column's bold title-as-picker look */
-.dd--heading { flex: 0 1 auto; }
+/* heading variant — the slot column's bold title-as-picker look. Flex row so the title grows +
+   truncates while the chevron button stays pinned at the right (level with the gear in the header). */
+.dd--heading { display: flex; align-items: center; flex: 1 1 auto; min-width: 0; }
 .dd--heading button.dd__trigger {
+  flex: 1 1 auto; min-width: 0;
   background: none; border: none; padding: 0 2px;
   color: var(--tx-hi); font-size: var(--fs-xl); font-weight: 700;
 }
@@ -58,6 +60,7 @@
 
 /* editable heading — label is its own click-to-edit button; chevron is a sibling icon-btn (matches the gear) */
 .dd--heading button.dd__trigger--editable {
+  flex: 1 1 auto;
   background: none; border: none; padding: 0 2px;
   color: var(--tx-hi); font-size: var(--fs-xl); font-weight: 700;
   min-width: 0; max-width: 100%; cursor: text; text-align: left;
