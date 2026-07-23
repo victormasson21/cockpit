@@ -1,5 +1,7 @@
 /* WorktreesView.css — equal columns split by dividers; 1 column is centered; a slim `+` rail on the right. */
 .wt-view { display: flex; height: 100%; }
+/* Columns fill the space left of the `+` rail (Worktrees); Calm applies --single directly on .wt-view. */
+.wt-view__cols { flex: 1; min-width: 0; display: flex; height: 100%; }
 /* Single assigned column: center it with a comfortable max width instead of full-bleed. */
 .wt-view--single { justify-content: center; }
 .wt-view--single > .wt-col { flex: 0 1 720px; }
