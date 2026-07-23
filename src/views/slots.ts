@@ -1,51 +1,62 @@
-// slots.ts — pure helpers for the Worktrees view's 3 column slots (session-only; not persisted to disk).
+// slots.ts — pure helpers for the Worktrees view's responsive column slots (session-only; not persisted).
+// A slot = { key, id }: `key` is a stable per-column identity so reflow never remounts surviving
+// terminals; `id` is the entity shown (null = a shown-but-empty slot the user is about to fill).
 import type { Worktree } from "../settings/types";
 
-export const SLOT_COUNT = 3; // max columns; the slots array is always this length
-export const MIN_SLOTS = 2; // fewest columns the panes toggle allows
-export type Slots = (string | null)[];
+export const SLOT_COUNT = 3; // max columns; layout is 1 (centered) / 2 / 3 by slots.length
+export type Slot = { key: string; id: string | null };
+export type Slots = Slot[];
 
-// initSlots: on load, auto-fill the slots with the first SLOT_COUNT ongoing worktrees.
-export function initSlots(worktrees: Worktree[]): Slots {
-  const ongoing = worktrees.filter((w) => w.status === "ongoing").map((w) => w.id);
-  return Array.from({ length: SLOT_COUNT }, (_, i) => ongoing[i] ?? null);
+// initSlots: on load, one column per ongoing worktree (capped); zero ongoing → no columns.
+export function initSlots(worktrees: Worktree[], mintKey: () => string): Slots {
+  return worktrees
+    .filter((w) => w.status === "ongoing")
+    .slice(0, SLOT_COUNT)
+    .map((w) => ({ key: mintKey(), id: w.id }));
 }
 
-// setSlotAt: choose (or clear with null) the worktree shown in one slot — the dropdown picker + Hide.
-export function setSlotAt(slots: Slots, index: number, id: string | null): Slots {
-  return slots.map((s, i) => (i === index ? id : s));
+// addEmptySlot: the `+` rail — append one empty column, unless already at the cap (referential no-op).
+export function addEmptySlot(slots: Slots, mintKey: () => string): Slots {
+  if (slots.length >= SLOT_COUNT) return slots;
+  return [...slots, { key: mintKey(), id: null }];
 }
 
-// assignNewWorktree: show a newly-created worktree — fill the first empty slot within the visible
-// range, or displace the LAST VISIBLE slot when the visible range is full (the bumped worktree keeps
-// running and stays in the dropdowns). visibleCount defaults to the whole array for legacy callers.
-export function assignNewWorktree(slots: Slots, id: string, visibleCount: number = slots.length): Slots {
-  const empty = slots.slice(0, visibleCount).indexOf(null);
-  return setSlotAt(slots, empty === -1 ? visibleCount - 1 : empty, id);
+// setSlotId: set one column's content by key (id assigns; null empties it in place, keeping the column).
+export function setSlotId(slots: Slots, key: string, id: string | null): Slots {
+  return slots.map((s) => (s.key === key ? { ...s, id } : s));
 }
 
-// fillFreeSlot: place a worktree only if the visible range has a free slot; otherwise leave slots
-// untouched (NO eviction). Used by the Cockpit-view placement branch.
-export function fillFreeSlot(slots: Slots, id: string, visibleCount: number): Slots {
-  const empty = slots.slice(0, visibleCount).indexOf(null);
-  return empty === -1 ? slots : setSlotAt(slots, empty, id);
+// removeSlot: splice a column out entirely — the layout reflows down.
+export function removeSlot(slots: Slots, key: string): Slots {
+  return slots.filter((s) => s.key !== key);
 }
 
-// clearEntity: drop a deleted entity (worktree or scratch) from every slot referencing it.
+// placeEntity: show a newly-created entity — fill the first empty slot, else append if there's room,
+// else replace the rightmost column (the bumped entity keeps running, re-assignable via the dropdown).
+export function placeEntity(slots: Slots, id: string, mintKey: () => string): Slots {
+  const empty = slots.findIndex((s) => s.id === null);
+  if (empty !== -1) return slots.map((s, i) => (i === empty ? { ...s, id } : s));
+  if (slots.length < SLOT_COUNT) return [...slots, { key: mintKey(), id }];
+  return slots.map((s, i) => (i === slots.length - 1 ? { ...s, id } : s));
+}
+
+// fillEntity: like placeEntity but NEVER evicts — fill an empty slot or append when there's room, else
+// leave slots untouched. Used by Cockpit-view create (the Cockpit column is its own separate slot).
+export function fillEntity(slots: Slots, id: string, mintKey: () => string): Slots {
+  const empty = slots.findIndex((s) => s.id === null);
+  if (empty !== -1) return slots.map((s, i) => (i === empty ? { ...s, id } : s));
+  if (slots.length < SLOT_COUNT) return [...slots, { key: mintKey(), id }];
+  return slots;
+}
+
+// clearEntity: an entity was deleted — splice out every column referencing it (layout reflows).
 export function clearEntity(slots: Slots, id: string): Slots {
-  return slots.map((s) => (s === id ? null : s));
+  return slots.filter((s) => s.id !== id);
 }
 
-// swapSlotId: replace every occurrence of one id with another (pending → real worktree, in place).
-// Pure 1:1 replacement so the tile stays in the SAME slot when a pending worktree resolves.
+// swapSlotId: replace one id with another in place, keeping the key (pending → real worktree stays put).
 export function swapSlotId(slots: Slots, from: string, to: string): Slots {
-  return slots.map((s) => (s === from ? to : s));
-}
-
-// hideSlotsBeyond: when shrinking the visible column count, null out the now-hidden slots so
-// re-expanding shows empty panes (the dropped entities keep running and stay in the dropdowns).
-export function hideSlotsBeyond(slots: Slots, visibleCount: number): Slots {
-  return slots.map((s, i) => (i < visibleCount ? s : null));
+  return slots.map((s) => (s.id === from ? { ...s, id: to } : s));
 }
 
 // A scratch terminal: a session-only single-shell entity that can occupy a slot (no repo/branch).
