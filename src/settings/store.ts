@@ -4,7 +4,7 @@ import type { CockpitConfig, HostConfig, LayoutConfig, PrReviewItem, Settings, W
 import { saveSettings } from "./api";
 import { nextState, reorderWithinState } from "../tiles/todo/todo";
 import { mergePrItems } from "../tiles/pr/merge";
-import { initSlots, setSlotAt, assignNewWorktree, fillFreeSlot, clearEntity, swapSlotId, hideSlotsBeyond, SLOT_COUNT, type Slots, type ScratchTerminal, type PendingWorktree } from "../views/slots";
+import { initSlots, addEmptySlot as addEmptySlotFn, setSlotId, removeSlot as removeSlotFn, placeEntity, fillEntity, clearEntity, swapSlotId, type Slots, type ScratchTerminal, type PendingWorktree } from "../views/slots";
 import { deduceWorktree, createWorktree } from "../worktrees/api";
 import { makeWorktree, sourceLinkFrom, branchSpecFrom } from "../worktrees/model";
 import { runHost, addExtra, removePane, togglePane, expandPane, EMPTY_PANE_SET, type WorktreePaneSet } from "../worktrees/paneSet";
@@ -47,9 +47,10 @@ interface SettingsState {
   zoomOut: () => void;
   resetZoom: () => void;
   slots: Slots;
-  slotCount: number; // visible columns (MIN_SLOTS..SLOT_COUNT), session-only
-  setSlotCount: (n: number) => void;
-  setSlot: (index: number, id: string | null) => void;
+  slotSeq: number; // monotonic; mints stable per-column keys (session-only)
+  addEmptySlot: () => void;
+  setSlot: (key: string, id: string | null) => void;
+  removeSlot: (key: string) => void;
   setCockpitWorktree: (id: string | null) => void;
   placeNewEntity: (id: string, view: View) => void;
   scratchTerminals: ScratchTerminal[];
@@ -111,12 +112,21 @@ function scheduleSave(get: () => SettingsState) {
   }, 500);
 }
 
+// withMint: run `fn` with a key-minter, returning the produced slots plus the advanced slotSeq. Each
+// minter call bumps a local counter; the caller returns { slots, slotSeq } from its set() so the store
+// stays consistent. Keys are `slot-<n>`, monotonic (session-only; stable across reflow so terminals persist).
+function withMint(st: { slotSeq: number }, fn: (mint: () => string) => Slots): { slots: Slots; slotSeq: number } {
+  let seq = st.slotSeq;
+  const mint = () => { seq += 1; return `slot-${seq}`; };
+  return { slots: fn(mint), slotSeq: seq };
+}
+
 export const useSettings = create<SettingsState>((set, get) => ({
-  cockpit: { version: 1, tiles: [], worktrees: [], knownRepos: [], integrations: {}, todos: [], worktreeContexts: {}, preferences: { theme: "system", defaultView: "worktrees", panes: SLOT_COUNT } },
+  cockpit: { version: 1, tiles: [], worktrees: [], knownRepos: [], integrations: {}, todos: [], worktreeContexts: {}, preferences: { theme: "system", defaultView: "worktrees" } },
   layout: { version: 1, views: {} },
   loaded: false,
-  slots: [null, null, null],
-  slotCount: SLOT_COUNT,
+  slots: [],
+  slotSeq: 0,
   scratchTerminals: [],
   scratchSeq: 0,
   pendingWorktrees: [],
@@ -129,7 +139,10 @@ export const useSettings = create<SettingsState>((set, get) => ({
   initialPromptPending: {},
   worktreePanes: {},
   fontScale: 1,
-  init: (s) => set({ cockpit: s.cockpit, layout: s.layout, loaded: true, slots: initSlots(s.cockpit.worktrees), slotCount: s.cockpit.preferences.panes ?? SLOT_COUNT, fontScale: clampZoom(s.cockpit.preferences.fontScale ?? 1) }),
+  init: (s) => set((st) => {
+    const { slots, slotSeq } = withMint(st, (m) => initSlots(s.cockpit.worktrees, m));
+    return { cockpit: s.cockpit, layout: s.layout, loaded: true, slots, slotSeq, fontScale: clampZoom(s.cockpit.preferences.fontScale ?? 1) };
+  }),
   setCockpit: (next) => {
     set((st) => ({ cockpit: typeof next === "function" ? next(st.cockpit) : next }));
     scheduleSave(get);
@@ -170,14 +183,12 @@ export const useSettings = create<SettingsState>((set, get) => ({
   // Reorder within a section via the pure helper (cross-section drops are no-ops).
   reorderTodo: (draggedId, targetId) =>
     get().setCockpit((c) => ({ ...c, todos: reorderWithinState(c.todos, draggedId, targetId) })),
-  // Slots are session-only display state (not persisted): which worktree shows in each of the 3 columns.
-  setSlot: (index, id) => set((st) => ({ slots: setSlotAt(st.slots, index, id) })),
-  // Toggle visible column count; shrinking drops the rightmost panes (entities keep running, slots cleared).
-  // Persist the choice into preferences so it survives restarts.
-  setSlotCount: (n) => {
-    set((st) => ({ slotCount: n, slots: hideSlotsBeyond(st.slots, n) }));
-    get().setCockpit((c) => ({ ...c, preferences: { ...c.preferences, panes: n } }));
-  },
+  // Slots are session-only display state: which entity shows in each responsive column, keyed by slot.key.
+  setSlot: (key, id) => set((st) => ({ slots: setSlotId(st.slots, key, id) })),
+  // The `+` rail: append one empty column (no-op at the 3-column cap). withMint advances slotSeq.
+  addEmptySlot: () => set((st) => withMint(st, (m) => addEmptySlotFn(st.slots, m))),
+  // Close/Pause/teardown remove a column entirely; the layout reflows. No mint → slotSeq unchanged.
+  removeSlot: (key) => set((st) => ({ slots: removeSlotFn(st.slots, key) })),
   // Text zoom: set the (clamped) multiplier as session state AND persist it into preferences — same
   // idiom as setSlotCount. App applies it to <html> as --font-scale; useTerminal reads it for xterm.
   setFontScale: (n) => {
@@ -190,14 +201,12 @@ export const useSettings = create<SettingsState>((set, get) => ({
   resetZoom: () => get().setFontScale(1),
   // Persisted Cockpit-view right-column slot (omit from JSON when cleared).
   setCockpitWorktree: (id) => get().setCockpit((c) => ({ ...c, cockpitWorktreeId: id ?? undefined })),
-  // View-dependent placement of a newly-created worktree/scratch/pending (see spec).
+  // View-dependent placement of a newly-created worktree/scratch/pending. Worktrees/Calm reflow the
+  // shared slots (placeEntity); Cockpit sets its own persisted column and only fills a free shared slot
+  // (fillEntity — no eviction).
   placeNewEntity: (id: string, view: View) => {
-    if (view === "cockpit") {
-      get().setCockpit((c) => ({ ...c, cockpitWorktreeId: id }));
-      set((st) => ({ slots: fillFreeSlot(st.slots, id, st.slotCount) }));
-    } else {
-      set((st) => ({ slots: assignNewWorktree(st.slots, id, st.slotCount) }));
-    }
+    if (view === "cockpit") get().setCockpitWorktree(id);
+    set((st) => withMint(st, (m) => (view === "cockpit" ? fillEntity(st.slots, id, m) : placeEntity(st.slots, id, m))));
   },
   // Scratch terminals are session-only single-shell entities; a monotonic seq keeps ids/titles unique.
   // Creation only — placement into a slot is placeNewEntity's job (view-dependent).

@@ -1,17 +1,32 @@
-// WorktreesView.tsx — the Worktrees view: 2–3 fixed column slots side by side (count from the header toggle).
+// WorktreesView.tsx — responsive Worktrees view: 1 (centered) / 2 / 3 columns by slots.length, plus a
+// slim `+` rail (hidden at the 3-column cap) that appends an empty slot to fill.
 import { SlotColumn } from "./worktree-column/SlotColumn";
 import { useSettings } from "../settings/store";
+import { SLOT_COUNT } from "./slots";
+import { PlusIcon } from "./icons";
 import "./WorktreesView.css";
 
 export function WorktreesView({ onPin }: { onPin: (id: string) => void }) {
   const slots = useSettings((s) => s.slots);
-  const slotCount = useSettings((s) => s.slotCount);
   const setSlot = useSettings((s) => s.setSlot);
+  const removeSlot = useSettings((s) => s.removeSlot);
+  const addEmptySlot = useSettings((s) => s.addEmptySlot);
   return (
-    <div className="wt-view">
-      {Array.from({ length: slotCount }, (_, i) => (
-        <SlotColumn key={i} value={slots[i]} onSelect={(id) => setSlot(i, id)} onPin={onPin} />
+    <div className={`wt-view${slots.length === 1 ? " wt-view--single" : ""}`}>
+      {slots.map((slot) => (
+        <SlotColumn
+          key={slot.key}
+          value={slot.id}
+          onSelect={(id) => setSlot(slot.key, id)}
+          onClose={() => removeSlot(slot.key)}
+          onPin={onPin}
+        />
       ))}
+      {slots.length < SLOT_COUNT && (
+        <button className="wt-view__add" aria-label="Add a panel" onClick={addEmptySlot}>
+          <PlusIcon />
+        </button>
+      )}
     </div>
   );
 }

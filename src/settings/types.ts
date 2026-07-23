@@ -9,7 +9,7 @@ export interface TileInstance<Config = unknown> {
 export interface Preferences {
   theme: "system" | "light" | "dark";
   defaultView: "cockpit" | "worktrees" | "calm";
-  panes: number; // visible Worktrees/Calm columns (2 or 3)
+  panes?: number; // legacy: old fixed Worktrees/Calm column count. No longer read/written (layout is now responsive); kept optional for back-compat with older cockpit.json.
   fontScale?: number; // text zoom multiplier (Cmd +/-/0); 1 = 100%. optional for back-compat with older cockpit.json
 }
 

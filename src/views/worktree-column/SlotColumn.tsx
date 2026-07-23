@@ -15,7 +15,7 @@ import { killWorktreePtys } from "../../worktrees/teardown";
 import { paneRoles, EMPTY_PANE_SET } from "../../worktrees/paneSet";
 import "./WorktreeColumn.css";
 
-export function SlotColumn({ value, onSelect, variant = "full", onPin }: { value: string | null; onSelect: (id: string | null) => void; variant?: "full" | "calm"; onPin?: (id: string) => void }) {
+export function SlotColumn({ value, onSelect, variant = "full", onPin, onClose }: { value: string | null; onSelect: (id: string | null) => void; variant?: "full" | "calm"; onPin?: (id: string) => void; onClose?: () => void }) {
   const { cockpit, removeScratch, scratchTerminals, pendingWorktrees, updateWorktree, renameScratch } = useSettings();
   const ongoing = cockpit.worktrees.filter((w) => w.status === "ongoing");
   const activeId = value;
@@ -23,6 +23,10 @@ export function SlotColumn({ value, onSelect, variant = "full", onPin }: { value
   const [menuOpen, setMenuOpen] = useState(false);
   // Delete/Wipe open a confirmation dialog (worktree only); state is local to each column instance.
   const [confirm, setConfirm] = useState<"delete" | "wipe" | null>(null);
+
+  // Close removes the whole column when the host provides onClose (Worktrees/Calm reflow); otherwise it
+  // just unassigns (Cockpit's single persistent column). Menu-driven removals funnel through here.
+  const close = () => { setMenuOpen(false); (onClose ?? (() => onSelect(null)))(); };
 
   // Pause: kill the worktree's live processes and unassign the slot; keep model + dir + branch.
   // Also reset the pane set — a paused worktree comes back Claude-only (re-showing it must not
@@ -34,7 +38,7 @@ export function SlotColumn({ value, onSelect, variant = "full", onPin }: { value
     const st = useSettings.getState();
     await killWorktreePtys(id, paneRoles(st.worktreePanes[id] ?? EMPTY_PANE_SET));
     st.resetWorktreePanes(id);
-    onSelect(null);
+    close();
   };
 
   // Scratch Delete: stop the single shell PTY, then drop the session-only entity (the store clears the slot).
@@ -93,26 +97,29 @@ export function SlotColumn({ value, onSelect, variant = "full", onPin }: { value
       <div className="wt-col__header">
         {switcher}
         {/* Calm mode is the decluttered view: switcher + Claude terminal only — no gear menu. */}
-        {variant !== "calm" && entity && entity.kind !== "pending" && (
+        {/* The gear shows on empty slots too (Close only); pending tiles get no menu. */}
+        {variant !== "calm" && entity?.kind !== "pending" && (
           <div className="wt-col__menu">
             <button className="icon-btn wt-col__gear" aria-label="column settings" onClick={() => setMenuOpen((o) => !o)}><GearIcon /></button>
             {menuOpen && (
               <div className="wt-col__menu-pop" onMouseLeave={() => setMenuOpen(false)}>
+                {/* Empty slot: only Close (removes the column). */}
+                {!entity && <button onClick={close}><CloseIcon />Close</button>}
                 {/* Pin sits above the teardown set: it adds an attachment (Cockpit column) + jumps there; unpin lives in Cockpit. */}
-                {entity.kind === "worktree" && onPin && (
+                {entity?.kind === "worktree" && onPin && (
                   <button onClick={() => { onPin(entity.worktree.id); setMenuOpen(false); }}><PinIcon />Cockpit</button>
                 )}
                 {/* Close ⊂ Pause ⊂ Delete ⊂ Wipe — each removes one more attached thing. Scratch has no git. */}
-                <button onClick={() => { onSelect(null); setMenuOpen(false); }}><CloseIcon />Close</button>
-                {entity.kind === "worktree" ? (
+                {entity && <button onClick={close}><CloseIcon />Close</button>}
+                {entity?.kind === "worktree" ? (
                   <>
                     <button onClick={pauseActive}><PauseIcon />Pause</button>
                     <button className="wt-col__danger" onClick={() => { setConfirm("delete"); setMenuOpen(false); }}><BinIcon />Delete</button>
                     <button className="wt-col__danger" onClick={() => { setConfirm("wipe"); setMenuOpen(false); }}><GhostIcon />Wipe</button>
                   </>
-                ) : (
+                ) : entity?.kind === "scratch" ? (
                   <button className="wt-col__danger" onClick={deleteScratch}><BinIcon />Delete</button>
-                )}
+                ) : null}
               </div>
             )}
           </div>
@@ -139,7 +146,7 @@ export function SlotColumn({ value, onSelect, variant = "full", onPin }: { value
           onClose={() => setConfirm(null)}
           // removeWorktree (inside teardown) already clears the slot; onSelect(null) covers the
           // Cockpit single-column case too. Any non-fatal warning was already shown in the dialog.
-          onDone={() => { setConfirm(null); onSelect(null); }}
+          onDone={() => { setConfirm(null); close(); }}
         />
       )}
     </div>

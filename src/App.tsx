@@ -10,7 +10,6 @@ import { CockpitView } from "./views/CockpitView";
 import { CalmView } from "./views/CalmView";
 import { NewWorktreeModal } from "./views/NewWorktreeModal";
 import { SettingsModal } from "./views/SettingsModal";
-import { MIN_SLOTS, SLOT_COUNT } from "./views/slots";
 import { GearIcon } from "./views/icons";
 import { HeaderTimer } from "./tiles/timer/HeaderTimer";
 import "./App.css";
@@ -28,7 +27,7 @@ function normalizeView(v: string): View {
 }
 
 function App() {
-  const { loaded, init, slotCount, setSlotCount } = useSettings();
+  const { loaded, init } = useSettings();
   const setCockpitWorktree = useSettings((s) => s.setCockpitWorktree);
   const worktreeError = useSettings((s) => s.worktreeError);
   const clearWorktreeError = useSettings((s) => s.clearWorktreeError);
@@ -124,21 +123,6 @@ function App() {
           ))}
         </nav>
         <div className="app__actions">
-          {view !== "cockpit" && (
-            // Panes toggle: switch the Worktrees/Calm columns between 2 and 3 (drops/adds the rightmost pane).
-            <div className="app__panes" role="group" aria-label="Visible panes">
-              {Array.from({ length: SLOT_COUNT - MIN_SLOTS + 1 }, (_, i) => MIN_SLOTS + i).map((n) => (
-                <button
-                  key={n}
-                  className={`app__pane ${slotCount === n ? "app__pane--active" : ""}`}
-                  onClick={() => setSlotCount(n)}
-                  aria-pressed={slotCount === n}
-                >
-                  {n}
-                </button>
-              ))}
-            </div>
-          )}
           <HeaderTimer />
           <button className="app__new" onClick={() => setCreating(true)}>+ New</button>
           <button className="app__new app__new--icon" aria-label="settings" onClick={() => setSettingsOpen(true)}><GearIcon /></button>
