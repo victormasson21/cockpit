@@ -125,6 +125,19 @@ export function PlusIcon() {
   );
 }
 
+// Swap: two horizontal arrows (top → right, bottom → left) — swap two adjacent panels' positions.
+// Geometry fills ~75% of the viewBox so it reads clearly at small button sizes.
+export function SwapIcon() {
+  return (
+    <svg viewBox="0 0 24 24" {...base} strokeWidth={2} aria-hidden="true">
+      <path d="M2 7h20" />
+      <path d="M17 2l5 5-5 5" />
+      <path d="M22 17H2" />
+      <path d="M7 12l-5 5 5 5" />
+    </svg>
+  );
+}
+
 // Pin: map-pin (set this worktree as the Cockpit view's right-column worktree).
 export function PinIcon() {
   return (

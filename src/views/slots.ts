@@ -59,6 +59,17 @@ export function swapSlotId(slots: Slots, from: string, to: string): Slots {
   return slots.map((s) => (s.id === from ? { ...s, id: to } : s));
 }
 
+// swapSlots: swap two columns' array POSITIONS (each Slot keeps its own key+id). Keyed reconciliation
+// then reorders the rendered columns without remounting their terminals. No-op if a key is missing/same.
+export function swapSlots(slots: Slots, keyA: string, keyB: string): Slots {
+  const i = slots.findIndex((s) => s.key === keyA);
+  const j = slots.findIndex((s) => s.key === keyB);
+  if (i === -1 || j === -1 || i === j) return slots;
+  const next = slots.slice();
+  [next[i], next[j]] = [next[j], next[i]];
+  return next;
+}
+
 // A scratch terminal: a session-only single-shell entity that can occupy a slot (no repo/branch).
 export type ScratchTerminal = { id: string; title: string };
 

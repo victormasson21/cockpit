@@ -4,7 +4,7 @@ import type { CockpitConfig, HostConfig, LayoutConfig, PrReviewItem, Settings, W
 import { saveSettings } from "./api";
 import { nextState, reorderWithinState } from "../tiles/todo/todo";
 import { mergePrItems } from "../tiles/pr/merge";
-import { initSlots, addEmptySlot as addEmptySlotFn, setSlotId, removeSlot as removeSlotFn, placeEntity, fillEntity, clearEntity, swapSlotId, type Slots, type ScratchTerminal, type PendingWorktree } from "../views/slots";
+import { initSlots, addEmptySlot as addEmptySlotFn, setSlotId, removeSlot as removeSlotFn, placeEntity, fillEntity, clearEntity, swapSlotId, swapSlots as swapSlotsFn, type Slots, type ScratchTerminal, type PendingWorktree } from "../views/slots";
 import { deduceWorktree, createWorktree } from "../worktrees/api";
 import { makeWorktree, sourceLinkFrom, branchSpecFrom } from "../worktrees/model";
 import { runHost, addExtra, removePane, togglePane, expandPane, EMPTY_PANE_SET, type WorktreePaneSet } from "../worktrees/paneSet";
@@ -51,6 +51,7 @@ interface SettingsState {
   addEmptySlot: () => void;
   setSlot: (key: string, id: string | null) => void;
   removeSlot: (key: string) => void;
+  swapSlots: (keyA: string, keyB: string) => void;
   setCockpitWorktree: (id: string | null) => void;
   placeNewEntity: (id: string, view: View) => void;
   scratchTerminals: ScratchTerminal[];
@@ -189,6 +190,9 @@ export const useSettings = create<SettingsState>((set, get) => ({
   addEmptySlot: () => set((st) => withMint(st, (m) => addEmptySlotFn(st.slots, m))),
   // Close/Pause/teardown remove a column entirely; the layout reflows. No mint → slotSeq unchanged.
   removeSlot: (key) => set((st) => ({ slots: removeSlotFn(st.slots, key) })),
+  // Swap two adjacent columns' positions (the on-divider swap button). Keys move with their slots, so
+  // the terminals reorder without remounting.
+  swapSlots: (keyA, keyB) => set((st) => ({ slots: swapSlotsFn(st.slots, keyA, keyB) })),
   // Text zoom: set the (clamped) multiplier as session state AND persist it into preferences — same
   // idiom as setSlotCount. App applies it to <html> as --font-scale; useTerminal reads it for xterm.
   setFontScale: (n) => {

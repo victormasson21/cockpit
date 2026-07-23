@@ -2,7 +2,7 @@
 import { describe, it, expect } from "vitest";
 import {
   SLOT_COUNT, initSlots, addEmptySlot, setSlotId, removeSlot,
-  placeEntity, fillEntity, clearEntity, swapSlotId, resolveSlotEntity,
+  placeEntity, fillEntity, clearEntity, swapSlotId, swapSlots, resolveSlotEntity,
   type Slots, type ScratchTerminal, type PendingWorktree,
 } from "./slots";
 import type { Worktree } from "../settings/types";
@@ -82,6 +82,13 @@ describe("slots", () => {
     expect(resolveSlotEntity("scratch-1", [wt("a")], scratch)).toEqual({ kind: "scratch", scratch: scratch[0] });
     expect(resolveSlotEntity("pending-1", [wt("a")], [], pending)).toEqual({ kind: "pending", pending: pending[0] });
     expect(resolveSlotEntity("ghost", [wt("a")], scratch)).toBeNull();
+  });
+  it("swapSlots swaps two columns' positions, keeping their keys; no-op when a key is missing or same", () => {
+    const s: Slots = [{ key: "a", id: "1" }, { key: "b", id: "2" }, { key: "c", id: "3" }];
+    // Whole Slot objects (key AND id) swap positions — so React reorders instances without remount.
+    expect(swapSlots(s, "a", "b")).toEqual([{ key: "b", id: "2" }, { key: "a", id: "1" }, { key: "c", id: "3" }]);
+    expect(swapSlots(s, "a", "a")).toBe(s); // same key → referential no-op
+    expect(swapSlots(s, "a", "ghost")).toBe(s); // missing key → referential no-op
   });
   it("SLOT_COUNT is 3", () => { expect(SLOT_COUNT).toBe(3); });
 });

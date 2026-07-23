@@ -1,7 +1,25 @@
 /* WorktreesView.css — equal columns split by dividers; 1 column is centered; a slim `+` rail on the right. */
 .wt-view { display: flex; height: 100%; }
 /* Columns fill the space left of the `+` rail (Worktrees); Calm applies --single directly on .wt-view. */
-.wt-view__cols { flex: 1; min-width: 0; display: flex; height: 100%; }
+/* position: relative so the on-divider swap buttons can be absolutely positioned by percentage. */
+.wt-view__cols { flex: 1; min-width: 0; display: flex; height: 100%; position: relative; }
+
+/* Swap button: a themed circle that fills the gutter between two adjacent assigned tiles (each tile's
+   inner padding + the 1px divider), centred on the divider at 50% height. Diameter tracks the spacing
+   tokens so it stays snug if they change; the arrows fill 80% of it. */
+.wt-view__swap {
+  --swap-d: calc(2 * var(--space-3) + 1px); /* gutter width = both tiles' inner padding + the 1px divider */
+  position: absolute; top: 50%; transform: translate(-50%, -50%); z-index: 5;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: var(--swap-d); height: var(--swap-d);
+  padding: 0; /* reset the global button padding (6px 12px) — at ~25px it starved the flex content box to 0 width, collapsing the arrows */
+  background: var(--surface); border: 1px solid var(--bdr); border-radius: 50%;
+  color: var(--tx); cursor: pointer;
+  transition: color 200ms ease-out, background-color 200ms ease-out, border-color 200ms ease-out;
+}
+/* Glyph = 70% of the button, expressed as a % so it tracks the button size however it's computed. */
+.wt-view__swap svg { width: 70%; height: 70%; }
+.wt-view__swap:hover { color: var(--on-accent); border-color: var(--accent); background: var(--accent); }
 /* Single assigned column: center it with a comfortable max width instead of full-bleed. */
 .wt-view--single { justify-content: center; }
 .wt-view--single > .wt-col { flex: 0 1 720px; }
