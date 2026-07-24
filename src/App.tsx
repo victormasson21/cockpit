@@ -37,6 +37,7 @@ function App() {
   const zoomIn = useSettings((s) => s.zoomIn);
   const zoomOut = useSettings((s) => s.zoomOut);
   const resetZoom = useSettings((s) => s.resetZoom);
+  const addEmptySlot = useSettings((s) => s.addEmptySlot);
   const [view, setView] = useState<View>("worktrees");
   const [creating, setCreating] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -70,11 +71,15 @@ function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [zoomIn, zoomOut, resetZoom]);
 
-  // Cmd/Ctrl+N: open the New modal; Cmd/Ctrl+1..3: switch view (digit order matches the header tabs).
+  // Cmd/Ctrl+N: open the New modal; Cmd/Ctrl+T: add a panel (the Worktrees `+` rail); Cmd/Ctrl+1..3: switch view.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
       if (e.key.toLowerCase() === "n") { e.preventDefault(); setCreating(true); }
+      else if (e.key.toLowerCase() === "t") {
+        // Mirror the `+` rail exactly: only the Worktrees view has it, and addEmptySlot no-ops at the cap.
+        if (view === "worktrees") { e.preventDefault(); addEmptySlot(); }
+      }
       else {
         const v = VIEWS[Number(e.key) - 1];
         if (v) { e.preventDefault(); setView(v.id); }
@@ -82,7 +87,7 @@ function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [view, addEmptySlot]);
 
   // On startup: pull persisted settings from the Rust core, seed the store, pick the saved default view.
   useEffect(() => {
