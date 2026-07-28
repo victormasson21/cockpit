@@ -116,6 +116,21 @@ insert-after-on-move-down / insert-at-on-move-up idiom.
   drag-and-drop anywhere in this app; use pointer events.* A stale "must be false" note would
   send the next change straight back into this trap.
 
+## Implementation sequencing — two commits, in this order
+
+Pointer events work regardless of `dragDropEnabled`, so the Todo rework does **not** need the flag
+flipped and can land first, independently verifiable:
+
+1. **Todo handle on pointer events** — the `⋮⋮` handle, `data-todo-id`, `reorderWithinState` still
+   green. `dragDropEnabled` stays `false`, so todo reorder is provably working *before* anything
+   else moves. Revertable on its own.
+2. **Flip the flag + add the drop router** — `dragDropEnabled: true`, the `App.tsx` listener,
+   `drop.ts`, `data-pty-id`, the CLAUDE.md note correction.
+
+Splitting this way matters because there is no state in which HTML5 DnD and native drag-drop both
+work: the moment step 2 lands, any leftover HTML5 DnD is dead. Step 1 removes the last consumer
+first, so step 2 flips a flag nothing depends on.
+
 ## Error handling
 
 | Case | Behaviour |
