@@ -65,13 +65,13 @@ export function TodoTile() {
                   data-todo-id={t.id}
                   className={`todo__row todo__row--${t.state}${dragOverId === t.id ? " todo__row--drop-target" : ""}`}
                 >
-                  <button
+                  {/* span, not button: no keyboard affordance to preserve, and a span carries no implicit tab stop */}
+                  <span
                     className="todo__handle"
-                    aria-label="drag to reorder"
                     onPointerDown={editingId === t.id ? undefined : onHandleDown(t.id)}
                     onPointerMove={onHandleMove}
                     onPointerUp={onHandleUp}
-                  >⋮⋮</button>
+                  >⋮⋮</span>
                   <button className="todo__glyph" aria-label="cycle state" onClick={() => cycleTodo(t.id)}>{GLYPH[t.state]}</button>
                   {editingId === t.id ? (
                     <input

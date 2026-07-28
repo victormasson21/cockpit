@@ -173,3 +173,8 @@ checklist.
 4. Drop outside any pane (a tile, the header) → nothing happens, no error.
 5. Todo: drag a row by its handle within a section → reorders. Drag across sections → no-op.
    Click the glyph → still cycles. Click the text → still opens the editor.
+6. Drop onto an unfocused pane, then press Enter → the text is sent in the pane that received the
+   drop, not the previously focused one (the drop must move keyboard focus there).
+7. Drop onto the overlay-titlebar header strip (the 84px-padded traffic-lights area) → ignored,
+   nothing written. Drag-drop positions are window-relative, so this is the one place a
+   window-vs-webview coordinate offset would show up as a systematic vertical skew.

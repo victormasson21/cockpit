@@ -111,6 +111,12 @@ function App() {
           ptyId: cmd.ptyId,
           bytes: Array.from(new TextEncoder().encode(cmd.text)),
         }).catch(() => {});
+        // Move keyboard focus into the pane we just wrote to: the user's next keystroke is usually
+        // the Enter that sends the screenshot, and it must land here rather than in whichever pane
+        // happened to be focused before the drag started.
+        document
+          .querySelector<HTMLTextAreaElement>(`[data-pty-id="${cmd.ptyId}"] .xterm-helper-textarea`)
+          ?.focus();
       })
       // The listener resolves async: if the effect tore down first, unlisten immediately.
       .then((u) => { if (disposed) u(); else unlisten = u; })

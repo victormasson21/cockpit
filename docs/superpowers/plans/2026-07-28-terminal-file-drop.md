@@ -303,9 +303,9 @@ export function formatDroppedPaths(paths: string[]): string {
   return paths.map(escapeDroppedPath).join(" ") + " ";
 }
 
-// Drag-drop payload positions are PHYSICAL pixels; elementFromPoint needs CSS pixels. Note the
-// payload arrives as JSON over IPC, so it is a bare {x,y} — PhysicalPosition.toLogical() does NOT
-// exist at runtime despite what the TS type claims.
+// Drag-drop payload positions are PHYSICAL pixels; elementFromPoint needs CSS pixels. We divide by
+// devicePixelRatio rather than calling PhysicalPosition.toLogical(scaleFactor) because the latter
+// needs an awaited scaleFactor() call, and this runs inside a synchronous event handler.
 export function logicalPoint(p: { x: number; y: number }, dpr: number): { x: number; y: number } {
   return { x: p.x / dpr, y: p.y / dpr };
 }
@@ -429,6 +429,8 @@ Rebuild and run (`npm run tauri dev`), then:
 3. Drop **two files at once** → both paths, space-separated, trailing space.
 4. Drop on a **tile, the header, or empty space** → nothing happens, no error, no console noise.
 5. **Regression:** reorder a To Do row by its handle → still works with the flag now `true` (this is the check that Task 1 actually decoupled them).
+6. Drop onto an **unfocused pane**, then press Enter → the text is sent in the pane that received the drop, not the previously focused one.
+7. Drop onto the **overlay-titlebar header strip** (84px-padded traffic-lights area) → ignored, nothing written — the one place a window-vs-webview coordinate offset would show up as a vertical skew.
 
 - [ ] **Step 11: Commit**
 

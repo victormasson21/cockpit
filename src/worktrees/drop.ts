@@ -22,9 +22,9 @@ export function formatDroppedPaths(paths: string[]): string {
   return paths.map(escapeDroppedPath).join(" ") + " ";
 }
 
-// Drag-drop payload positions are PHYSICAL pixels; elementFromPoint needs CSS pixels. Note the
-// payload arrives as JSON over IPC, so it is a bare {x,y} — PhysicalPosition.toLogical() does NOT
-// exist at runtime despite what the TS type claims.
+// Drag-drop payload positions are PHYSICAL pixels; elementFromPoint needs CSS pixels. We divide by
+// devicePixelRatio rather than calling PhysicalPosition.toLogical(scaleFactor) because the latter
+// needs an awaited scaleFactor() call, and this runs inside a synchronous event handler.
 export function logicalPoint(p: { x: number; y: number }, dpr: number): { x: number; y: number } {
   return { x: p.x / dpr, y: p.y / dpr };
 }
