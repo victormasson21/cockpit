@@ -167,6 +167,15 @@ moved, and a dedicated handle keeps the row's glyph/text clicks unambiguous."
   - `escapeDroppedPath(path: string): string`
   - `formatDroppedPaths(paths: string[]): string`
   - `logicalPoint(p: { x: number; y: number }, dpr: number): { x: number; y: number }`
+  - `type DropPayload` — structurally compatible with Tauri's `DragDropEvent`
+  - `type DropHitTest = (x: number, y: number) => string | null`
+  - `dropCommand(payload: DropPayload, dpr: number, hitTest: DropHitTest): { ptyId: string; text: string } | null`
+
+**Why `dropCommand` takes an injected `hitTest`:** it keeps the whole routing decision pure and
+testable. jsdom has no layout engine, so `document.elementFromPoint` cannot be exercised — but that
+call is the *only* part that needs it. Injecting it means the four ways routing can be wrong
+(non-drop event, empty paths, wrong DPR scaling, nothing under the cursor) are all unit-tested, and
+`App.tsx` keeps just the one-line DOM lookup.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -174,7 +183,7 @@ Create `src/worktrees/drop.test.ts`:
 
 ```ts
 import { describe, it, expect } from "vitest";
-import { escapeDroppedPath, formatDroppedPaths, logicalPoint } from "./drop";
+import { escapeDroppedPath, formatDroppedPaths, logicalPoint, dropCommand } from "./drop";
 
 describe("escapeDroppedPath", () => {
   it("leaves a plain path untouched", () => {
@@ -226,6 +235,38 @@ describe("logicalPoint", () => {
     expect(logicalPoint({ x: 400, y: 300 }, 2)).toEqual({ x: 200, y: 150 });
   });
 });
+
+describe("dropCommand", () => {
+  const hit = () => "wt-1:claude";
+
+  it("ignores events that are not a drop", () => {
+    expect(dropCommand({ type: "over", position: { x: 1, y: 1 } }, 1, hit)).toBeNull();
+    expect(dropCommand({ type: "leave" }, 1, hit)).toBeNull();
+    expect(dropCommand({ type: "enter", paths: ["/a.png"], position: { x: 1, y: 1 } }, 1, hit)).toBeNull();
+  });
+
+  it("ignores a drop carrying no paths", () => {
+    expect(dropCommand({ type: "drop", paths: [], position: { x: 1, y: 1 } }, 1, hit)).toBeNull();
+  });
+
+  it("returns null when no pane is under the cursor", () => {
+    expect(dropCommand({ type: "drop", paths: ["/a.png"], position: { x: 1, y: 1 } }, 1, () => null)).toBeNull();
+  });
+
+  it("hit-tests in CSS pixels, not physical ones", () => {
+    const seen: Array<[number, number]> = [];
+    dropCommand({ type: "drop", paths: ["/a.png"], position: { x: 400, y: 300 } }, 2, (x, y) => {
+      seen.push([x, y]);
+      return "wt-1:claude";
+    });
+    expect(seen).toEqual([[200, 150]]);
+  });
+
+  it("returns the resolved pane id and the formatted text", () => {
+    expect(dropCommand({ type: "drop", paths: ["/a b.png"], position: { x: 10, y: 20 } }, 1, hit))
+      .toEqual({ ptyId: "wt-1:claude", text: "/a\\ b.png " });
+  });
+});
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -268,12 +309,40 @@ export function formatDroppedPaths(paths: string[]): string {
 export function logicalPoint(p: { x: number; y: number }, dpr: number): { x: number; y: number } {
   return { x: p.x / dpr, y: p.y / dpr };
 }
+
+// The payload shape this module needs. Written as a union that Tauri's DragDropEvent satisfies
+// structurally, so App.tsx passes its payload straight through with no cast (PhysicalPosition has
+// x and y, and extra properties are fine on a non-literal assignment).
+export type DropPayload =
+  | { type: "drop"; paths: string[]; position: { x: number; y: number } }
+  | { type: "enter"; paths: string[]; position: { x: number; y: number } }
+  | { type: "over"; position: { x: number; y: number } }
+  | { type: "leave" };
+
+// Resolves a pane's pty id from a point in CSS pixels; null when no pane is there.
+export type DropHitTest = (x: number, y: number) => string | null;
+
+// What a drop should write and where — null when the payload is not an actionable drop.
+// The DOM hit-test is injected so this stays pure: every way routing can go wrong (non-drop event,
+// no paths, wrong DPR scaling, nothing under the cursor) is unit-testable without a layout engine.
+export function dropCommand(
+  payload: DropPayload,
+  dpr: number,
+  hitTest: DropHitTest,
+): { ptyId: string; text: string } | null {
+  if (payload.type !== "drop") return null;
+  const text = formatDroppedPaths(payload.paths);
+  if (!text) return null;
+  const { x, y } = logicalPoint(payload.position, dpr);
+  const ptyId = hitTest(x, y);
+  return ptyId ? { ptyId, text } : null;
+}
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run src/worktrees/drop.test.ts`
-Expected: PASS, 11 tests.
+Expected: PASS, 16 tests (6 escape + 3 format + 2 logicalPoint + 5 dropCommand).
 
 - [ ] **Step 5: Mark panes as drop targets**
 
@@ -293,7 +362,7 @@ In `src/App.tsx`, add to the imports at the top:
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { invoke } from "@tauri-apps/api/core";
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import { formatDroppedPaths, logicalPoint } from "./worktrees/drop";
+import { dropCommand } from "./worktrees/drop";
 ```
 
 Then add this effect after the Cmd/Ctrl+N effect (which ends at line 90):
@@ -307,13 +376,16 @@ Then add this effect after the Cmd/Ctrl+N effect (which ends at line 90):
     let unlisten: UnlistenFn | undefined;
     getCurrentWebview()
       .onDragDropEvent((e) => {
-        if (e.payload.type !== "drop") return;
-        const text = formatDroppedPaths(e.payload.paths);
-        if (!text) return;
-        const { x, y } = logicalPoint(e.payload.position, window.devicePixelRatio);
-        const ptyId = document.elementFromPoint(x, y)?.closest("[data-pty-id]")?.getAttribute("data-pty-id");
-        if (!ptyId) return; // dropped on a tile, the header, or empty space — ignore silently
-        invoke("pty_write", { ptyId, bytes: Array.from(new TextEncoder().encode(text)) }).catch(() => {});
+        // All the decision-making is in the pure dropCommand; the only thing that must live here is
+        // the DOM hit-test, which needs real layout.
+        const cmd = dropCommand(e.payload, window.devicePixelRatio, (x, y) =>
+          document.elementFromPoint(x, y)?.closest("[data-pty-id]")?.getAttribute("data-pty-id") ?? null,
+        );
+        if (!cmd) return; // not a drop, no paths, or not over a pane — ignore silently
+        invoke("pty_write", {
+          ptyId: cmd.ptyId,
+          bytes: Array.from(new TextEncoder().encode(cmd.text)),
+        }).catch(() => {});
       })
       // The listener resolves async: if the effect tore down first, unlisten immediately.
       .then((u) => { if (disposed) u(); else unlisten = u; })
@@ -333,7 +405,7 @@ In `src-tauri/tauri.conf.json`, line 18:
 - [ ] **Step 8: Typecheck, build, full suite**
 
 Run: `npx tsc --noEmit && npm run build && npx vitest run`
-Expected: all clean; suite count = Task 1's baseline + 11.
+Expected: all clean; suite count = Task 1's baseline + 16 (182 if the baseline was 166).
 
 - [ ] **Step 9: Correct the docs**
 

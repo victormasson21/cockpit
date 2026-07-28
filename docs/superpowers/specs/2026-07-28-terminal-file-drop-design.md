@@ -86,6 +86,11 @@ at the cursor so the user can keep typing around them.
 - `formatDroppedPaths(paths): string` — escaped paths joined by a single space, plus a trailing
   space. Multi-file drops work for free. An empty array returns `""`, and the router skips the
   `pty_write` on an empty string rather than writing a stray space.
+- `dropCommand(payload, dpr, hitTest)` — the whole routing decision, returning
+  `{ ptyId, text } | null`. The DOM hit-test is **injected**, which is what keeps this pure: jsdom
+  has no layout engine, but `document.elementFromPoint` is the only part that needs one. So the four
+  ways routing can be wrong — non-drop event, empty paths, wrong DPR scaling, nothing under the
+  cursor — are all unit-tested, and `App.tsx` retains only the one-line DOM lookup.
 
 Both are pure and unit-tested; all the logic that can be tested headlessly lives here.
 
@@ -149,11 +154,15 @@ first, so step 2 flips a flag nothing depends on.
   a path needing no escaping.
 - `formatDroppedPaths` — single file, multiple files, trailing space present, empty array.
 - The physical → logical position conversion at `devicePixelRatio` 1 and 2.
+- `dropCommand` with a fake `hitTest` — non-drop events ignored, empty paths ignored, no pane
+  resolved, hit-testing done in CSS pixels, and the returned `{ ptyId, text }`.
 - `reorderWithinState` — unchanged, must stay green.
 
-**Not unit-tested:** position-based hit testing. jsdom has no real layout or hit-testing engine, so
-`elementFromPoint` cannot be exercised meaningfully. The router stays a thin shim with the logic in
-the pure helpers, and correctness moves to the GUI checklist.
+**Not unit-tested:** the single `document.elementFromPoint(...).closest("[data-pty-id]")` call, and
+the Todo handle's pointer wiring. jsdom has no layout or hit-testing engine, so neither can be
+exercised meaningfully — and mocking `elementFromPoint` would assert the mock, not the behaviour.
+Everything reachable *around* those calls is pure and tested; they themselves move to the GUI
+checklist.
 
 **GUI acceptance (human eyeball — a native macOS window cannot be driven headlessly):**
 
