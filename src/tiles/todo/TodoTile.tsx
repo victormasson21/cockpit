@@ -30,6 +30,27 @@ export function TodoTile() {
   // guard no-ops anyway once editingId is null, so Escape reliably discards the draft (no accidental save).
   const commitEdit = () => { if (editingId) editTodo(editingId, editDraft); setEditingId(null); };
 
+  // Pointer-event drag, started only from the ⋮⋮ handle. HTML5 DnD is unavailable app-wide once
+  // Tauri's native drag-drop owns file drops, so we capture the pointer and hit-test rows manually.
+  // A dedicated handle (rather than a whole-row drag) keeps the glyph-click and text-click unambiguous.
+  const onHandleDown = (id: string) => (e: React.PointerEvent) => {
+    e.preventDefault(); // suppress text selection while dragging
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDraggingId(id);
+  };
+  const onHandleMove = (e: React.PointerEvent) => {
+    if (!draggingId) return;
+    // Pointer capture routes moves to the handle, so hit-test the real cursor position for the row.
+    const row = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-todo-id]");
+    const id = row?.getAttribute("data-todo-id") ?? null;
+    setDragOverId(id === draggingId ? null : id);
+  };
+  const onHandleUp = () => {
+    if (draggingId && dragOverId) reorderTodo(draggingId, dragOverId);
+    setDraggingId(null);
+    setDragOverId(null);
+  };
+
   return (
     <Tile title="TO DO" icon={<span>☑</span>}>
       <div className="todo">
@@ -41,14 +62,16 @@ export function TodoTile() {
               {groups[state].map((t) => (
                 <div
                   key={t.id}
+                  data-todo-id={t.id}
                   className={`todo__row todo__row--${t.state}${dragOverId === t.id ? " todo__row--drop-target" : ""}`}
-                  draggable={editingId !== t.id}
-                  onDragStart={() => setDraggingId(t.id)}
-                  onDragOver={(e) => { e.preventDefault(); if (t.id !== draggingId) setDragOverId(t.id); }}
-                  onDragLeave={() => setDragOverId((cur) => (cur === t.id ? null : cur))}
-                  onDrop={() => { if (draggingId) reorderTodo(draggingId, t.id); setDraggingId(null); setDragOverId(null); }}
-                  onDragEnd={() => { setDraggingId(null); setDragOverId(null); }}
                 >
+                  <button
+                    className="todo__handle"
+                    aria-label="drag to reorder"
+                    onPointerDown={editingId === t.id ? undefined : onHandleDown(t.id)}
+                    onPointerMove={onHandleMove}
+                    onPointerUp={onHandleUp}
+                  >⋮⋮</button>
                   <button className="todo__glyph" aria-label="cycle state" onClick={() => cycleTodo(t.id)}>{GLYPH[t.state]}</button>
                   {editingId === t.id ? (
                     <input

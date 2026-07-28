@@ -3,8 +3,17 @@
 .todo__empty { color: var(--tx-3); font-size: var(--fs-sm); }
 .todo__section { display: flex; flex-direction: column; gap: var(--space-1); }
 .todo__section-label { font-size: var(--fs-2xs); letter-spacing: 0.08em; color: var(--tx-3); }
-.todo__row { display: flex; align-items: center; gap: var(--space-2); font-size: var(--fs-md); cursor: grab; }
+.todo__row { display: flex; align-items: center; gap: var(--space-2); font-size: var(--fs-md); }
 .todo__row--drop-target { border-top: 2px solid var(--accent); }
+/* Drag affordance: hover-revealed like .todo__del. touch-action: none is load-bearing — without it
+   the browser claims the gesture for scrolling and pointermove stops firing mid-drag. */
+.todo__handle {
+  background: none; border: none; padding: 0; cursor: grab; touch-action: none;
+  color: var(--tx-3); opacity: 0; letter-spacing: -3px;
+  font-size: calc(13px * var(--font-scale)); line-height: 1;
+}
+.todo__row:hover .todo__handle { opacity: 0.7; }
+.todo__handle:active { cursor: grabbing; }
 /* Glyphs sized ~30% above --fs-lg (14→18px); direct px so it stays off the 1px type scale, ×font-scale to respect global zoom. */
 .todo__glyph { background: none; border: none; cursor: pointer; color: var(--tx-2); padding: 0; font-size: calc(18px * var(--font-scale)); line-height: 1; }
 /* status roles: in-progress = warn, done = ok (glyph tint mirrors the section meaning) */
