@@ -69,7 +69,7 @@ export function WorktreePane({ title, icon, lead, badge, action, open: openProp,
         </button>
       </div>
       {/* Kept mounted when collapsed (CSS hides it) so useTerminal's ResizeObserver re-fits + pty_resizes on expand. */}
-      <div ref={containerRef} className="wt-pane__body" />
+      <div ref={containerRef} className="wt-pane__body" data-pty-id={ptyId} />
     </div>
   );
 }

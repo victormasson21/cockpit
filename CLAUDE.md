@@ -395,8 +395,13 @@ Spec/plan: `docs/superpowers/{specs,plans}/2026-06-27-todo-and-timer-tiles*`.
 - **To Do tile: inline edit + drag-reorder (2026-07-03).** Todos are now **editable inline** — click the `.todo__text`
   span → it becomes an `<input>` (autoFocus, seeded); **Enter/blur saves, Escape reverts, empty save deletes**
   (the delete-on-empty rule lives in the store's `editTodo`, not the UI). Rows are **reorderable within their section**
-  via **native HTML5 DnD** (no library): each row is `draggable={editingId !== t.id}`, `onDragOver` calls
-  `e.preventDefault()`, dropping calls `reorderTodo(draggedId, targetId)`. The section constraint is enforced in the
+  by a `⋮⋮` **drag handle** using **pointer events**
+  (`onPointerDown` + `setPointerCapture`, then `document.elementFromPoint(...).closest("[data-todo-id]")`
+  to hit-test the row under the cursor; `touch-action: none` on the handle is required or the browser
+  claims the gesture and pointermove stops firing). **HTML5 DnD is unavailable app-wide** — Tauri's
+  `dragDropEnabled: true` (needed for real filesystem paths on file drop) swallows DOM drop events on
+  macOS, so never reach for `draggable`/`onDrop` in this app. Dropping calls `reorderTodo(draggedId, targetId)`.
+  The section constraint is enforced in the
   **pure tested helper `reorderWithinState`** (`todo.ts`) — a **no-op** unless both ids exist, differ, and share the
   same `state` (cross-section drags change nothing; state is still changed only by the glyph click). Insert semantics:
   insert-after on move-down, insert-at on move-up (standard DnD idiom). A `dragOverId` local state drives a
@@ -613,6 +618,21 @@ both Important findings fixed (in-batch dedupe, history pagination).
   `docs/superpowers/plans/2026-07-13-terminal-ux-improvements.md`. 149 JS + 109 Rust tests green; Rust +
   Vite builds clean. **GUI acceptance PENDING human eyeball** (checklist in that plan: Unicode alignment,
   fullscreen TUI, truecolor, Shift+Enter, Cmd+click links, WebGL smoothness).
+
+- **Drop files from Finder into a terminal pane (2026-07-28).** A webview strips real filesystem paths
+  from DOM drop events, so Tauri's native drag-drop is the only source of them — `dragDropEnabled` is now
+  `true` (`src-tauri/tauri.conf.json`), safe now that the To Do tile's reorder no longer depends on HTML5
+  DnD (see the corrected note above). One window-level listener (`App.tsx`, `getCurrentWebview().onDragDropEvent`)
+  hit-tests the cursor against panes carrying `data-pty-id` (`WorktreePane.tsx`) via
+  `document.elementFromPoint(...).closest("[data-pty-id]")`, and `pty_write`s the resolved pane the
+  backslash-escaped dropped paths with a trailing space and no newline — matching what Finder → Terminal.app
+  produces (the form Claude Code is tested against), landing at the cursor without submitting anything.
+  All routing logic is pure and unit-tested in `src/worktrees/drop.ts` (`escapeDroppedPath`,
+  `formatDroppedPaths`, `logicalPoint` for the physical→CSS pixel conversion needed because drag-drop
+  positions arrive in physical pixels, `dropCommand` with an injected DOM hit-test so jsdom's lack of a
+  layout engine doesn't block testing the four ways routing can fail). No Rust changes — `pty_write` was
+  already exposed. 182 JS tests green (16 new). Deferred: a drop-target highlight, dropping onto
+  non-terminal targets, clipboard image paste. Spec: `docs/superpowers/sdd/2026-07-28-terminal-file-drop/`.
 
 **Next / resuming work — read `docs/ROADMAP.md` first.** It is the single prioritized backlog, split into
 **main build sub-projects** (the big sequential arc — sub-project 5 onward: Linear tile, then GitHub/Calendar

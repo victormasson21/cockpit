@@ -1,6 +1,10 @@
 // App.tsx — app shell: loads settings, renders the themed header (view switcher + new-worktree) and the active view.
 import { useEffect, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { invoke } from "@tauri-apps/api/core";
+import type { UnlistenFn } from "@tauri-apps/api/event";
+import { dropCommand } from "./worktrees/drop";
 import { loadSettings } from "./settings/api";
 import { versionLabel } from "./version";
 import { slackInit } from "./tiles/slack/api";
@@ -88,6 +92,31 @@ function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [view, addEmptySlot]);
+
+  // Native file drop → type the dropped paths into the terminal pane under the cursor (Claude Code's
+  // documented drag-and-drop). Window-level because Tauri's drag-drop is a window event, not a DOM
+  // one; the DOM is used only as a lookup table, so any future pane carrying data-pty-id gets this free.
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: UnlistenFn | undefined;
+    getCurrentWebview()
+      .onDragDropEvent((e) => {
+        // All the decision-making is in the pure dropCommand; the only thing that must live here is
+        // the DOM hit-test, which needs real layout.
+        const cmd = dropCommand(e.payload, window.devicePixelRatio, (x, y) =>
+          document.elementFromPoint(x, y)?.closest("[data-pty-id]")?.getAttribute("data-pty-id") ?? null,
+        );
+        if (!cmd) return; // not a drop, no paths, or not over a pane — ignore silently
+        invoke("pty_write", {
+          ptyId: cmd.ptyId,
+          bytes: Array.from(new TextEncoder().encode(cmd.text)),
+        }).catch(() => {});
+      })
+      // The listener resolves async: if the effect tore down first, unlisten immediately.
+      .then((u) => { if (disposed) u(); else unlisten = u; })
+      .catch(() => {});
+    return () => { disposed = true; unlisten?.(); };
+  }, []);
 
   // On startup: pull persisted settings from the Rust core, seed the store, pick the saved default view.
   useEffect(() => {
