@@ -7,9 +7,9 @@
 .wt-pane--closed { flex: 0 0 auto; }
 .wt-pane--closed .wt-pane__body { display: none; }
 
-/* focused: the pane whose terminal has keyboard focus — border-colour only, deliberately quiet so it
-   can't be mistaken for attention below (which, being later at equal specificity, wins when both apply). */
-.wt-pane--focused { border-color: var(--accent); }
+/* focused: the pane whose terminal has keyboard focus — border-colour only, deliberately quiet. The
+   :not() makes focus and attention mutually exclusive at the selector level, so attention always wins. */
+.wt-pane--focused:not(.wt-pane--attention) { border-color: var(--accent); }
 
 /* needs-attention: warm reddish border + glow (a Claude/scratch pane waiting for you). */
 .wt-pane--attention {
