@@ -1,5 +1,5 @@
 // WorktreePane.tsx — one themed terminal pane: header (icon + title + badge slot + restart + close + expand + chevron collapse) over a PTY-bound xterm.
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTerminal, type UseTerminalArgs } from "../../worktrees/useTerminal";
 import { useSettings } from "../../settings/store";
 import { makePtyId } from "../../worktrees/ptyId";
@@ -25,6 +25,25 @@ type PaneChrome = {
 
 export function WorktreePane({ title, icon, lead, badge, action, open: openProp, onToggle, onExpand, onClose, ...args }: UseTerminalArgs & PaneChrome) {
   const { containerRef, restart, close } = useTerminal(args);
+  // "Keystrokes land here": true while focus is inside this pane's terminal body. Local state, not
+  // the store — unlike attention (a bell in a background pane is read by SlotColumn), focus has no
+  // remote consumer and the DOM already guarantees at most one focused pane.
+  const [focused, setFocused] = useState(false);
+  // Native focusin/focusout on the terminal container: the focus target is xterm's helper textarea,
+  // created imperatively inside this div rather than by React. Scoped to the body, not the card, so
+  // clicking a header button doesn't light the pane.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onIn = () => setFocused(true);
+    const onOut = () => setFocused(false);
+    el.addEventListener("focusin", onIn);
+    el.addEventListener("focusout", onOut);
+    return () => {
+      el.removeEventListener("focusin", onIn);
+      el.removeEventListener("focusout", onOut);
+    };
+  }, [containerRef]);
   const [openLocal, setOpenLocal] = useState(true); // default: all panes open
   const open = openProp ?? openLocal;
   const toggle = onToggle ?? (() => setOpenLocal((o) => !o));
@@ -32,7 +51,7 @@ export function WorktreePane({ title, icon, lead, badge, action, open: openProp,
   const ptyId = makePtyId(args.worktreeId, args.role);
   const needsAttention = useSettings((s) => Boolean(s.attention[ptyId]));
   return (
-    <div className={`wt-pane ${open ? "wt-pane--open" : "wt-pane--closed"}${needsAttention ? " wt-pane--attention" : ""}`}>
+    <div className={`wt-pane ${open ? "wt-pane--open" : "wt-pane--closed"}${focused ? " wt-pane--focused" : ""}${needsAttention ? " wt-pane--attention" : ""}`}>
       <div className="wt-pane__header">
         {lead ?? (<>{icon}<span className="wt-pane__title">{title}</span></>)}
         {needsAttention && <span className="wt-attention">Attention</span>}
