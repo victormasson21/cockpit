@@ -22,7 +22,7 @@
 .wt-view__swap:hover { color: var(--on-accent); border-color: var(--accent); background: var(--accent); }
 /* Single assigned column: center it with a comfortable max width instead of full-bleed. */
 .wt-view--single { justify-content: center; }
-.wt-view--single > .wt-col { flex: 0 1 720px; }
+.wt-view--single > .wt-col { flex: 0 1 var(--wt-col-w); }
 
 /* `+` rail: a 40px full-height column that appends an empty slot. */
 .wt-view__add {

@@ -3,8 +3,10 @@
 .cockpit-view__tiles { width: 400px; flex: 0 0 400px; display: flex; flex-direction: column; gap: 10px; }
 .cockpit-view__tiles-label { font-size: var(--fs-xs); letter-spacing: 0.08em; color: var(--tx-3); }
 
-/* center column: a tab bar over either the Home widgets or the Diff view (both flex-fill the remaining height). */
-.cockpit-view__main { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; gap: var(--space-3); }
+/* center column: a tab bar over either the Home widgets or the Diff view (both flex-fill the remaining height).
+   min-width is a floor, not 0: the worktree column is the one that shrinks when the window gets narrow (it
+   holds its --wt-col-w basis otherwise), so without a floor here the centre would collapse to nothing. */
+.cockpit-view__main { flex: 1; min-width: 320px; display: flex; flex-direction: column; min-height: 0; gap: var(--space-3); }
 .cockpit-view__tabs { display: flex; gap: var(--space-4); border-bottom: 1px solid var(--bdr); flex: 0 0 auto; }
 .cockpit-view__tab { background: none; border: none; color: var(--tx-2); cursor: pointer; padding: 6px 2px; margin-bottom: -1px; font-size: var(--fs-lg); border-bottom: 2px solid transparent; transition: color 200ms ease-out; }
 .cockpit-view__tab:hover { color: var(--tx); }
@@ -15,10 +17,12 @@
 .cockpit-view__center > * { flex: 1; }
 .cockpit-view__diff-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--tx-3); font-size: var(--fs-md); }
 
-/* min-width: 0 is load-bearing: a freshly-mounted xterm is 80 cols (~588px) wide before FitAddon runs,
-   and the default min-width:auto would let that inflate the column past its 500px basis on mount
+/* Same width as one worktree tile in the Worktrees view (--wt-col-w) so switching views never re-fits the
+   terminals — a narrower column here rewrapped Claude's TUI and made it hard to read.
+   min-width: 0 is load-bearing: a freshly-mounted xterm is 80 cols (~588px) wide before FitAddon runs,
+   and the default min-width:auto would let that inflate the column past its basis on mount
    (visible shrink-back as fit converges). */
-.cockpit-view__worktree { flex: 0 0 500px; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+.cockpit-view__worktree { flex: 0 1 var(--wt-col-w); min-width: 0; display: flex; flex-direction: column; min-height: 0; }
 .cockpit-view__worktree > * { flex: 1; min-height: 0; }
 
 /* Diff view: refresh/asof bar, scrollable stat-list, expandable colorized hunks. Lives in the center column. */
