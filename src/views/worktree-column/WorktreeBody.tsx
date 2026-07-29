@@ -1,4 +1,4 @@
-// WorktreeBody.tsx — the worktree slot body: chips + path + dynamic panes (claude always; host via Run; extra shells via Add) + the bottom Run/Add bar.
+// WorktreeBody.tsx — the worktree slot body: chips + dynamic panes (claude always; host via Run; extra shells via Add) + the bottom Run/Add bar.
 import type { ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";

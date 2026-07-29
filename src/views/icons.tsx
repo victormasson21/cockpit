@@ -156,7 +156,7 @@ export function InfoIcon() {
     <svg viewBox="0 0 16 16" {...base} aria-hidden="true">
       <circle cx="8" cy="8" r="6" />
       <path d="M8 7.2v4" />
-      <path d="M8 4.9v.4" />
+      <path d="M8 4.6v.3" />
     </svg>
   );
 }

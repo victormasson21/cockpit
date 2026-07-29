@@ -1,4 +1,4 @@
-/* WorktreeColumn.css — full-bleed column split by a divider: header (branch icon + heading-picker + gear), chips, path, spaced pane cards, links. */
+/* WorktreeColumn.css — full-bleed column split by a divider: header (branch icon + heading-picker + gear), chips, the info popup, spaced pane cards, links. */
 .wt-col {
   flex: 1 1 0; min-width: 0; display: flex; flex-direction: column;
   border-right: 1px solid var(--divider); overflow: hidden;
@@ -90,10 +90,13 @@
 .wt-info__pop {
   display: none; position: absolute; top: 100%; left: 0; z-index: 10; margin-top: 4px;
   background: var(--surface); border: 1px solid var(--bdr); border-radius: var(--r);
-  box-shadow: var(--menu-shadow); padding: var(--space-1); gap: 2px; white-space: nowrap;
+  box-shadow: var(--menu-shadow); padding: var(--space-1); white-space: nowrap;
 }
+/* invisible 4px bridge across the margin gap: the band above the popup belongs to .wt-info's
+   ancestors, so without it :hover drops the instant the pointer leaves the button. */
+.wt-info__pop::before { content: ""; position: absolute; left: 0; right: 0; top: -4px; height: 4px; }
 .wt-info:hover .wt-info__pop,
-.wt-info:focus-within .wt-info__pop { display: flex; flex-direction: column; }
+.wt-info:focus-within .wt-info__pop { display: flex; flex-direction: column; gap: 2px; }
 /* identical type to the details row this replaced: mono, --fs-xs, --tx-3 */
 .wt-info__row {
   display: flex; align-items: center; gap: 6px; padding: 2px 6px;
@@ -126,7 +129,7 @@
 .wt-attention { color: var(--bg-0); background: var(--bad); border-radius: var(--r-sm); padding: 1px 6px; font-size: var(--fs-2xs); font-weight: 700; }
 
 /* Calm variant: declutter to switcher + Claude terminal, centred and floating.
-   No divider, gear menu, chips, path, or pane card — those come off via .wt-col--calm here
+   No divider, gear menu, chips, or pane card — those come off via .wt-col--calm here
    and in WorktreePane.css. The terminal is width-constrained + centred so it floats. */
 .wt-col--calm { border-right: none; }
 /* header only renders for scratch/pending in calm (a worktree's switcher moves into the pane header) */

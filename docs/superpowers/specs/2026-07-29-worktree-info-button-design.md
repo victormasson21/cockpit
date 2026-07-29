@@ -97,8 +97,9 @@ rows with the right glyphs and values, the old row is gone, and nothing else in 
 
 ## Out of scope
 
-- Click-to-pin-open, or the popup surviving pointer travel to its own body (hover on the wrapper
-  covers the popup, since it is a descendant — no gap to cross).
+- Click-to-pin-open. (The popup is a descendant of the hovered wrapper, but `margin-top` still
+  leaves a gap between them; a `::before` bridge on the popup covers that gap so pointer travel
+  from the ⓘ down onto the popup keeps it open.)
 - Showing full paths rather than basenames.
 - Copy-to-clipboard on a row.
 - A folder image asset to match the PNG glyph family.
