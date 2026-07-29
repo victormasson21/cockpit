@@ -89,8 +89,9 @@ interface SettingsState {
   restoredWorktrees: Record<string, true>;
   clearRestored: (id: string) => void;
   setDefaultView: (v: View) => void;
-  // Session-only dynamic pane set per worktree (claude + Run host + Add shells). Not persisted:
-  // the Rust PTY registry dies with the app, so on restart every worktree is Claude-only again.
+  // Dynamic pane set per worktree (claude + Run host + Add shells), restored from the persisted
+  // workspace block on launch. The Rust PTY registry still dies with the app, so a restored pane is a
+  // brand-new process (no scrollback) — only which panes exist and their collapse state come back.
   worktreePanes: Record<string, WorktreePaneSet>;
   runHostPane: (id: string) => void;
   addShellPane: (id: string) => void;
@@ -221,7 +222,8 @@ export const useSettings = create<SettingsState>((set, get) => {
   // Reorder within a section via the pure helper (cross-section drops are no-ops).
   reorderTodo: (draggedId, targetId) =>
     get().setCockpit((c) => ({ ...c, todos: reorderWithinState(c.todos, draggedId, targetId) })),
-  // Slots are session-only display state: which entity shows in each responsive column, keyed by slot.key.
+  // Slots (which entity shows in each responsive column) persist via the workspace block; only slot.key
+  // itself stays session-only (a fresh reconciliation id minted each launch, meaningless on disk).
   setSlot: (key, id) => setSession((st) => ({ slots: setSlotId(st.slots, key, id) })),
   // The `+` rail: append one empty column (no-op at the 3-column cap). withMint advances slotSeq.
   addEmptySlot: () => setSession((st) => withMint(st, (m) => addEmptySlotFn(st.slots, m))),
@@ -249,7 +251,8 @@ export const useSettings = create<SettingsState>((set, get) => {
     if (view === "cockpit") get().setCockpitWorktree(id);
     setSession((st) => withMint(st, (m) => (view === "cockpit" ? fillEntity(st.slots, id, m) : placeEntity(st.slots, id, m))));
   },
-  // Scratch terminals are session-only single-shell entities; a monotonic seq keeps ids/titles unique.
+  // Scratch terminals are single-shell entities that persist via the workspace block (pruned to the
+  // ones still referenced by a slot/pin at save time); a monotonic seq keeps ids/titles unique.
   // Creation only — placement into a slot is placeNewEntity's job (view-dependent).
   addScratch: () => {
     const n = get().scratchSeq + 1;
@@ -261,7 +264,8 @@ export const useSettings = create<SettingsState>((set, get) => {
     get().setCockpit((c) => ({ ...c, cockpitWorktreeId: c.cockpitWorktreeId === id ? undefined : c.cockpitWorktreeId }));
     setSession((st) => ({ scratchTerminals: st.scratchTerminals.filter((s) => s.id !== id), slots: clearEntity(st.slots, id) }));
   },
-  // Session-only: overwrite a scratch terminal's display title in place (scratch is never persisted).
+  // Overwrite a scratch terminal's display title in place; persists via the workspace block like the
+  // rest of scratchTerminals.
   renameScratch: (id, title) =>
     setSession((st) => ({ scratchTerminals: st.scratchTerminals.map((s) => (s.id === id ? { ...s, title } : s)) })),
   clearWorktreeError: () => set({ worktreeError: null }),

@@ -34,10 +34,14 @@ behaviour; the `cockpitWorktreeId` pin (already persisted).
 ## C. Clean shutdown
 
 `pty.rs` gains `PtyManager::kill_all()`: drain the whole registry, `child.kill()` each entry, drop the
-masters. Dropping a master closes the master fd, which makes the kernel send `SIGHUP` to the pty's
-foreground process group — **that** is the mechanism that reaches grandchildren like `claude` and
-`npm run dev`; killing the login shell alone would not. This mirrors the existing per-pane `pty_kill`,
-which the pane Close button already relies on.
+masters. `child.kill()` is portable-pty's unix `ChildKiller` impl for `std::process::Child`: it sends
+`SIGHUP` directly to the shell's pid (escalating to `SIGKILL` only if the shell is still alive after a
+short grace period), and the shell — a session leader — forwards that HUP to its job-control children —
+**that** is the mechanism that reaches grandchildren like `claude` and `npm run dev`; killing the login
+shell with `SIGKILL` instead would not, since a killed-not-hupped shell never gets to relay anything.
+Dropping the master is incidental here, not the mechanism: the master fd is dup'd three times (the
+registry entry, the reader thread, the writer), so dropping one copy doesn't hang up the line. This
+mirrors the existing per-pane `pty_kill`, which the pane Close button already relies on.
 
 `lib.rs` switches from `.run(tauri::generate_context!())` to `.build(...)` + `.run(|app, event| …)` and
 calls `kill_all()` on `RunEvent::Exit`, which covers both Cmd+Q and closing the last window.
@@ -132,6 +136,11 @@ land on a bare shell showing an error. Known trade-off: if you resume a session 
 a non-zero status, the fallback relaunches it fresh. The alternative — probing
 `~/.claude/projects/<mangled-cwd>/` for a session file before choosing the command — was rejected as it
 depends on an undocumented internal layout.
+
+Known trade-off (pre-existing, not a regression from this branch): if the app quits between
+`createWorktree` resolving and the Claude pane's first `pty_ensure`, `worktree.prompt` persists but the
+session-only `initialPromptPending` flag does not, so on relaunch the pane takes the restored-branch path
+and the deduce prompt is never auto-sent — the copy-prompt button remains as the fallback.
 
 "Restored" is session-only state (`restoredWorktrees: Record<string, true>`), cleared on the Claude pane's
 first spawn via the existing `onEnsured` hook — the same idiom as `initialPromptPending`. So only the first

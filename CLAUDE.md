@@ -560,7 +560,9 @@ prompt pre-filled + the error**. **Checkout / existing-branch flow is untouched.
   Claude-only, all open). The persisted **`paneOpen` field was deleted** (TS `PaneOpenState` + Rust `PaneOpen`
   / `pane_open`; legacy `cockpit.json` still loads — serde ignores unknown fields, proven by
   `worktree_ignores_legacy_pane_open`), so pane existence AND collapse/expand are session-only now: on
-  restart every worktree is Claude-only again. **Close on host/extras REMOVES the pane** (`WorktreePane`'s new
+  restart every worktree is Claude-only again. **Superseded 2026-07-29 (session restore):** pane sets are
+  now restored from the persisted `workspace` block's `panes` map — see that note below; the underlying
+  PTY processes are still session-only (a restored pane starts bare). **Close on host/extras REMOVES the pane** (`WorktreePane`'s new
   optional `onClose`: `pty_kill` + `removeWorktreePane` + clear attention); Close on the Claude pane keeps the
   built-in respawn-bare behavior (it can't be removed). Extra shells arm the attention highlight
   (`isAttentionRole` now matches `shell-<n>`). **Teardown/Pause kill the LIVE pane set** —
@@ -645,9 +647,12 @@ both Important findings fixed (in-batch dedupe, history pagination).
 
 - **Session restore + clean shutdown (2026-07-29).** Quitting now stops what the app started and
   reopening restores the previous arrangement. **Shutdown:** `PtyManager::kill_all()` (`pty.rs`) drains the
-  registry, kills each child AND drops each master — closing the master fd is what SIGHUPs the pty's
-  foreground process group, so grandchildren (`claude`, `npm run dev`) die too; killing the login shell
-  alone would orphan them. Hooked on `RunEvent::Exit` in `lib.rs` (covers Cmd+Q and last-window close),
+  registry, kills each child AND drops each master — `child.kill()` (portable-pty's unix `ChildKiller` for
+  `std::process::Child`) is what actually does the work: it sends `SIGHUP` to the shell's pid, and the
+  shell (a session leader) forwards that HUP to its job-control children, killing grandchildren (`claude`,
+  `npm run dev`) too; dropping the master is incidental (the fd is dup'd three times, so one drop doesn't
+  hang up the line), and killing the login shell with `SIGKILL` instead would orphan them, since a killed
+  shell never gets to relay anything. Hooked on `RunEvent::Exit` in `lib.rs` (covers Cmd+Q and last-window close),
   which required switching `.run(generate_context!())` → `.build(…)` + `.run(|handle, event| …)`.
   **Restore:** a new **`Option<Workspace>`** block in `cockpit.json` — `slots` (entity ids in column
   order, `null` = shown-but-empty), `scratch` (+ `scratchSeq`), and `panes` (the per-worktree

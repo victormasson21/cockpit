@@ -1,4 +1,5 @@
-// paneSet.ts — pure helpers for a worktree's session-only dynamic pane set (claude + optional host + extra shells).
+// paneSet.ts — pure helpers for a worktree's dynamic pane set (claude + optional host + extra shells);
+// persists via the workspace block, though the live PTY processes themselves do not (a restored pane starts bare).
 
 export type WorktreePaneSet = {
   host: boolean; // Run pressed and pane not closed

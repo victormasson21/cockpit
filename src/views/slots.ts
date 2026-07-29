@@ -1,4 +1,5 @@
-// slots.ts — pure helpers for the Worktrees view's responsive column slots (session-only; not persisted).
+// slots.ts — pure helpers for the Worktrees view's responsive column slots (persisted via the workspace
+// block; slot.key itself stays session-only, a reconciliation id minted fresh each launch).
 // A slot = { key, id }: `key` is a stable per-column identity so reflow never remounts surviving
 // terminals; `id` is the entity shown (null = a shown-but-empty slot the user is about to fill).
 import type { Worktree } from "../settings/types";
@@ -70,7 +71,8 @@ export function swapSlots(slots: Slots, keyA: string, keyB: string): Slots {
   return next;
 }
 
-// A scratch terminal: a session-only single-shell entity that can occupy a slot (no repo/branch).
+// A scratch terminal: a single-shell entity that can occupy a slot (no repo/branch); persists via the
+// workspace block, pruned to slot/pin-referenced ones at save time.
 export type ScratchTerminal = { id: string; title: string };
 
 // A pending worktree: a session-only placeholder occupying a slot while deduce + create run in the

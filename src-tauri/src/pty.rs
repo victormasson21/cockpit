@@ -37,9 +37,15 @@ pub struct PtyManager {
 }
 
 impl PtyManager {
-    // Stop every live PTY (app shutdown). Killing the login shell is not enough on its own: dropping
-    // the master closes its fd, which makes the kernel SIGHUP the pty's foreground process group —
-    // that is what reaches grandchildren like `claude` or a `npm run dev` server. Returns the count killed.
+    // Stop every live PTY (app shutdown). `child.kill()` is portable-pty's unix ChildKiller impl for
+    // std::process::Child: it sends SIGHUP directly to the shell's pid (escalating to SIGKILL only if
+    // the shell is still alive after a short grace period), and the shell — a session leader — forwards
+    // that HUP to its job-control children, which is what actually reaches grandchildren like `claude`
+    // or a `npm run dev` server. Dropping the master here is incidental, not the mechanism: the master
+    // fd is dup'd three times (this struct, the reader thread, the writer), so dropping one copy does
+    // not hang up the line. Do not "simplify" this to an explicit SIGKILL — SIGKILL can't be handled,
+    // so the shell would never get the chance to relay it and grandchild cleanup would break. Returns
+    // the count killed.
     pub fn kill_all(&self) -> usize {
         let mut table = self.table.lock().unwrap();
         let n = table.len();

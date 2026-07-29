@@ -160,11 +160,18 @@ pub struct ScratchTerminal {
 
 // One worktree's live pane set: whether the Run/host pane exists, the extra shells, the monotonic role
 // counter, and each pane's collapse state. Mirrors WorktreePaneSet in src/worktrees/paneSet.ts.
+// Fields are #[serde(default)] (unlike Workspace's own, which lean on the Option<Workspace> boundary
+// instead): this is the shape most likely to drift as the frontend type evolves, and a missing field
+// should fall back to a default rather than fail the whole cockpit.json load.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PaneSet {
+    #[serde(default)]
     pub host: bool,
+    #[serde(default)]
     pub extras: Vec<String>,
+    #[serde(default)]
     pub seq: u32,
+    #[serde(default)]
     pub open: std::collections::HashMap<String, bool>,
 }
 
@@ -200,9 +207,9 @@ pub struct CockpitConfig {
     // The Cockpit view's single right-column worktree slot (persisted; the Worktrees-view slots are session-only).
     #[serde(rename = "cockpitWorktreeId", default, skip_serializing_if = "Option::is_none")]
     pub cockpit_worktree_id: Option<String>,
-    // The previous session's arrangement (slots / scratch / pane sets). Option, NOT #[serde(default)]:
-    // absent means "pre-feature file, seed the slots the old way", while Some with empty slots means
-    // "the user really had every column closed".
+    // The previous session's arrangement (slots / scratch / pane sets). An Option, not a defaulted bare
+    // Workspace struct: absent means "pre-feature file, seed the slots the old way", while Some with
+    // empty slots means "the user really had every column closed".
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workspace: Option<Workspace>,
     pub preferences: Preferences,
