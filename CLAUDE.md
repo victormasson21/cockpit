@@ -652,8 +652,8 @@ both Important findings fixed (in-batch dedupe, history pagination).
   **Restore:** a new **`Option<Workspace>`** block in `cockpit.json` — `slots` (entity ids in column
   order, `null` = shown-but-empty), `scratch` (+ `scratchSeq`), and `panes` (the per-worktree
   `WorktreePaneSet`, collapse state included — this brings back the `paneOpen`-style persistence the
-  lazy-panes iteration deleted, now covering pane *existence* too). It's `Option`, **not**
-  `#[serde(default)]`, deliberately: **absent** = pre-feature file → fall back to the old
+  lazy-panes iteration deleted, now covering pane *existence* too). It's an `Option` field, **not**
+  a defaulted bare `Workspace` struct, deliberately: **absent** = pre-feature file → fall back to the old
   `initSlots` (first 3 ongoing), **`Some` with empty slots** = the user really closed every column.
   **No duplicated state:** session state stays the source of truth and the block is composed at *write*
   time — `scheduleSave` calls `withWorkspace(cockpit, state)` (pure, in the new `src/settings/workspace.ts`
