@@ -5,6 +5,7 @@ import type { CockpitConfig, Worktree } from "./types";
 
 // Mock the IPC layer so the debounced save never reaches Tauri in tests.
 vi.mock("./api", () => ({ saveSettings: vi.fn().mockResolvedValue(undefined) }));
+import { saveSettings } from "./api";
 // Mock the worktree IPC calls the deduce→create background chain makes.
 vi.mock("../worktrees/api", () => ({ deduceWorktree: vi.fn(), createWorktree: vi.fn() }));
 import { deduceWorktree, createWorktree } from "../worktrees/api";
@@ -408,6 +409,75 @@ describe("startDeduceWorktree — pending worktree flow", () => {
     useSettings.setState({ worktreeError: { prompt: "p", message: "m" } });
     useSettings.getState().clearWorktreeError();
     expect(useSettings.getState().worktreeError).toBeNull();
+  });
+});
+
+describe("session restore", () => {
+  const layout = { version: 1, views: {} };
+  const three: Worktree[] = [sampleWt, { ...sampleWt, id: "wt-2" }, { ...sampleWt, id: "wt-3" }];
+
+  // The store is module-global and `init` only writes the keys its branch owns — the fallback branch
+  // deliberately leaves scratch/panes/restored alone. Reset here or an earlier test leaks into the next.
+  beforeEach(() => {
+    useSettings.setState({
+      slots: [], slotSeq: 0, scratchTerminals: [], scratchSeq: 0,
+      worktreePanes: {}, restoredWorktrees: {},
+    });
+  });
+
+  it("init restores the persisted arrangement instead of the first-ongoing default", () => {
+    const cockpit: CockpitConfig = {
+      ...structuredClone(baseCockpit),
+      worktrees: three,
+      workspace: {
+        slots: ["wt-3", null],
+        scratch: [{ id: "scratch-1", title: "Scratch 1" }],
+        scratchSeq: 1,
+        panes: { "wt-3": { host: true, extras: [], seq: 0, open: {} } },
+      },
+    };
+    useSettings.getState().init({ cockpit, layout });
+    const st = useSettings.getState();
+    expect(slotIds()).toEqual(["wt-3", null]);
+    expect(st.scratchTerminals).toEqual([{ id: "scratch-1", title: "Scratch 1" }]);
+    expect(st.worktreePanes["wt-3"].host).toBe(true);
+    expect(st.restoredWorktrees).toEqual({ "wt-3": true });
+  });
+
+  it("init falls back to the first ongoing worktrees when the file has no workspace block", () => {
+    const cockpit: CockpitConfig = { ...structuredClone(baseCockpit), worktrees: three };
+    useSettings.getState().init({ cockpit, layout });
+    expect(slotIds()).toEqual(["wt-1", "wt-2", "wt-3"]);
+    expect(useSettings.getState().restoredWorktrees).toEqual({});
+  });
+
+  it("clearRestored drops one flag and no-ops on an unflagged id", () => {
+    useSettings.setState({ restoredWorktrees: { "wt-1": true } });
+    const before = useSettings.getState().restoredWorktrees;
+    useSettings.getState().clearRestored("wt-9");
+    expect(useSettings.getState().restoredWorktrees).toBe(before); // referentially unchanged
+    useSettings.getState().clearRestored("wt-1");
+    expect(useSettings.getState().restoredWorktrees).toEqual({});
+  });
+
+  // A session-only change (no setCockpit call) must still reach disk, or the arrangement is lost.
+  it("a slots-only change schedules a save carrying the workspace block", () => {
+    vi.useFakeTimers();
+    vi.mocked(saveSettings).mockClear();
+    useSettings.getState().init({ cockpit: structuredClone(baseCockpit), layout });
+    useSettings.getState().addEmptySlot();
+    vi.advanceTimersByTime(600);
+    // tsconfig's lib target (ES2020) predates Array.prototype.at; index from the end instead.
+    const calls = vi.mocked(saveSettings).mock.calls;
+    const written = calls[calls.length - 1][0];
+    expect(written.cockpit.workspace).toEqual({ slots: [null], scratch: [], scratchSeq: 0, panes: {} });
+    vi.useRealTimers();
+  });
+
+  it("setDefaultView persists the active view as the launch view", () => {
+    useSettings.getState().init({ cockpit: structuredClone(baseCockpit), layout });
+    useSettings.getState().setDefaultView("cockpit");
+    expect(useSettings.getState().cockpit.preferences.defaultView).toBe("cockpit");
   });
 });
 

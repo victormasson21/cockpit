@@ -10,6 +10,7 @@ import { makeWorktree, sourceLinkFrom, branchSpecFrom } from "../worktrees/model
 import { runHost, addExtra, removePane, togglePane, expandPane, EMPTY_PANE_SET, type WorktreePaneSet } from "../worktrees/paneSet";
 import { tick } from "../tiles/timer/timer";
 import { effectiveContext, type WorktreeSource } from "../worktrees/worktreeContext";
+import { restoreWorkspace, withWorkspace } from "./workspace";
 
 const TIMER_DEFAULT_MIN = 25;
 
@@ -83,6 +84,11 @@ interface SettingsState {
   // Session-only "send the deduce prompt on the claude pane's first spawn" flags, keyed by worktree id. Not persisted.
   initialPromptPending: Record<string, true>;
   clearInitialPrompt: (id: string) => void;
+  // Session-only "this worktree came back from the previous session" flags, keyed by worktree id.
+  // Read by the claude pane to resume the conversation; cleared on its first spawn. Not persisted.
+  restoredWorktrees: Record<string, true>;
+  clearRestored: (id: string) => void;
+  setDefaultView: (v: View) => void;
   // Session-only dynamic pane set per worktree (claude + Run host + Add shells). Not persisted:
   // the Rust PTY registry dies with the app, so on restart every worktree is Claude-only again.
   worktreePanes: Record<string, WorktreePaneSet>;
@@ -108,8 +114,11 @@ let saveTimer: ReturnType<typeof setTimeout> | undefined;
 function scheduleSave(get: () => SettingsState) {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    const { cockpit, layout } = get();
-    saveSettings({ cockpit, layout }).catch((e) => console.error("save failed", e));
+    const st = get();
+    // The workspace block is composed HERE, from live session state, so the in-memory cockpit never
+    // holds a copy that could drift out of sync with the slots/panes actually on screen.
+    saveSettings({ cockpit: withWorkspace(st.cockpit, st), layout: st.layout })
+      .catch((e) => console.error("save failed", e));
   }, 500);
 }
 
@@ -122,7 +131,16 @@ function withMint(st: { slotSeq: number }, fn: (mint: () => string) => Slots): {
   return { slots: fn(mint), slotSeq: seq };
 }
 
-export const useSettings = create<SettingsState>((set, get) => ({
+export const useSettings = create<SettingsState>((set, get) => {
+  // setSession: for the session state the persisted `workspace` block covers (slots, scratch, pane sets).
+  // Same as set(), plus the debounced disk write setCockpit already triggers — so the arrangement is
+  // restored next launch. Typed explicitly rather than as `typeof set`: zustand's setState is overloaded,
+  // and a rest-spread wrapper over it does not typecheck.
+  const setSession = (patch: Partial<SettingsState> | ((st: SettingsState) => Partial<SettingsState>)) => {
+    set(patch);
+    scheduleSave(get);
+  };
+  return {
   cockpit: { version: 1, tiles: [], worktrees: [], knownRepos: [], integrations: {}, todos: [], worktreeContexts: {}, preferences: { theme: "system", defaultView: "worktrees" } },
   layout: { version: 1, views: {} },
   loaded: false,
@@ -138,11 +156,29 @@ export const useSettings = create<SettingsState>((set, get) => ({
   timerRunning: false,
   attention: {},
   initialPromptPending: {},
+  restoredWorktrees: {},
   worktreePanes: {},
   fontScale: 1,
   init: (s) => set((st) => {
-    const { slots, slotSeq } = withMint(st, (m) => initSlots(s.cockpit.worktrees, m));
-    return { cockpit: s.cockpit, layout: s.layout, loaded: true, slots, slotSeq, fontScale: clampZoom(s.cockpit.preferences.fontScale ?? 1) };
+    const base = {
+      cockpit: s.cockpit, layout: s.layout, loaded: true,
+      fontScale: clampZoom(s.cockpit.preferences.fontScale ?? 1),
+    };
+    let seq = st.slotSeq;
+    const mint = () => { seq += 1; return `slot-${seq}`; };
+    // No workspace block = a pre-feature config: seed the slots the old way (first 3 ongoing worktrees).
+    if (!s.cockpit.workspace) {
+      return { ...base, slots: initSlots(s.cockpit.worktrees, mint), slotSeq: seq };
+    }
+    const r = restoreWorkspace(s.cockpit.workspace, s.cockpit.worktrees, mint, s.cockpit.cockpitWorktreeId);
+    return {
+      ...base, slotSeq: seq,
+      slots: r.slots,
+      scratchTerminals: r.scratchTerminals,
+      scratchSeq: r.scratchSeq,
+      worktreePanes: r.worktreePanes,
+      restoredWorktrees: r.restoredWorktrees,
+    };
   }),
   setCockpit: (next) => {
     set((st) => ({ cockpit: typeof next === "function" ? next(st.cockpit) : next }));
@@ -162,8 +198,9 @@ export const useSettings = create<SettingsState>((set, get) => ({
       worktrees: c.worktrees.filter((w) => w.id !== id),
       cockpitWorktreeId: c.cockpitWorktreeId === id ? undefined : c.cockpitWorktreeId,
     }));
-    set((st) => ({ slots: clearEntity(st.slots, id) }));
+    setSession((st) => ({ slots: clearEntity(st.slots, id) }));
     get().clearInitialPrompt(id); // sweep the one-shot flag if the pane never consumed it
+    get().clearRestored(id); // the worktree is gone; nothing to resume
     get().resetWorktreePanes(id); // the pane set is meaningless once the worktree is gone
   },
   // To-do items persist in cockpit.json; ids are random so they survive restarts without a counter.
@@ -185,14 +222,14 @@ export const useSettings = create<SettingsState>((set, get) => ({
   reorderTodo: (draggedId, targetId) =>
     get().setCockpit((c) => ({ ...c, todos: reorderWithinState(c.todos, draggedId, targetId) })),
   // Slots are session-only display state: which entity shows in each responsive column, keyed by slot.key.
-  setSlot: (key, id) => set((st) => ({ slots: setSlotId(st.slots, key, id) })),
+  setSlot: (key, id) => setSession((st) => ({ slots: setSlotId(st.slots, key, id) })),
   // The `+` rail: append one empty column (no-op at the 3-column cap). withMint advances slotSeq.
-  addEmptySlot: () => set((st) => withMint(st, (m) => addEmptySlotFn(st.slots, m))),
+  addEmptySlot: () => setSession((st) => withMint(st, (m) => addEmptySlotFn(st.slots, m))),
   // Close/Pause/teardown remove a column entirely; the layout reflows. No mint → slotSeq unchanged.
-  removeSlot: (key) => set((st) => ({ slots: removeSlotFn(st.slots, key) })),
+  removeSlot: (key) => setSession((st) => ({ slots: removeSlotFn(st.slots, key) })),
   // Swap two adjacent columns' positions (the on-divider swap button). Keys move with their slots, so
   // the terminals reorder without remounting.
-  swapSlots: (keyA, keyB) => set((st) => ({ slots: swapSlotsFn(st.slots, keyA, keyB) })),
+  swapSlots: (keyA, keyB) => setSession((st) => ({ slots: swapSlotsFn(st.slots, keyA, keyB) })),
   // Text zoom: set the (clamped) multiplier as session state AND persist it into preferences — same
   // idiom as setSlotCount. App applies it to <html> as --font-scale; useTerminal reads it for xterm.
   setFontScale: (n) => {
@@ -210,23 +247,23 @@ export const useSettings = create<SettingsState>((set, get) => ({
   // (fillEntity — no eviction).
   placeNewEntity: (id: string, view: View) => {
     if (view === "cockpit") get().setCockpitWorktree(id);
-    set((st) => withMint(st, (m) => (view === "cockpit" ? fillEntity(st.slots, id, m) : placeEntity(st.slots, id, m))));
+    setSession((st) => withMint(st, (m) => (view === "cockpit" ? fillEntity(st.slots, id, m) : placeEntity(st.slots, id, m))));
   },
   // Scratch terminals are session-only single-shell entities; a monotonic seq keeps ids/titles unique.
   // Creation only — placement into a slot is placeNewEntity's job (view-dependent).
   addScratch: () => {
     const n = get().scratchSeq + 1;
     const id = `scratch-${n}`;
-    set((st) => ({ scratchSeq: n, scratchTerminals: [...st.scratchTerminals, { id, title: `Scratch ${n}` }] }));
+    setSession((st) => ({ scratchSeq: n, scratchTerminals: [...st.scratchTerminals, { id, title: `Scratch ${n}` }] }));
     return id;
   },
   removeScratch: (id) => {
     get().setCockpit((c) => ({ ...c, cockpitWorktreeId: c.cockpitWorktreeId === id ? undefined : c.cockpitWorktreeId }));
-    set((st) => ({ scratchTerminals: st.scratchTerminals.filter((s) => s.id !== id), slots: clearEntity(st.slots, id) }));
+    setSession((st) => ({ scratchTerminals: st.scratchTerminals.filter((s) => s.id !== id), slots: clearEntity(st.slots, id) }));
   },
   // Session-only: overwrite a scratch terminal's display title in place (scratch is never persisted).
   renameScratch: (id, title) =>
-    set((st) => ({ scratchTerminals: st.scratchTerminals.map((s) => (s.id === id ? { ...s, title } : s)) })),
+    setSession((st) => ({ scratchTerminals: st.scratchTerminals.map((s) => (s.id === id ? { ...s, title } : s)) })),
   clearWorktreeError: () => set({ worktreeError: null }),
   // startDeduceWorktree: place a spinning pending tile immediately, then run deduce→create in the
   // background (this action outlives the modal, so the fire-and-forget async survives modal close).
@@ -269,7 +306,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
         }));
         // Swap in place across both slot surfaces, then drop the pending entity.
         // The initial-send flag arms the claude pane's one-shot prompt autostart (cleared on first ensure).
-        set((st) => ({
+        setSession((st) => ({
           slots: swapSlotId(st.slots, pendingId, realId),
           pendingWorktrees: st.pendingWorktrees.filter((p) => p.id !== pendingId),
           initialPromptPending: { ...st.initialPromptPending, [realId]: true },
@@ -277,7 +314,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
         get().setCockpit((c) => (c.cockpitWorktreeId === pendingId ? { ...c, cockpitWorktreeId: realId } : c));
       } catch (e) {
         // Discard the tile + clear its slot(s), and signal App to reopen the modal prefilled.
-        set((st) => ({
+        setSession((st) => ({
           pendingWorktrees: st.pendingWorktrees.filter((p) => p.id !== pendingId),
           slots: clearEntity(st.slots, pendingId),
           worktreeError: { prompt, message: String(e) },
@@ -317,20 +354,29 @@ export const useSettings = create<SettingsState>((set, get) => ({
       const { [id]: _, ...rest } = st.initialPromptPending;
       return { initialPromptPending: rest };
     }),
+  // No-op (same object) when absent, so clearing an unflagged worktree never triggers a re-render.
+  clearRestored: (id) =>
+    set((st) => {
+      if (!st.restoredWorktrees[id]) return st;
+      const { [id]: _, ...rest } = st.restoredWorktrees;
+      return { restoredWorktrees: rest };
+    }),
+  // The view you switch to becomes the view you launch into (defaultView has no other writer).
+  setDefaultView: (v) => get().setCockpit((c) => ({ ...c, preferences: { ...c.preferences, defaultView: v } })),
   // Pane-set actions: thin wrappers over the pure paneSet helpers, keyed by worktree id.
   runHostPane: (id) =>
-    set((st) => ({ worktreePanes: { ...st.worktreePanes, [id]: runHost(st.worktreePanes[id] ?? EMPTY_PANE_SET) } })),
+    setSession((st) => ({ worktreePanes: { ...st.worktreePanes, [id]: runHost(st.worktreePanes[id] ?? EMPTY_PANE_SET) } })),
   addShellPane: (id) =>
-    set((st) => ({ worktreePanes: { ...st.worktreePanes, [id]: addExtra(st.worktreePanes[id] ?? EMPTY_PANE_SET) } })),
+    setSession((st) => ({ worktreePanes: { ...st.worktreePanes, [id]: addExtra(st.worktreePanes[id] ?? EMPTY_PANE_SET) } })),
   removeWorktreePane: (id, role) =>
-    set((st) => ({ worktreePanes: { ...st.worktreePanes, [id]: removePane(st.worktreePanes[id] ?? EMPTY_PANE_SET, role) } })),
+    setSession((st) => ({ worktreePanes: { ...st.worktreePanes, [id]: removePane(st.worktreePanes[id] ?? EMPTY_PANE_SET, role) } })),
   toggleWorktreePane: (id, role) =>
-    set((st) => ({ worktreePanes: { ...st.worktreePanes, [id]: togglePane(st.worktreePanes[id] ?? EMPTY_PANE_SET, role) } })),
+    setSession((st) => ({ worktreePanes: { ...st.worktreePanes, [id]: togglePane(st.worktreePanes[id] ?? EMPTY_PANE_SET, role) } })),
   expandWorktreePane: (id, role) =>
-    set((st) => ({ worktreePanes: { ...st.worktreePanes, [id]: expandPane(st.worktreePanes[id] ?? EMPTY_PANE_SET, role) } })),
+    setSession((st) => ({ worktreePanes: { ...st.worktreePanes, [id]: expandPane(st.worktreePanes[id] ?? EMPTY_PANE_SET, role) } })),
   // No-op (same object) when absent, so resetting an untouched worktree never re-renders.
   resetWorktreePanes: (id) =>
-    set((st) => {
+    setSession((st) => {
       if (!st.worktreePanes[id]) return st;
       const { [id]: _, ...rest } = st.worktreePanes;
       return { worktreePanes: rest };
@@ -378,4 +424,5 @@ export const useSettings = create<SettingsState>((set, get) => ({
     }),
   setWorktreeContext: (source, text) =>
     get().setCockpit((c) => ({ ...c, worktreeContexts: { ...c.worktreeContexts, [source]: text } })),
-}));
+  };
+});
