@@ -41,20 +41,24 @@ pub fn package_fields(pkg_json: &str) -> (String, String, serde_json::Value) {
     (name, description, scripts)
 }
 
-// routing_hint: a short signal for the lightweight deduce call — the first ~2 sentences of the
+// routing_hint: a short signal for the lightweight deduce call — the FIRST sentence of the
 // prompt, hard-capped at 200 chars (UTF-8 safe). Keeps step-1 (repo/branch pick) fast and focused
 // even when the prompt is long task context meant for the Claude work pane.
 pub fn routing_hint(prompt: &str) -> String {
-    // Walk chars, keeping bytes up to the end of the 2nd sentence-terminator (. ! ?).
+    // A sentence ends at a terminator (. ! ?) followed by whitespace/end-of-input — a dot glued to
+    // the next char is mid-token (store.ts, URLs, v2.1) — or at the first newline (title-style
+    // prompts: first line = hint). No boundary → the whole prompt.
     let mut end = prompt.len();
-    let mut sentences = 0;
-    for (i, c) in prompt.char_indices() {
-        if c == '.' || c == '!' || c == '?' {
-            sentences += 1;
-            if sentences == 2 {
-                end = i + c.len_utf8(); // include the terminator
-                break;
-            }
+    let mut chars = prompt.char_indices().peekable();
+    while let Some((i, c)) = chars.next() {
+        if c == '\n' {
+            end = i; // exclude the newline
+            break;
+        }
+        let at_boundary = chars.peek().is_none_or(|(_, next)| next.is_whitespace());
+        if matches!(c, '.' | '!' | '?') && at_boundary {
+            end = i + c.len_utf8(); // include the terminator
+            break;
         }
     }
     let sliced = &prompt[..end];
@@ -803,21 +807,36 @@ mod tests {
     }
 
     #[test]
-    fn routing_hint_takes_first_two_sentences() {
-        // Third sentence is dropped; first two are kept verbatim (with their terminators).
+    fn routing_hint_takes_first_sentence_only() {
+        // Everything after the first sentence is dropped; the terminator is kept.
         let out = routing_hint("Fix login. It 500s on submit. Also unrelated cleanup here.");
-        assert_eq!(out, "Fix login. It 500s on submit.");
+        assert_eq!(out, "Fix login.");
     }
 
     #[test]
     fn routing_hint_handles_question_and_bang_terminators() {
-        let out = routing_hint("Why is it slow? Make it fast! And more prose after.");
-        assert_eq!(out, "Why is it slow? Make it fast!");
+        assert_eq!(routing_hint("Why is it slow? Make it fast!"), "Why is it slow?");
+        assert_eq!(routing_hint("Make it fast! And more prose after."), "Make it fast!");
     }
 
     #[test]
-    fn routing_hint_fewer_than_two_sentences_returns_whole_prompt() {
+    fn routing_hint_dot_inside_token_does_not_end_sentence() {
+        // A dot not followed by whitespace (filename, URL, version) is mid-token, not a boundary.
+        let out = routing_hint("Fix the bug in store.ts where saving fails. Repro steps follow.");
+        assert_eq!(out, "Fix the bug in store.ts where saving fails.");
+    }
+
+    #[test]
+    fn routing_hint_newline_ends_the_hint() {
+        // Title-style prompts: the first line is the hint (newline excluded).
+        let out = routing_hint("Add dark mode toggle\nDetails: should live in settings.");
+        assert_eq!(out, "Add dark mode toggle");
+    }
+
+    #[test]
+    fn routing_hint_without_boundary_returns_whole_prompt() {
         assert_eq!(routing_hint("just one clause no terminator"), "just one clause no terminator");
+        // Terminator at end-of-input counts as a boundary; nothing is lost.
         assert_eq!(routing_hint("only one sentence."), "only one sentence.");
     }
 
