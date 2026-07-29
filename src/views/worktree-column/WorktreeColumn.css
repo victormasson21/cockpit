@@ -74,7 +74,34 @@
 .wt-chip--note { background: none; border: none; color: var(--tx-3); font-size: var(--fs-xs); align-self: center; }
 .wt-chip--note::before { display: none; }
 
-.wt-col__path { padding: 0 var(--space-3) var(--space-2); color: var(--tx-3); font-family: var(--mono); font-size: var(--fs-xs); }
+/* ⓘ at the head of the chips row: hover (or keyboard focus) reveals the worktree's identity rows.
+   CSS-only — no state to toggle, and the popup is a descendant of the hovered wrapper, so moving
+   the pointer onto it never breaks :hover. */
+.wt-info { position: relative; display: inline-flex; align-self: center; }
+/* reset the global button baseline (bg-3 fill, border, 6px 12px padding) so the trigger hugs the
+   row's leading edge; the hover tint it keeps from that baseline is deliberate. */
+.wt-info__btn {
+  display: inline-flex; align-items: center; line-height: 1;
+  background: none; border: none; padding: 1px 3px;
+  color: var(--tx-3); cursor: help; font-size: var(--fs-2xl);
+}
+.wt-info:hover .wt-info__btn { color: var(--tx); }
+/* same floating-popover family as the gear menu and the Dropdown list */
+.wt-info__pop {
+  display: none; position: absolute; top: 100%; left: 0; z-index: 10; margin-top: 4px;
+  background: var(--surface); border: 1px solid var(--bdr); border-radius: var(--r);
+  box-shadow: var(--menu-shadow); padding: var(--space-1); gap: 2px; white-space: nowrap;
+}
+.wt-info:hover .wt-info__pop,
+.wt-info:focus-within .wt-info__pop { display: flex; flex-direction: column; }
+/* identical type to the details row this replaced: mono, --fs-xs, --tx-3 */
+.wt-info__row {
+  display: flex; align-items: center; gap: 6px; padding: 2px 6px;
+  color: var(--tx-3); font-family: var(--mono); font-size: var(--fs-xs);
+}
+/* shrink the shared masked glyphs (15.6px by default) to sit level with --fs-xs text, and match its tint */
+.wt-info__row .wt-ico { width: 12px; height: 12px; background: var(--tx-3); }
+.wt-info__row svg { width: 12px; height: 12px; flex: 0 0 auto; }
 .wt-col__panes { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--space-2); padding: 0 var(--space-3) var(--space-2); }
 
 /* bottom action bar: Run (start the dev server) + Add (extra shell), 50/50 width. */
