@@ -1,4 +1,4 @@
-/* WorktreeColumn.css — full-bleed column split by a divider: header (branch icon + heading-picker + gear), chips, path, spaced pane cards, links. */
+/* WorktreeColumn.css — full-bleed column split by a divider: header (branch icon + heading-picker + gear), chips, the info popup, spaced pane cards, links. */
 .wt-col {
   flex: 1 1 0; min-width: 0; display: flex; flex-direction: column;
   border-right: 1px solid var(--divider); overflow: hidden;
@@ -41,21 +41,23 @@
 
 .wt-col__body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .wt-col__chips { display: flex; flex-wrap: wrap; gap: var(--space-1); padding: 0 var(--space-3) var(--space-2); }
-/* chips (ticket ids, PRs, localhost, links) = the info trio; kind is distinguished by marker shape */
+/* chips (ticket ids, PRs, localhost, links) = the info trio; source is distinguished by its logo */
 .wt-chip {
   display: inline-flex; align-items: center; gap: 6px;
   background: var(--info-bg); color: var(--info-tx); border: 1px solid var(--info-bdr);
   border-radius: var(--r-sm); padding: 2px 8px; font-size: var(--fs-xs); cursor: pointer;
 }
-/* per-kind leading marker: square for Linear, dot for the rest */
-.wt-chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--info-tx); flex: 0 0 auto; }
-.wt-chip--linear::before { border-radius: 2px; }
-/* localhost chip: swap the dot for a chrome glyph masked + tinted with the theme. */
-.wt-chip--localhost::before {
-  width: 14.4px; height: 14.4px; border-radius: 0; background: var(--info-tx);
-  -webkit-mask: url("../../assets/icons/chrome.png") center / contain no-repeat;
-  mask: url("../../assets/icons/chrome.png") center / contain no-repeat;
+/* leading logo, alpha-masked so it tints with the chip's text colour. Chainlink is the default;
+   a recognised source swaps only the mask image (the modifier is `linkGlyph`'s return value). */
+.wt-chip::before {
+  content: ""; width: 13px; height: 13px; flex: 0 0 auto; background: var(--info-tx);
+  -webkit-mask: url("../../assets/icons/link.svg") center / contain no-repeat;
+  mask: url("../../assets/icons/link.svg") center / contain no-repeat;
 }
+.wt-chip--linear::before { -webkit-mask-image: url("../../assets/icons/linear.png"); mask-image: url("../../assets/icons/linear.png"); }
+.wt-chip--pr::before { -webkit-mask-image: url("../../assets/icons/branch.png"); mask-image: url("../../assets/icons/branch.png"); }
+.wt-chip--figma::before { -webkit-mask-image: url("../../assets/icons/figma.png"); mask-image: url("../../assets/icons/figma.png"); }
+.wt-chip--localhost::before { -webkit-mask-image: url("../../assets/icons/chrome.png"); mask-image: url("../../assets/icons/chrome.png"); }
 .wt-chip:disabled { cursor: default; opacity: 0.8; }
 .wt-chip:not(:disabled):hover { color: var(--tx); border-color: var(--accent); }
 
@@ -74,7 +76,37 @@
 .wt-chip--note { background: none; border: none; color: var(--tx-3); font-size: var(--fs-xs); align-self: center; }
 .wt-chip--note::before { display: none; }
 
-.wt-col__path { padding: 0 var(--space-3) var(--space-2); color: var(--tx-3); font-family: var(--mono); font-size: var(--fs-xs); }
+/* ⓘ at the head of the chips row: hover (or keyboard focus) reveals the worktree's identity rows.
+   CSS-only — no state to toggle, and the popup is a descendant of the hovered wrapper, so moving
+   the pointer onto it never breaks :hover. */
+.wt-info { position: relative; display: inline-flex; align-self: center; }
+/* reset the global button baseline (bg-3 fill, border, 6px 12px padding) so the trigger hugs the
+   row's leading edge; the hover tint it keeps from that baseline is deliberate. */
+.wt-info__btn {
+  display: inline-flex; align-items: center; line-height: 1;
+  background: none; border: none; padding: 1px 3px;
+  color: var(--tx-3); cursor: help; font-size: var(--fs-2xl);
+}
+.wt-info:hover .wt-info__btn { color: var(--tx); }
+/* same floating-popover family as the gear menu and the Dropdown list */
+.wt-info__pop {
+  display: none; position: absolute; top: 100%; left: 0; z-index: 10; margin-top: 4px;
+  background: var(--surface); border: 1px solid var(--bdr); border-radius: var(--r);
+  box-shadow: var(--menu-shadow); padding: var(--space-1); white-space: nowrap;
+}
+/* invisible 4px bridge across the margin gap: the band above the popup belongs to .wt-info's
+   ancestors, so without it :hover drops the instant the pointer leaves the button. */
+.wt-info__pop::before { content: ""; position: absolute; left: 0; right: 0; top: -4px; height: 4px; }
+.wt-info:hover .wt-info__pop,
+.wt-info:focus-within .wt-info__pop { display: flex; flex-direction: column; gap: 2px; }
+/* identical type to the details row this replaced: mono, --fs-xs, --tx-3 */
+.wt-info__row {
+  display: flex; align-items: center; gap: 6px; padding: 2px 6px;
+  color: var(--tx-3); font-family: var(--mono); font-size: var(--fs-xs);
+}
+/* shrink the shared masked glyphs (15.6px by default) to sit level with --fs-xs text, and match its tint */
+.wt-info__row .wt-ico { width: 12px; height: 12px; background: var(--tx-3); }
+.wt-info__row svg { width: 12px; height: 12px; flex: 0 0 auto; }
 .wt-col__panes { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--space-2); padding: 0 var(--space-3) var(--space-2); }
 
 /* bottom action bar: Run (start the dev server) + Add (extra shell), 50/50 width. */
@@ -99,7 +131,7 @@
 .wt-attention { color: var(--bg-0); background: var(--bad); border-radius: var(--r-sm); padding: 1px 6px; font-size: var(--fs-2xs); font-weight: 700; }
 
 /* Calm variant: declutter to switcher + Claude terminal, centred and floating.
-   No divider, gear menu, chips, path, or pane card — those come off via .wt-col--calm here
+   No divider, gear menu, chips, or pane card — those come off via .wt-col--calm here
    and in WorktreePane.css. The terminal is width-constrained + centred so it floats. */
 .wt-col--calm { border-right: none; }
 /* header only renders for scratch/pending in calm (a worktree's switcher moves into the pane header) */

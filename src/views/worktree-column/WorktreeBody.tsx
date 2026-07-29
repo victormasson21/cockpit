@@ -1,4 +1,4 @@
-// WorktreeBody.tsx — the worktree slot body: chips + path + dynamic panes (claude always; host via Run; extra shells via Add) + the bottom Run/Add bar.
+// WorktreeBody.tsx — the worktree slot body: chips + dynamic panes (claude always; host via Run; extra shells via Add) + the bottom Run/Add bar.
 import type { ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -6,6 +6,7 @@ import type { Worktree } from "../../settings/types";
 import { useSettings } from "../../settings/store";
 import { worktreeChips } from "./chips";
 import { WorktreePane } from "./WorktreePane";
+import { WorktreeInfo } from "./WorktreeInfo";
 import { LinksList } from "../../tiles/worktree/LinksList";
 import { claudePaneAutostart } from "../../worktrees/claudeCmd";
 import { makePtyId } from "../../worktrees/ptyId";
@@ -57,20 +58,17 @@ export function WorktreeBody({ worktree, variant, switcher }: { worktree: Worktr
     // Re-keyed by id upstream so switching the picker remounts panes (detach old, attach new) without killing PTYs.
     <div className="wt-col__body">
       {variant === "full" && (
-        <>
-          <div className="wt-col__chips">
-            {worktreeChips(worktree).map((c, i) => (
-              <button key={i} className={`wt-chip wt-chip--${c.kind}`} disabled={!c.url} onClick={() => c.url && openUrl(c.url)}>
-                {c.label}
-              </button>
-            ))}
-            {/* user links live in the same row as the derived chips, with + link at the end. */}
-            <LinksList worktreeId={worktree.id} worktreePath={worktree.worktreePath} links={worktree.links} />
-          </div>
-          <div className="wt-col__path">
-            {worktree.repoPath.split("/").pop()} · {worktree.branch} · {worktree.worktreePath.split("/").pop()}
-          </div>
-        </>
+        <div className="wt-col__chips">
+          {/* identity (repo/branch/dir) is behind this hover popup rather than its own row */}
+          <WorktreeInfo worktree={worktree} />
+          {worktreeChips(worktree).map((c, i) => (
+            <button key={i} className={`wt-chip wt-chip--${c.kind}`} disabled={!c.url} onClick={() => c.url && openUrl(c.url)}>
+              {c.label}
+            </button>
+          ))}
+          {/* user links live in the same row as the derived chips, with + link at the end. */}
+          <LinksList worktreeId={worktree.id} worktreePath={worktree.worktreePath} links={worktree.links} />
+        </div>
       )}
       <div className="wt-col__panes">
         {/* attention highlight (border/glow + badge) is owned by WorktreePane via the live store. */}

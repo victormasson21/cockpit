@@ -678,6 +678,35 @@ both Important findings fixed (in-batch dedupe, history pagination).
   quitting is lost to the debounce (a `CloseRequested` flush handshake was rejected — it can hang quit).
   Spec: `docs/superpowers/specs/2026-07-29-session-restore-and-clean-shutdown-design.md`.
 
+- **Worktree info popup (2026-07-29).** The permanent `.wt-col__path` details row is gone, replaced by a
+  circled ⓘ at the head of `.wt-col__chips` (`WorktreeInfo.tsx`) whose hover popup shows repo (folder glyph),
+  branch (`.wt-ico--branch`), and worktree dir (new `.wt-ico--tree`) on three rows, in the same mono `--fs-xs`
+  `--tx-3` type the deleted row used. The reveal is **CSS-only** (`.wt-info:hover`/`:focus-within` in
+  `WorktreeColumn.css`) — deliberately not React state, unlike the click-toggled gear menu in the same file
+  which needs state plus a document listener. `.icon-btn` is deliberately NOT reused for the trigger: its
+  `padding: 6px 12px` would shove the whole chips row right, so `.wt-info__btn` resets the global `button`
+  baseline itself. **Gotcha worth recording:** a hover popover offset with `margin-top` needs a `::before`
+  bridge across the gap, because the gap belongs to the wrapper's ancestors and plain `:hover` drops there —
+  the 4px offset was inherited from the click-toggled `.wt-col__menu-pop`/`Dropdown` popovers, where it is
+  harmless since those toggle on click, not hover. Full variant only (Calm/scratch/pending never had the
+  row); new `InfoIcon`/`FolderIcon` in `views/icons.tsx`; no Rust changes; no new tests (the suite is
+  pure-logic only). GUI acceptance PENDING human eyeball. Spec:
+  `docs/superpowers/specs/2026-07-29-worktree-info-button-design.md`.
+
+- **Chip logos + short PR labels (2026-07-29, same branch).** Every chip's leading marker is now a
+  **per-source logo** instead of the old dot/square: pure tested **`linkGlyph(url)`** (`chips.ts`) returns
+  `linear` | `pr` | `figma` | `link`, and those names ARE the CSS modifiers, so one vocabulary drives both the
+  derived chips (which already carried `.wt-chip--linear`/`--pr`) and the user links (`LinksList` applies
+  `wt-chip--${linkGlyph(l.url)}`; the hardcoded `.wt-chip--link` modifier is gone). `.wt-chip::before` is a
+  13px alpha-masked glyph — **chainlink is the default** (new hand-drawn `src/assets/icons/link.svg`; Vite
+  inlines it as a data URI), overridden per source to `linear.png` (previously an unused asset), `branch.png`
+  for PRs, `figma.png` (user-supplied), and `chrome.png` for localhost — which **keeps** its Chrome glyph, since
+  a browser logo for a browser address is exactly the per-type rule. Derived `issue` chips fall back to the
+  chainlink. GitHub PR links no longer inherit the long PR title: `sourceLinkFrom` labels them exactly
+  **`Github: PR`** via the shared **`isGithubPrUrl`** (`model.ts`, also backing `linkGlyph`'s `pr` case —
+  `views → worktrees` is the established import direction). Linear/Slack sources and GitHub *issues* keep their
+  fetched title; the `+ PR` button's `prLinkToAdd` keeps `PR #<n>` (already short, and the number is useful).
+
 **Next / resuming work — read `docs/ROADMAP.md` first.** It is the single prioritized backlog, split into
 **main build sub-projects** (the big sequential arc — sub-project 5 onward: Linear tile, then GitHub/Calendar
 tiles, reusing the SP4 provider+panel + Keychain seam) and **smaller iterations** (scoped polish/enhancements). When

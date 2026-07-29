@@ -1,8 +1,21 @@
 // chips.ts — derive display chips for a worktree column from existing model data only (no live providers).
 import type { Worktree, WorktreeLink } from "../../settings/types";
+import { isGithubPrUrl } from "../../worktrees/model";
 
 export type ChipKind = "linear" | "pr" | "issue" | "localhost";
 export interface Chip { kind: ChipKind; label: string; url?: string }
+
+// Which logo a chip's leading marker shows. One glyph per recognised source; chainlink otherwise.
+// The names double as the CSS modifiers (`.wt-chip--linear` …), so derived chips and user links
+// share one glyph vocabulary.
+export type Glyph = "linear" | "pr" | "figma" | "link";
+export function linkGlyph(url: string): Glyph {
+  const u = url.toLowerCase();
+  if (u.includes("linear.app")) return "linear";
+  if (isGithubPrUrl(u)) return "pr";
+  if (u.includes("figma.com")) return "figma";
+  return "link";
+}
 
 // findLink: first link whose URL contains the needle (case-insensitive), for chip click-through.
 function findLink(links: WorktreeLink[], needle: string): string | undefined {
