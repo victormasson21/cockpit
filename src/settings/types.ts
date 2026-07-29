@@ -1,4 +1,7 @@
 // types.ts — shared TypeScript shapes for persisted settings; mirror the Rust serde structs.
+import type { WorktreePaneSet } from "../worktrees/paneSet";
+import type { ScratchTerminal } from "../views/slots";
+
 export interface TileInstance<Config = unknown> {
   id: string;
   type: string;
@@ -46,6 +49,15 @@ export interface Worktree {
   prompt?: string; // the deduce prompt that created this worktree (auto-sent to Claude once; kept copyable)
 }
 
+// The previous session's arrangement (mirrors the Rust Workspace struct). `slots` holds entity ids in
+// column order; null = a shown-but-empty column. Absent from the config entirely on a pre-feature file.
+export interface WorkspaceState {
+  slots: (string | null)[];
+  scratch: ScratchTerminal[];
+  scratchSeq: number;
+  panes: Record<string, WorktreePaneSet>;
+}
+
 export interface CockpitConfig {
   version: number;
   tiles: TileInstance[];
@@ -55,6 +67,7 @@ export interface CockpitConfig {
   todos: TodoItem[];
   worktreeContexts?: Record<string, string>;
   cockpitWorktreeId?: string;
+  workspace?: WorkspaceState;
   preferences: Preferences;
 }
 
