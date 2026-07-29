@@ -643,6 +643,36 @@ both Important findings fixed (in-batch dedupe, history pagination).
   already exposed. 182 JS tests green (16 new). Deferred: a drop-target highlight, dropping onto
   non-terminal targets, clipboard image paste. Spec: `docs/superpowers/sdd/2026-07-28-terminal-file-drop/`.
 
+- **Session restore + clean shutdown (2026-07-29).** Quitting now stops what the app started and
+  reopening restores the previous arrangement. **Shutdown:** `PtyManager::kill_all()` (`pty.rs`) drains the
+  registry, kills each child AND drops each master — closing the master fd is what SIGHUPs the pty's
+  foreground process group, so grandchildren (`claude`, `npm run dev`) die too; killing the login shell
+  alone would orphan them. Hooked on `RunEvent::Exit` in `lib.rs` (covers Cmd+Q and last-window close),
+  which required switching `.run(generate_context!())` → `.build(…)` + `.run(|handle, event| …)`.
+  **Restore:** a new **`Option<Workspace>`** block in `cockpit.json` — `slots` (entity ids in column
+  order, `null` = shown-but-empty), `scratch` (+ `scratchSeq`), and `panes` (the per-worktree
+  `WorktreePaneSet`, collapse state included — this brings back the `paneOpen`-style persistence the
+  lazy-panes iteration deleted, now covering pane *existence* too). It's `Option`, **not**
+  `#[serde(default)]`, deliberately: **absent** = pre-feature file → fall back to the old
+  `initSlots` (first 3 ongoing), **`Some` with empty slots** = the user really closed every column.
+  **No duplicated state:** session state stays the source of truth and the block is composed at *write*
+  time — `scheduleSave` calls `withWorkspace(cockpit, state)` (pure, in the new `src/settings/workspace.ts`
+  with `workspaceSnapshot`/`restoreWorkspace`), so the in-memory `cockpit` never holds a drifting copy.
+  Session-mutating actions call a new `setSession()` wrapper (`set` + `scheduleSave`) to trigger the same
+  debounced write; a missed call site therefore only delays persistence rather than writing stale data.
+  Restore rules: fresh slot keys (keys are React identity, meaningless on disk); an unresolvable id becomes
+  an **empty column** (count preserved, picker already rendered); `scratchSeq` lifts to
+  `max(persisted, highest scratch-<n>)`; pane sets for vanished worktrees are pruned. **Processes:**
+  a restored `host: true` re-runs `startCmd` via the existing autostart, and the claude pane runs
+  **`claude --continue || claude`** (the `||` covers `--continue` exiting non-zero when there's no
+  conversation to resume; the rejected alternative was probing `~/.claude/projects/<mangled-cwd>/`).
+  That's driven by the session-only `restoredWorktrees` flag, seeded from **slots ∪ pane keys ∪
+  `cockpitWorktreeId`** (NOT the pane map alone — a Claude-only worktree has no pane entry) and cleared on
+  the pane's first `onEnsured`, so restart still runs plain `claude`. The active view now persists into
+  `preferences.defaultView` on every switch. Known accepted cost: a change made in the last 500 ms before
+  quitting is lost to the debounce (a `CloseRequested` flush handshake was rejected — it can hang quit).
+  Spec: `docs/superpowers/specs/2026-07-29-session-restore-and-clean-shutdown-design.md`.
+
 **Next / resuming work — read `docs/ROADMAP.md` first.** It is the single prioritized backlog, split into
 **main build sub-projects** (the big sequential arc — sub-project 5 onward: Linear tile, then GitHub/Calendar
 tiles, reusing the SP4 provider+panel + Keychain seam) and **smaller iterations** (scoped polish/enhancements). When
