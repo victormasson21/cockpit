@@ -147,3 +147,26 @@ export function PinIcon() {
     </svg>
   );
 }
+
+// Info: circled "i" — the trigger that reveals a worktree's repo/branch/dir rows on hover.
+// The dot is a 0.4-long segment rather than a circle: with base's round linecap it renders as a
+// clean 2px dot at any size, where a tiny stroked circle reads as a ring.
+export function InfoIcon() {
+  return (
+    <svg viewBox="0 0 16 16" {...base} aria-hidden="true">
+      <circle cx="8" cy="8" r="6" />
+      <path d="M8 7.2v4" />
+      <path d="M8 4.9v.4" />
+    </svg>
+  );
+}
+
+// Folder: the repo row's glyph in the Info popup — drawn inline because there is no folder image
+// asset to mask the way branch/tree are.
+export function FolderIcon() {
+  return (
+    <svg viewBox="0 0 16 16" {...base} aria-hidden="true">
+      <path d="M2.2 5A1.5 1.5 0 0 1 3.7 3.5h1.9l1.4 1.8h5.3A1.5 1.5 0 0 1 13.8 6.8v4.7A1.5 1.5 0 0 1 12.3 13h-8.6A1.5 1.5 0 0 1 2.2 11.5z" />
+    </svg>
+  );
+}

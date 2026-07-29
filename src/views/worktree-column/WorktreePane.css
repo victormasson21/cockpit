@@ -39,6 +39,7 @@
 .wt-ico--branch { -webkit-mask-image: url("../../assets/icons/branch.png"); mask-image: url("../../assets/icons/branch.png"); }
 .wt-ico--claude { -webkit-mask-image: url("../../assets/icons/claude-code.png"); mask-image: url("../../assets/icons/claude-code.png"); }
 .wt-ico--terminal { -webkit-mask-image: url("../../assets/icons/terminal.png"); mask-image: url("../../assets/icons/terminal.png"); }
+.wt-ico--tree { -webkit-mask-image: url("../../assets/icons/tree.svg"); mask-image: url("../../assets/icons/tree.svg"); }
 
 /* SVG-icon size (1em) + position deltas on top of the shared .icon-btn baseline.
    Slim the vertical padding (keeping the wide horizontal click area) to keep the header narrow. */
