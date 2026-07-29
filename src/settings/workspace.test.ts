@@ -30,6 +30,29 @@ describe("workspaceSnapshot", () => {
       panes: { "wt-1": paneSet },
     });
   });
+
+  it("prunes scratch terminals no longer referenced by any slot", () => {
+    const snap = workspaceSnapshot({
+      slots: [{ key: "k1", id: "wt-1" }, { key: "k2", id: null }],
+      scratchTerminals: [{ id: "scratch-1", title: "Scratch 1" }, { id: "scratch-2", title: "Scratch 2" }],
+      scratchSeq: 2,
+      worktreePanes: {},
+    });
+    expect(snap.scratch).toEqual([]);
+  });
+
+  it("keeps a scratch terminal referenced only by the Cockpit-view pin", () => {
+    const snap = workspaceSnapshot(
+      {
+        slots: [{ key: "k1", id: "wt-1" }],
+        scratchTerminals: [{ id: "scratch-1", title: "Scratch 1" }],
+        scratchSeq: 1,
+        worktreePanes: {},
+      },
+      "scratch-1",
+    );
+    expect(snap.scratch).toEqual([{ id: "scratch-1", title: "Scratch 1" }]);
+  });
 });
 
 describe("withWorkspace", () => {
@@ -39,6 +62,17 @@ describe("withWorkspace", () => {
     expect(out.workspace).toEqual({ slots: ["wt-1"], scratch: [], scratchSeq: 0, panes: {} });
     expect(out.version).toBe(1);
     expect(baseCockpit.workspace).toBeUndefined();
+  });
+
+  it("reads the Cockpit-view pin off the cockpit config so a pinned scratch survives pruning", () => {
+    const session = {
+      slots: [{ key: "k1", id: null }],
+      scratchTerminals: [{ id: "scratch-1", title: "Scratch 1" }],
+      scratchSeq: 1,
+      worktreePanes: {},
+    };
+    const out = withWorkspace({ ...baseCockpit, cockpitWorktreeId: "scratch-1" }, session);
+    expect(out.workspace?.scratch).toEqual([{ id: "scratch-1", title: "Scratch 1" }]);
   });
 });
 
