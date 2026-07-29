@@ -41,7 +41,7 @@ export function SlotColumn({ value, onSelect, variant = "full", onPin, onClose }
     close();
   };
 
-  // Scratch Delete: stop the single shell PTY, then drop the session-only entity (the store clears the slot).
+  // Scratch Delete: stop the single shell PTY, then drop the entity for good (removes it from the persisted scratch list; the store also clears the slot).
   const deleteScratch = async () => {
     if (entity?.kind !== "scratch") return;
     setMenuOpen(false);
@@ -72,7 +72,7 @@ export function SlotColumn({ value, onSelect, variant = "full", onPin, onClose }
       : []),
   ];
 
-  // Rename wiring: worktree → persisted name; scratch → session-only title; pending/empty → not editable.
+  // Rename wiring: worktree → persisted name; scratch → persisted title (the PTY still resets on restore); pending/empty → not editable.
   const editValue = entity?.kind === "worktree" ? entity.worktree.name
     : entity?.kind === "scratch" ? entity.scratch.title : undefined;
   const onRename = entity?.kind === "worktree" ? (t: string) => updateWorktree(entity.worktree.id, { name: t })

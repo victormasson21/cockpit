@@ -204,7 +204,7 @@ pub struct CockpitConfig {
     pub todos: Vec<TodoItem>,
     #[serde(default, rename = "worktreeContexts", skip_serializing_if = "std::collections::HashMap::is_empty")]
     pub worktree_contexts: std::collections::HashMap<String, String>,
-    // The Cockpit view's single right-column worktree slot (persisted; the Worktrees-view slots are session-only).
+    // The Cockpit view's single right-column worktree slot (persisted; the Worktrees-view slots persist too, in the sibling `workspace` block).
     #[serde(rename = "cockpitWorktreeId", default, skip_serializing_if = "Option::is_none")]
     pub cockpit_worktree_id: Option<String>,
     // The previous session's arrangement (slots / scratch / pane sets). An Option, not a defaulted bare

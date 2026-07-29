@@ -30,7 +30,7 @@ export function NewWorktreeModal({ view, onClose }: { view: "cockpit" | "worktre
       <SectionHeading icon="branch" label="Checkout" />
       <ExistingBranchForm onCreated={created} />
       <hr className="nw-modal__sep" />
-      {/* Scratch terminal: a session-only login shell, no repo/branch. */}
+      {/* Scratch terminal: no repo/branch; the id/title persist but the shell PTY doesn't — restores as a fresh empty pane. */}
       <SectionHeading icon="terminal" label="Terminal" />
       <button className="nw-modal__terminal" onClick={newTerminal}>Create</button>
     </Modal>
