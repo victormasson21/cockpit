@@ -26,4 +26,15 @@ describe("claudePaneAutostart", () => {
     expect(claudePaneAutostart(undefined, true)).toBe("claude");
     expect(claudePaneAutostart("", true)).toBe("claude");
   });
+  it("resumes the previous conversation on a restored pane, falling back if there is none", () => {
+    expect(claudePaneAutostart(undefined, false, true)).toBe("claude --continue || claude");
+    expect(claudePaneAutostart("fix it", false, true)).toBe("claude --continue || claude");
+  });
+  it("lets a pending one-shot prompt win over resuming", () => {
+    expect(claudePaneAutostart("fix it", true, true)).toBe("claude 'fix it'");
+  });
+  it("defaults to plain claude when the pane is not restored", () => {
+    expect(claudePaneAutostart(undefined, false, false)).toBe("claude");
+    expect(claudePaneAutostart(undefined, false)).toBe("claude");
+  });
 });

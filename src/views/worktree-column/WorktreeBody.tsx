@@ -49,6 +49,8 @@ export function WorktreeBody({ worktree, variant, switcher }: { worktree: Worktr
 
   // One-shot: true only in the session that created this worktree, until the claude PTY's first ensure.
   const promptPending = useSettings((s) => Boolean(s.initialPromptPending[worktree.id]));
+  // True only for the first spawn after a restart, on a worktree the previous session had open.
+  const restored = useSettings((s) => Boolean(s.restoredWorktrees[worktree.id]));
   const prompt = worktree.prompt; // captured so TS narrowing survives into the JSX callbacks (no `!`)
   const startCmd = worktree.host.startCmd.trim();
   return (
@@ -76,8 +78,12 @@ export function WorktreeBody({ worktree, variant, switcher }: { worktree: Worktr
           title="Claude Code" icon={<span className="wt-ico wt-ico--claude" aria-hidden />}
           lead={variant === "calm" ? switcher : undefined}
           worktreeId={worktree.id} role="claude" cwd={worktree.worktreePath}
-          autostartCmd={claudePaneAutostart(worktree.prompt, promptPending)}
-          onEnsured={() => useSettings.getState().clearInitialPrompt(worktree.id)}
+          autostartCmd={claudePaneAutostart(worktree.prompt, promptPending, restored)}
+          onEnsured={() => {
+            // Both one-shots are consumed by the first ensure: a later restart runs plain `claude`.
+            useSettings.getState().clearInitialPrompt(worktree.id);
+            useSettings.getState().clearRestored(worktree.id);
+          }}
           action={variant !== "calm" && prompt ? (
             <button
               className="icon-btn" title={`copy prompt: ${prompt}`}
