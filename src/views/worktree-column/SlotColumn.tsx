@@ -62,11 +62,9 @@ export function SlotColumn({ value, onSelect, variant = "full", onPin, onClose }
       // A pending id isn't in the worktree/scratch lists — synthetic disabled row so the trigger reads sensibly.
       ...(entity?.kind === "pending" ? [{ value: entity.pending.id, label: `${entity.pending.status}…`, disabled: true }] : []),
     ]},
-    { label: "Worktrees", options: ongoing.map((w) => {
-      // Append the repo basename so each slot's origin is obvious at a glance.
-      const repo = w.repoPath.split("/").pop();
-      return { value: w.id, label: repo ? `${w.name} · ${repo}` : w.name };
-    })},
+    // The repo basename rides as a `suffix` (rendered at a lighter weight) so each slot's origin is
+    // obvious at a glance without competing with the title.
+    { label: "Worktrees", options: ongoing.map((w) => ({ value: w.id, label: w.name, suffix: w.repoPath.split("/").pop() })) },
     ...(scratchTerminals.length > 0
       ? [{ label: "Scratch", options: scratchTerminals.map((s) => ({ value: s.id, label: s.title })) }]
       : []),

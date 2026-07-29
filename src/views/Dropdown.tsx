@@ -1,7 +1,7 @@
 // Dropdown.tsx — themed <select> replacement: trigger button + popover listbox (macOS renders the native popup; CSS can't style it).
 // Heading variant supports optional inline title edit: pass onRename + editValue to split the trigger into an editable label + a chevron button.
 import { useEffect, useRef, useState } from "react";
-import { selectedLabel, sanitizeTitle, type DropdownGroup } from "./dropdownModel";
+import { selectedLabel, selectedSuffix, sanitizeTitle, type DropdownGroup } from "./dropdownModel";
 import { ChevronIcon, TickIcon } from "./icons";
 import "./Dropdown.css";
 
@@ -40,7 +40,15 @@ export function Dropdown({ value, onChange, groups, placeholder, variant, onRena
     setEditing(false);
   };
 
-  const label = <span className="dd__label">{selectedLabel(groups, value, placeholder)}</span>;
+  // The suffix (repo name) rides along in the same span so it truncates with the title, but carries
+  // its own lighter weight — the point is telling it apart from the title at a glance.
+  const suffix = selectedSuffix(groups, value);
+  const label = (
+    <span className="dd__label">
+      {selectedLabel(groups, value, placeholder)}
+      {suffix && <span className="dd__suffix"> · {suffix}</span>}
+    </span>
+  );
 
   return (
     <div className={`dd dd--${variant}`} ref={rootRef} onKeyDown={onKeyDown}>
@@ -82,7 +90,10 @@ export function Dropdown({ value, onChange, groups, placeholder, variant, onRena
                   className={`dd__opt${o.value === value ? " dd__opt--selected" : ""}`}
                   onClick={() => { onChange(o.value); setOpen(false); }}
                 >
-                  <span className="dd__opt-label">{o.label}</span>
+                  <span className="dd__opt-label">
+                    {o.label}
+                    {o.suffix && <span className="dd__suffix"> · {o.suffix}</span>}
+                  </span>
                   {o.hint && <span className="dd__opt-hint">{o.hint}</span>}
                   {o.value === value && <span className="dd__tick"><TickIcon /></span>}
                 </button>

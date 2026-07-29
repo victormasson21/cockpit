@@ -10,6 +10,8 @@
   font-family: var(--ui);
 }
 .dd__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* secondary identity after the label (the repo name): regular weight so the bold title reads first */
+.dd__suffix { font-weight: 400; }
 .dd__chevron { display: inline-flex; color: var(--tx-3); flex: 0 0 auto; font-size: 14px; }
 
 /* heading variant — the slot column's bold title-as-picker look. Flex row so the title grows +

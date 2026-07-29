@@ -214,13 +214,16 @@ renders them. Getting this one pattern right makes the Nth integration mechanica
   clash against `Dropdown.tsx`; `src/views/Dropdown.tsx` (component: outside-click close via a
   while-open document listener; Escape closes with `stopPropagation` so a host modal's own Escape handler
   doesn't also fire — first Escape closes the popover, second closes the modal); `src/views/Dropdown.css`.
-  **API:** `value: string|null`, `onChange(value)`, `groups: {label?, options:{value,label,hint?,disabled?}[]}[]`,
+  **API:** `value: string|null`, `onChange(value)`, `groups: {label?, options:{value,label,suffix?,hint?,disabled?}[]}[]`,
   `placeholder`, `variant: "heading"|"form"` — `heading` = the slot column's bold title-as-picker look,
   `form` = the input-baseline box so closed state blends into forms. **Styling:** popover on `--surface`,
   radius `--r`, new **`--menu-shadow`** token (deepSlate.css additions block); rows `--fs-lg` at `8px 14px`
   with `--hover` pills; selected = `--tx-hi` + accent `TickIcon`; disabled `--tx-3`; group headers =
   uppercase `--fs-2xs` themed optgroups; `hint` renders dim after the label (branch rows: recency +
-  "· checked out"). **CSS gotcha:** rows/trigger are `<button>`s — the `.dd button.dd__*` selector shape
+  "· checked out"); **`suffix`** (2026-07-29) renders as `· <suffix>` at `font-weight: 400` inside the label
+  span — secondary identity that truncates with the title but reads as distinct from it. The slot picker's repo
+  basename moved from a composed `"<name> · <repo>"` label into `suffix` for exactly that reason; `selectedSuffix`
+  (pure, tested) feeds the trigger. **CSS gotcha:** rows/trigger are `<button>`s — the `.dd button.dd__*` selector shape
   (0,2,1) is deliberate, out-specifying both the global button baseline and `.eb-form button`. The gear-menu
   popover was aligned to the same family (radius `--r`, `--menu-shadow`, hover pills). The slot picker's
   "Select…" row (value `""`) keeps its clear-the-slot role; Checkout's placeholder rows are no longer
