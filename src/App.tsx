@@ -42,7 +42,11 @@ function App() {
   const zoomOut = useSettings((s) => s.zoomOut);
   const resetZoom = useSettings((s) => s.resetZoom);
   const addEmptySlot = useSettings((s) => s.addEmptySlot);
+  const setDefaultView = useSettings((s) => s.setDefaultView);
   const [view, setView] = useState<View>("worktrees");
+  // Every deliberate view switch also persists it: reopening the app lands where you left off.
+  // (The load effect below intentionally uses the raw setter — restoring is not a switch.)
+  const changeView = (v: View) => { setView(v); setDefaultView(v); };
   const [creating, setCreating] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // App version for the header tag; import.meta.env.DEV distinguishes local dev from a packaged build.
@@ -86,12 +90,12 @@ function App() {
       }
       else {
         const v = VIEWS[Number(e.key) - 1];
-        if (v) { e.preventDefault(); setView(v.id); }
+        if (v) { e.preventDefault(); changeView(v.id); }
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [view, addEmptySlot]);
+  }, [view, addEmptySlot, changeView]);
 
   // Native file drop → type the dropped paths into the terminal pane under the cursor (Claude Code's
   // documented drag-and-drop). Window-level because Tauri's drag-drop is a window event, not a DOM
@@ -142,7 +146,7 @@ function App() {
   }, [worktreeError]);
 
   // Pin a worktree as the Cockpit view's right column, then jump straight to that view (unpin lives in Cockpit).
-  const pinToCockpit = (id: string) => { setCockpitWorktree(id); setView("cockpit"); };
+  const pinToCockpit = (id: string) => { setCockpitWorktree(id); changeView("cockpit"); };
 
   if (!loaded) return <div className="app__loading">Loading…</div>;
 
@@ -157,7 +161,7 @@ function App() {
         </div>
         <nav className="app__segmented">
           {VIEWS.map((v) => (
-            <button key={v.id} className={`app__seg ${view === v.id ? "app__seg--active" : ""}`} onClick={() => setView(v.id)}>
+            <button key={v.id} className={`app__seg ${view === v.id ? "app__seg--active" : ""}`} onClick={() => changeView(v.id)}>
               {v.label}
             </button>
           ))}
