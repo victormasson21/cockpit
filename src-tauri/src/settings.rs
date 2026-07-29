@@ -151,6 +151,37 @@ fn default_font_scale() -> f32 {
     1.0
 }
 
+// A session-only scratch terminal (login shell, no repo), persisted so a restored slot holding one resolves.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ScratchTerminal {
+    pub id: String,
+    pub title: String,
+}
+
+// One worktree's live pane set: whether the Run/host pane exists, the extra shells, the monotonic role
+// counter, and each pane's collapse state. Mirrors WorktreePaneSet in src/worktrees/paneSet.ts.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PaneSet {
+    pub host: bool,
+    pub extras: Vec<String>,
+    pub seq: u32,
+    pub open: std::collections::HashMap<String, bool>,
+}
+
+// Session-restore state: which entity sits in which Worktrees column (None = a shown-but-empty column),
+// the live scratch terminals, and each worktree's pane set.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Workspace {
+    #[serde(default)]
+    pub slots: Vec<Option<String>>,
+    #[serde(default)]
+    pub scratch: Vec<ScratchTerminal>,
+    #[serde(rename = "scratchSeq", default)]
+    pub scratch_seq: u32,
+    #[serde(default)]
+    pub panes: std::collections::HashMap<String, PaneSet>,
+}
+
 // Portable, user-meaningful config (which tiles exist + preferences). Persisted to cockpit.json.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct CockpitConfig {
@@ -169,6 +200,11 @@ pub struct CockpitConfig {
     // The Cockpit view's single right-column worktree slot (persisted; the Worktrees-view slots are session-only).
     #[serde(rename = "cockpitWorktreeId", default, skip_serializing_if = "Option::is_none")]
     pub cockpit_worktree_id: Option<String>,
+    // The previous session's arrangement (slots / scratch / pane sets). Option, NOT #[serde(default)]:
+    // absent means "pre-feature file, seed the slots the old way", while Some with empty slots means
+    // "the user really had every column closed".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workspace: Option<Workspace>,
     pub preferences: Preferences,
 }
 
@@ -194,6 +230,7 @@ impl Default for CockpitConfig {
             todos: vec![],
             worktree_contexts: std::collections::HashMap::new(),
             cockpit_worktree_id: None,
+            workspace: None,
             preferences: Preferences { theme: "system".into(), default_view: "main".into(), panes: 3, font_scale: 1.0 },
         }
     }
@@ -437,5 +474,42 @@ mod tests {
         let with = Worktree { prompt: Some("fix the login bug".into()), ..wt };
         let back: Worktree = serde_json::from_str(&serde_json::to_string(&with).unwrap()).unwrap();
         assert_eq!(back.prompt.as_deref(), Some("fix the login bug"));
+    }
+
+    // Pre-feature files have no workspace block at all: that ABSENCE is what selects the old
+    // "first 3 ongoing worktrees" seeding in the frontend, so it must stay None (not a default struct).
+    #[test]
+    fn cockpit_without_workspace_field_loads_as_none() {
+        let json = r#"{"version":1,"tiles":[],"worktrees":[],"preferences":{"theme":"system","defaultView":"main"}}"#;
+        let cfg: CockpitConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(cfg.workspace, None);
+        assert!(!serde_json::to_string(&cfg).unwrap().contains("workspace"));
+    }
+
+    // A present-but-empty arrangement ("the user closed every column") must survive the round trip
+    // as Some([]) — distinguishable from absent.
+    #[test]
+    fn empty_workspace_slots_round_trip_as_some() {
+        let json = r#"{"version":1,"tiles":[],"worktrees":[],"workspace":{"slots":[],"scratch":[],"scratchSeq":0,"panes":{}},"preferences":{"theme":"system","defaultView":"worktrees"}}"#;
+        let cfg: CockpitConfig = serde_json::from_str(json).unwrap();
+        let ws = cfg.workspace.clone().unwrap();
+        assert!(ws.slots.is_empty());
+        let again: CockpitConfig = serde_json::from_str(&serde_json::to_string(&cfg).unwrap()).unwrap();
+        assert_eq!(again.workspace, cfg.workspace);
+    }
+
+    #[test]
+    fn workspace_round_trips_slots_scratch_and_panes() {
+        let json = r#"{"version":1,"tiles":[],"worktrees":[],"workspace":{"slots":["wt-1",null,"scratch-1"],"scratch":[{"id":"scratch-1","title":"Scratch 1"}],"scratchSeq":1,"panes":{"wt-1":{"host":true,"extras":["shell-1"],"seq":1,"open":{"claude":true,"shell-1":false}}}},"preferences":{"theme":"system","defaultView":"worktrees"}}"#;
+        let cfg: CockpitConfig = serde_json::from_str(json).unwrap();
+        let ws = cfg.workspace.unwrap();
+        assert_eq!(ws.slots, vec![Some("wt-1".to_string()), None, Some("scratch-1".to_string())]);
+        assert_eq!(ws.scratch[0].title, "Scratch 1");
+        assert_eq!(ws.scratch_seq, 1);
+        let panes = &ws.panes["wt-1"];
+        assert!(panes.host);
+        assert_eq!(panes.extras, vec!["shell-1"]);
+        assert_eq!(panes.seq, 1);
+        assert_eq!(panes.open["shell-1"], false);
     }
 }
