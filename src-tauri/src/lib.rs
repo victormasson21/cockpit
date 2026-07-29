@@ -10,6 +10,8 @@ mod shell_env;
 mod slack;
 mod worktree;
 
+use tauri::Manager;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Before anything spawns: adopt the login shell's PATH so `claude`/`gh` resolve even on GUI launch.
@@ -50,6 +52,13 @@ pub fn run() {
             pr_reviews::pr_reviews_fetch,
             auth::list_connections,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        // On the way out, stop everything we spawned. RunEvent::Exit covers both Cmd+Q and closing
+        // the last window, and fires before the process goes away.
+        .run(|handle, event| {
+            if let tauri::RunEvent::Exit = event {
+                handle.state::<pty::PtyManager>().kill_all();
+            }
+        });
 }

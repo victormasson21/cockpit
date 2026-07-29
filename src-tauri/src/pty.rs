@@ -36,6 +36,20 @@ pub struct PtyManager {
     table: Mutex<HashMap<String, LivePty>>,
 }
 
+impl PtyManager {
+    // Stop every live PTY (app shutdown). Killing the login shell is not enough on its own: dropping
+    // the master closes its fd, which makes the kernel SIGHUP the pty's foreground process group —
+    // that is what reaches grandchildren like `claude` or a `npm run dev` server. Returns the count killed.
+    pub fn kill_all(&self) -> usize {
+        let mut table = self.table.lock().unwrap();
+        let n = table.len();
+        for (_, mut pty) in table.drain() {
+            let _ = pty.child.kill();
+        }
+        n
+    }
+}
+
 // The environment Claude Code reads for display: advertise truecolor + a known TERM for capability
 // detection, and CLAUDE_CODE_NO_FLICKER so it renders in its fullscreen alternate-screen TUI.
 fn terminal_env() -> [(&'static str, &'static str); 3] {
@@ -165,5 +179,37 @@ mod tests {
         assert!(env.contains(&("TERM", "xterm-256color")));
         assert!(env.contains(&("COLORTERM", "truecolor")));
         assert!(env.contains(&("CLAUDE_CODE_NO_FLICKER", "1")));
+    }
+
+    // kill_all must both deregister and really kill: a reader cloned off the master only completes
+    // (EOF, or EIO on macOS) once the child is gone, so a live child would time out here.
+    #[test]
+    fn kill_all_drains_the_registry_and_kills_the_child() {
+        use std::time::Duration;
+        let manager = PtyManager::default();
+        let pair = native_pty_system()
+            .openpty(PtySize { rows: 24, cols: 80, pixel_width: 0, pixel_height: 0 })
+            .unwrap();
+        let mut cmd = CommandBuilder::new("sleep");
+        cmd.arg("60");
+        let child = pair.slave.spawn_command(cmd).unwrap();
+        drop(pair.slave);
+        let mut reader = pair.master.try_clone_reader().unwrap();
+        let writer = pair.master.take_writer().unwrap();
+        manager.table.lock().unwrap().insert(
+            pty_id("wt-test", "claude"),
+            LivePty { master: pair.master, child, writer, scrollback: Arc::new(Mutex::new(Vec::new())) },
+        );
+
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let mut buf = [0u8; 64];
+            // Err (EIO) and Ok(0) both mean "the pty is finished"; either ends the read.
+            let _ = tx.send(reader.read(&mut buf).unwrap_or(0));
+        });
+
+        assert_eq!(manager.kill_all(), 1);
+        assert!(manager.table.lock().unwrap().is_empty());
+        assert_eq!(rx.recv_timeout(Duration::from_secs(5)).unwrap(), 0, "child should be dead");
     }
 }
