@@ -5,6 +5,7 @@ import type { WorktreeLink } from "../../settings/types";
 import { useSettings } from "../../settings/store";
 import { addLink, updateLink, removeLink, prLinkToAdd } from "../../worktrees/model";
 import { worktreePr } from "../../worktrees/api";
+import { linkGlyph } from "../../views/worktree-column/chips";
 
 // Returns chip elements (a fragment) so links sit in the same flex row as the derived chips.
 // worktreePath backs the "+ PR" button, which asks gh for the branch's PR and links it.
@@ -39,7 +40,7 @@ export function LinksList({ worktreeId, worktreePath, links }: { worktreeId: str
     <>
       {links.map((l, i) =>
         editing.has(i) || !l.url ? (
-          <span key={i} className="wt-chip wt-chip--link wt-linkchip__edit">
+          <span key={i} className={`wt-chip wt-chip--${linkGlyph(l.url)} wt-linkchip__edit`}>
             <input value={l.label} placeholder="label" autoFocus
               onChange={(e) => commit(updateLink(links, i, { label: e.target.value }))} />
             <input className="wt-linkchip__url" value={l.url} placeholder="https://…"
@@ -48,7 +49,8 @@ export function LinksList({ worktreeId, worktreePath, links }: { worktreeId: str
             <button className="wt-linkchip__act" title="remove" onClick={() => commit(removeLink(links, i))}>✕</button>
           </span>
         ) : (
-          <span key={i} className="wt-chip wt-chip--link wt-linkchip">
+          // the chip's leading logo follows the link's target (Linear / PR / Figma / chainlink)
+          <span key={i} className={`wt-chip wt-chip--${linkGlyph(l.url)} wt-linkchip`}>
             <button className="wt-linkchip__open" onClick={() => openUrl(l.url)}>{l.label || l.url}</button>
             <button className="wt-linkchip__act" title="edit" onClick={() => setEdit(i, true)}>✎</button>
             <button className="wt-linkchip__act" title="remove" onClick={() => commit(removeLink(links, i))}>✕</button>

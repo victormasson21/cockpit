@@ -1,6 +1,6 @@
 // chips.test.ts — deriving display chips from existing worktree data (no live providers).
 import { describe, it, expect } from "vitest";
-import { worktreeChips } from "./chips";
+import { worktreeChips, linkGlyph } from "./chips";
 import type { Worktree } from "../../settings/types";
 
 const base: Worktree = {
@@ -44,5 +44,28 @@ describe("worktreeChips", () => {
   });
   it("never includes a CI stub chip", () => {
     expect(kinds(base)).not.toContain("ci");
+  });
+});
+
+describe("linkGlyph", () => {
+  it("picks the Linear glyph for a linear.app url", () => {
+    expect(linkGlyph("https://linear.app/acme/issue/ENG-1/fix-login")).toBe("linear");
+  });
+  it("picks the branch glyph for a GitHub PR url", () => {
+    expect(linkGlyph("https://github.com/elder/cockpit/pull/42")).toBe("pr");
+  });
+  it("picks the Figma glyph for a figma.com url", () => {
+    expect(linkGlyph("https://www.figma.com/design/abc/Checkout")).toBe("figma");
+  });
+  it("falls back to the chainlink for anything else", () => {
+    expect(linkGlyph("https://example.com/docs")).toBe("link");
+    expect(linkGlyph("")).toBe("link");
+  });
+  it("does not mistake a GitHub issue url for a PR", () => {
+    expect(linkGlyph("https://github.com/elder/cockpit/issues/42")).toBe("link");
+  });
+  it("matches case-insensitively (pasted urls vary)", () => {
+    expect(linkGlyph("HTTPS://LINEAR.APP/acme/issue/ENG-1")).toBe("linear");
+    expect(linkGlyph("https://GitHub.com/o/r/PULL/7")).toBe("pr");
   });
 });

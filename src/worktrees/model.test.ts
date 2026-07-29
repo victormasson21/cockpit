@@ -48,6 +48,16 @@ describe("sourceLinkFrom", () => {
     expect(sourceLinkFrom({ ...deducedBase, sourceUrl: "https://linear.app/x" }))
       .toEqual({ label: "https://linear.app/x", url: "https://linear.app/x" });
   });
+  it("labels a GitHub PR 'Github: PR' instead of inheriting the long PR title", () => {
+    const url = "https://github.com/elder/cockpit/pull/42";
+    expect(sourceLinkFrom({ ...deducedBase, sourceUrl: url, sourceTitle: "fix: some very long pull request title" }))
+      .toEqual({ label: "Github: PR", url });
+  });
+  it("keeps the fetched title for a GitHub issue", () => {
+    const url = "https://github.com/elder/cockpit/issues/42";
+    expect(sourceLinkFrom({ ...deducedBase, sourceUrl: url, sourceTitle: "Checkout is broken" }))
+      .toEqual({ label: "Checkout is broken", url });
+  });
 });
 
 describe("prLinkToAdd", () => {

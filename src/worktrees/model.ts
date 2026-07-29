@@ -24,9 +24,16 @@ export function removeLink(links: WorktreeLink[], i: number): WorktreeLink[] {
   return links.filter((_, idx) => idx !== i);
 }
 
+// Recognise a GitHub PR url. Shared by the link label below and the chips row's glyph choice.
+export function isGithubPrUrl(url: string): boolean {
+  return /github\.com\/.+\/pull\/\d/i.test(url);
+}
+
 // Build the worktree link to attach from a deduction, or null when no source was resolved.
 export function sourceLinkFrom(d: DeducedWorktree): WorktreeLink | null {
   if (!d.sourceUrl) return null;
+  // A PR's fetched title is long and the PR chip already sits beside it — label it by kind instead.
+  if (isGithubPrUrl(d.sourceUrl)) return { label: "Github: PR", url: d.sourceUrl };
   return { label: d.sourceTitle || d.sourceUrl, url: d.sourceUrl };
 }
 
