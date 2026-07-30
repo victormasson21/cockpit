@@ -42,7 +42,12 @@
 .todo__tab-del:hover { color: var(--bad); }
 /* Inherits bg/border/radius/padding/font from the global `input` baseline (tokens.css); only size here. */
 .todo__tab-edit { font-size: var(--fs-sm); width: 8em; min-width: 0; }
-.todo__section-toggle { align-self: flex-start; font-size: var(--fs-2xs); letter-spacing: 0.08em; color: var(--tx-3); }
+/* Negative left margin cancels the shared button padding optically: the 4px/8px hit area is kept, but the
+   "DONE" text starts at x=0 so it lines up with the .todo__section-label headings, which have no padding. */
+.todo__section-toggle {
+  align-self: flex-start; margin-left: calc(-1 * var(--space-2));
+  font-size: var(--fs-2xs); letter-spacing: 0.08em; color: var(--tx-3);
+}
 /* Row prefix naming the owning list, for the cross-list sections. Fixed-size and self-ellipsising so a
    long list name can't eat the row: .todo__text (flex: 1; min-width: 0) truncates first. The Cockpit
    centre column has a 320px floor, so that ordering matters. */
