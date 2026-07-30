@@ -35,7 +35,11 @@ export interface PrReviewItem {
 export interface PrReviewsIntegration { channelId?: string; lastSeenTs?: string; items: PrReviewItem[] }
 export interface Integrations { slack?: SlackIntegration; prReviews?: PrReviewsIntegration }
 export type TodoState = "todo" | "in_progress" | "done";
-export interface TodoItem { id: string; text: string; state: TodoState }
+// A named to-do list = one tab in the To Do tile.
+export interface TodoList { id: string; name: string }
+// `listId` is optional: absent (or dangling) resolves to the first list via listIdOf() in
+// tiles/todo/todo.ts, so a pre-tabs cockpit.json loads with no migration.
+export interface TodoItem { id: string; text: string; state: TodoState; listId?: string }
 export type WorktreeStatus = "ongoing" | "completed";
 export interface Worktree {
   id: string;
@@ -65,6 +69,8 @@ export interface CockpitConfig {
   knownRepos: KnownRepo[];
   integrations?: Integrations;
   todos: TodoItem[];
+  todoLists: TodoList[];
+  activeTodoList?: string;
   worktreeContexts?: Record<string, string>;
   cockpitWorktreeId?: string;
   workspace?: WorkspaceState;

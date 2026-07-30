@@ -11,7 +11,7 @@ const wt = (id: string): Worktree => ({
 const minter = () => { let n = 0; return () => `k${++n}`; };
 const paneSet = { host: true, extras: ["shell-1"], seq: 1, open: { claude: true, host: true, "shell-1": false } };
 const baseCockpit: CockpitConfig = {
-  version: 1, tiles: [], worktrees: [], knownRepos: [], todos: [],
+  version: 1, tiles: [], worktrees: [], knownRepos: [], todos: [], todoLists: [],
   preferences: { theme: "system", defaultView: "worktrees" },
 };
 

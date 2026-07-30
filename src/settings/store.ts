@@ -142,7 +142,7 @@ export const useSettings = create<SettingsState>((set, get) => {
     scheduleSave(get);
   };
   return {
-  cockpit: { version: 1, tiles: [], worktrees: [], knownRepos: [], integrations: {}, todos: [], worktreeContexts: {}, preferences: { theme: "system", defaultView: "worktrees" } },
+  cockpit: { version: 1, tiles: [], worktrees: [], knownRepos: [], integrations: {}, todos: [], todoLists: [], worktreeContexts: {}, preferences: { theme: "system", defaultView: "worktrees" } },
   layout: { version: 1, views: {} },
   loaded: false,
   slots: [],

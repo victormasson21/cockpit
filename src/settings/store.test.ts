@@ -17,6 +17,7 @@ const baseCockpit: CockpitConfig = {
   worktrees: [],
   knownRepos: [],
   todos: [],
+  todoLists: [],
   preferences: { theme: "system", defaultView: "worktrees" },
 };
 

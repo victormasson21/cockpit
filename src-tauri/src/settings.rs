@@ -121,12 +121,23 @@ pub struct Integrations {
     pub pr_reviews: Option<PrReviewsIntegration>,
 }
 
+// One named to-do list = one tab in the To Do tile.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct TodoList {
+    pub id: String,
+    pub name: String,
+}
+
 // One to-do item: stable id + text + lifecycle state ("todo" | "in_progress" | "done"; TS narrows the domain).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TodoItem {
     pub id: String,
     pub text: String,
     pub state: String,
+    // Which list owns this item. Absent on pre-tabs files and omitted when None — the frontend resolves
+    // an absent id to the first list, so no migration write is needed.
+    #[serde(rename = "listId", default, skip_serializing_if = "Option::is_none")]
+    pub list_id: Option<String>,
 }
 
 // User-facing display preferences (theme + which view opens on launch + visible Worktrees/Calm panes).
@@ -202,6 +213,12 @@ pub struct CockpitConfig {
     pub integrations: Integrations,
     #[serde(default)]
     pub todos: Vec<TodoItem>,
+    // The To Do tile's tabs. Empty means a pre-tabs file: the frontend resolves that to one synthesised
+    // "General" list rather than rewriting the config on load.
+    #[serde(default, rename = "todoLists")]
+    pub todo_lists: Vec<TodoList>,
+    #[serde(rename = "activeTodoList", default, skip_serializing_if = "Option::is_none")]
+    pub active_todo_list: Option<String>,
     #[serde(default, rename = "worktreeContexts", skip_serializing_if = "std::collections::HashMap::is_empty")]
     pub worktree_contexts: std::collections::HashMap<String, String>,
     // The Cockpit view's single right-column worktree slot (persisted; the Worktrees-view slots persist too, in the sibling `workspace` block).
@@ -235,6 +252,8 @@ impl Default for CockpitConfig {
             known_repos: vec![],
             integrations: Integrations::default(),
             todos: vec![],
+            todo_lists: vec![],
+            active_todo_list: None,
             worktree_contexts: std::collections::HashMap::new(),
             cockpit_worktree_id: None,
             workspace: None,
@@ -455,6 +474,39 @@ mod tests {
         assert_eq!(cfg.todos[0].id, "t1");
         assert_eq!(cfg.todos[0].text, "ship it");
         assert_eq!(cfg.todos[0].state, "in_progress");
+    }
+
+    #[test]
+    fn cockpit_without_todo_lists_field_still_loads() {
+        let json = r#"{"version":1,"tiles":[],"worktrees":[],"todos":[{"id":"t1","text":"ship it","state":"todo"}],"preferences":{"theme":"system","defaultView":"main"}}"#;
+        let cfg: CockpitConfig = serde_json::from_str(json).expect("pre-tabs config should load");
+        assert!(cfg.todo_lists.is_empty());
+        assert_eq!(cfg.active_todo_list, None);
+        assert_eq!(cfg.todos[0].list_id, None);
+    }
+
+    #[test]
+    fn todo_lists_round_trip() {
+        let json = r#"{"version":1,"tiles":[],"worktrees":[],"todoLists":[{"id":"l1","name":"Work"}],"activeTodoList":"l1","todos":[{"id":"t1","text":"ship it","state":"todo","listId":"l1"}],"preferences":{"theme":"system","defaultView":"main"}}"#;
+        let cfg: CockpitConfig = serde_json::from_str(json).expect("config should load");
+        assert_eq!(cfg.todo_lists.len(), 1);
+        assert_eq!(cfg.todo_lists[0].id, "l1");
+        assert_eq!(cfg.todo_lists[0].name, "Work");
+        assert_eq!(cfg.active_todo_list.as_deref(), Some("l1"));
+        assert_eq!(cfg.todos[0].list_id.as_deref(), Some("l1"));
+        let back = serde_json::to_string(&cfg).expect("serialize");
+        assert!(back.contains(r#""todoLists""#));
+        assert!(back.contains(r#""activeTodoList":"l1""#));
+        assert!(back.contains(r#""listId":"l1""#));
+    }
+
+    // A list-less item must not gain a null listId on save: absent stays absent, so a file written by
+    // this build still loads on a build without the field.
+    #[test]
+    fn todo_without_list_omits_list_id_when_saved() {
+        let item = TodoItem { id: "t1".into(), text: "x".into(), state: "todo".into(), list_id: None };
+        let back = serde_json::to_string(&item).expect("serialize");
+        assert!(!back.contains("listId"), "expected listId omitted, got {back}");
     }
 
     #[test]
