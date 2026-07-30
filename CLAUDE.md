@@ -422,6 +422,27 @@ Spec/plan: `docs/superpowers/{specs,plans}/2026-06-27-todo-and-timer-tiles*`.
   (5 new `reorderWithinState` cases); tsc + Vite build clean. **GUI acceptance PENDING human eyeball.**
   Spec/plan: `docs/superpowers/{specs,plans}/2026-07-03-todo-inline-edit-and-reorder*`.
 
+- **To Do tile: list tabs (2026-07-30).** The tile's backlog is split into user-named **tabs**
+  (`todoLists: TodoList[]` + `activeTodoList?` in `cockpit.json`; each `TodoItem` gains an optional
+  `listId`). The rule is **unstarted work is per-list, touched work is global**: `TODO` shows the active
+  tab only, while `IN PROGRESS` and `DONE` show items from **every** list, each row prefixed with its
+  list name (`.todo__list-tag`) — so in-flight work is never hidden behind a tab. `DONE` is collapsed
+  behind a `▸ DONE (n)` toggle (session-only local state, starts collapsed). **No migration write:** two
+  pure resolvers in `todo.ts` do the work — `resolveLists` turns an empty `todoLists` into a synthesised
+  `{ id: "default", name: "General" }`, and `listIdOf` resolves an absent *or dangling* `listId` to the
+  first list, so a pre-tabs config renders as one "General" tab and an item can't be orphaned by deleting
+  a list. **Gotcha:** `addTodoList`/`addTodo` must **materialise** `DEFAULT_LIST` into `todoLists` before
+  appending, or every legacy list-less item would silently jump into the newly added tab (they resolve to
+  `lists[0]`). Tab management: `+` adds (inline name input), clicking the **active** tab's name renames it
+  (empty **reverts** — unlike `editTodo`'s delete-on-empty, since a nameless tab is meaningless), and `✕`
+  deletes — rendered only when that list holds zero items in any state and isn't the last one
+  (`canDeleteList`, enforced in the store too). That gate is the whole safety story: no confirm dialog, no
+  path that silently drops items. **`reorderWithinState` is unchanged** — its same-state guard suffices,
+  because only the active list's TODO rows are ever on screen, so a cross-list TODO drag is unreachable
+  rather than merely rejected. Rust: `TodoList` + `todo_lists`/`active_todo_list`/`list_id`, all
+  `#[serde(default)]`. 245 JS + 131 Rust tests green (30 new JS, 3 new Rust); tsc + Vite + cargo clean.
+  Spec/plan: `docs/superpowers/{specs,plans}/2026-07-30-todo-list-tabs*`.
+
 ✅ **Cockpit worktree column — complete & merged to `main`.** The Cockpit view's **right column** is now a worktree pane,
 reusing `SlotColumn` (its selection was refactored to be **prop-driven** — `value` + `onSelect` — so one component backs
 the Worktrees view's session slots, the Calm view, and the Cockpit view's **persisted** slot). New persisted
