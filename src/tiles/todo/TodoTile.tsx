@@ -169,7 +169,7 @@ export function TodoTile() {
         {groups.done.length > 0 && (
           <div className="todo__section">
             <button className="todo__section-toggle" onClick={() => setDoneOpen(!doneOpen)}>
-              {doneOpen ? "▾" : "▸"} DONE ({groups.done.length})
+              DONE ({groups.done.length}) {doneOpen ? "▾" : "▸"}
             </button>
             {doneOpen && groups.done.map((t) => row(t, listNameOf(t, cockpit.todoLists)))}
           </div>
