@@ -1,5 +1,5 @@
-// todo.ts — pure helpers for the To Do tile: state cycling + grouping by state.
-import type { TodoItem, TodoState } from "../../settings/types";
+// todo.ts — pure helpers for the To Do tile: state cycling, grouping by state, and list (tab) resolution.
+import type { TodoItem, TodoList, TodoState } from "../../settings/types";
 
 const ORDER: TodoState[] = ["todo", "in_progress", "done"];
 
@@ -36,4 +36,47 @@ export function reorderWithinState(
   const insertIdx = draggedIdx < targetIdx ? newTargetIdx + 1 : newTargetIdx;
   without.splice(insertIdx, 0, dragged);
   return without;
+}
+
+// The list a pre-tabs config resolves into: one tab holding every existing item. Materialised into
+// `todoLists` only when the user first adds a list or a to-do (see the store) — never on load.
+export const DEFAULT_LIST: TodoList = { id: "default", name: "General" };
+
+// Always yields at least one list. An empty `todoLists` means "pre-tabs file", NOT "the user wants zero
+// tabs" — a tile with no tab has nowhere to put an item.
+export function resolveLists(lists: TodoList[]): TodoList[] {
+  return lists.length ? lists : [DEFAULT_LIST];
+}
+
+// The active tab, defaulting to the first list. Covers both a config that never had one and one naming
+// a list since deleted.
+export function activeListId(lists: TodoList[], active?: string): string {
+  const resolved = resolveLists(lists);
+  return resolved.some((l) => l.id === active) ? (active as string) : resolved[0].id;
+}
+
+// An item's effective list. An absent or dangling listId falls back to the first list, so an item can
+// never become unreachable by deleting a list out from under it.
+export function listIdOf(item: TodoItem, lists: TodoList[]): string {
+  const resolved = resolveLists(lists);
+  return resolved.some((l) => l.id === item.listId) ? (item.listId as string) : resolved[0].id;
+}
+
+// Display name for the row prefix in the cross-list IN PROGRESS / DONE sections.
+export function listNameOf(item: TodoItem, lists: TodoList[]): string {
+  const id = listIdOf(item, lists);
+  return resolveLists(lists).find((l) => l.id === id)!.name;
+}
+
+// The active tab's backlog: todo-state items owned by that list, input order preserved.
+export function activeTodos(items: TodoItem[], lists: TodoList[], activeId: string): TodoItem[] {
+  return items.filter((i) => i.state === "todo" && listIdOf(i, lists) === activeId);
+}
+
+// A list is deletable only when it holds nothing (in any state) and isn't the last one standing. This is
+// the entire safety story for deletion: no confirm dialog, and no path that silently drops items.
+export function canDeleteList(lists: TodoList[], items: TodoItem[], id: string): boolean {
+  const resolved = resolveLists(lists);
+  if (resolved.length <= 1 || !resolved.some((l) => l.id === id)) return false;
+  return !items.some((i) => listIdOf(i, lists) === id);
 }

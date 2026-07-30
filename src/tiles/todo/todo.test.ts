@@ -1,8 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { nextState, groupByState, reorderWithinState } from "./todo";
+import {
+  nextState, groupByState, reorderWithinState,
+  resolveLists, activeListId, listIdOf, listNameOf, activeTodos, canDeleteList,
+} from "./todo";
 import type { TodoItem } from "../../settings/types";
 
 const item = (id: string, state: TodoItem["state"]): TodoItem => ({ id, text: id, state });
+// A list-scoped item; the item() helper above stays list-less on purpose (the legacy shape).
+const listed = (id: string, state: TodoItem["state"], listId?: string): TodoItem => ({ id, text: id, state, listId });
+const L = (id: string, name: string) => ({ id, name });
 
 describe("nextState", () => {
   it("cycles todo → in_progress → done → todo", () => {
@@ -58,5 +64,96 @@ describe("reorderWithinState", () => {
   it("is a no-op when dragging onto itself", () => {
     const r = reorderWithinState(items, "b", "b");
     expect(r.map((i) => i.id)).toEqual(["a", "b", "c", "d"]);
+  });
+});
+
+describe("resolveLists", () => {
+  it("synthesises the default list when none are persisted", () => {
+    expect(resolveLists([])).toEqual([{ id: "default", name: "General" }]);
+  });
+  it("passes real lists through untouched", () => {
+    const lists = [L("l1", "Work"), L("l2", "Cockpit")];
+    expect(resolveLists(lists)).toBe(lists);
+  });
+});
+
+describe("activeListId", () => {
+  it("falls back to the first list when the active id is absent", () => {
+    expect(activeListId([L("l1", "Work"), L("l2", "Cockpit")], undefined)).toBe("l1");
+  });
+  it("falls back to the first list when the active id no longer exists", () => {
+    expect(activeListId([L("l1", "Work")], "gone")).toBe("l1");
+  });
+  it("keeps a live active id", () => {
+    expect(activeListId([L("l1", "Work"), L("l2", "Cockpit")], "l2")).toBe("l2");
+  });
+  it("resolves to the synthesised default when no lists are persisted", () => {
+    expect(activeListId([], undefined)).toBe("default");
+  });
+});
+
+describe("listIdOf", () => {
+  it("resolves a legacy item with no listId to the synthesised default", () => {
+    expect(listIdOf(item("a", "todo"), [])).toBe("default");
+  });
+  it("resolves a legacy item with no listId to the first real list", () => {
+    expect(listIdOf(item("a", "todo"), [L("l1", "Work"), L("l2", "Cockpit")])).toBe("l1");
+  });
+  it("resolves a dangling listId to the first list rather than losing the item", () => {
+    expect(listIdOf(listed("a", "todo", "deleted"), [L("l1", "Work")])).toBe("l1");
+  });
+  it("keeps a live listId", () => {
+    expect(listIdOf(listed("a", "todo", "l2"), [L("l1", "Work"), L("l2", "Cockpit")])).toBe("l2");
+  });
+});
+
+describe("listNameOf", () => {
+  it("names the owning list", () => {
+    expect(listNameOf(listed("a", "in_progress", "l2"), [L("l1", "Work"), L("l2", "Cockpit")])).toBe("Cockpit");
+  });
+  it("names the synthesised default for a legacy item", () => {
+    expect(listNameOf(item("a", "done"), [])).toBe("General");
+  });
+});
+
+describe("activeTodos", () => {
+  const lists = [L("l1", "Work"), L("l2", "Cockpit")];
+  const items = [
+    listed("a", "todo", "l1"),
+    listed("b", "todo", "l2"),
+    listed("c", "in_progress", "l1"),
+    listed("d", "done", "l1"),
+    listed("e", "todo", "l1"),
+  ];
+  it("keeps only todo-state items from the active list, in input order", () => {
+    expect(activeTodos(items, lists, "l1").map((i) => i.id)).toEqual(["a", "e"]);
+  });
+  it("excludes in_progress and done even for the active list", () => {
+    expect(activeTodos(items, lists, "l1").map((i) => i.state)).toEqual(["todo", "todo"]);
+  });
+  it("includes legacy list-less items when the first list is active", () => {
+    expect(activeTodos([item("z", "todo")], lists, "l1").map((i) => i.id)).toEqual(["z"]);
+  });
+});
+
+describe("canDeleteList", () => {
+  const lists = [L("l1", "Work"), L("l2", "Cockpit")];
+  it("allows deleting an empty, non-last list", () => {
+    expect(canDeleteList(lists, [listed("a", "todo", "l1")], "l2")).toBe(true);
+  });
+  it("refuses a list holding a todo item", () => {
+    expect(canDeleteList(lists, [listed("a", "todo", "l2")], "l2")).toBe(false);
+  });
+  it("refuses a list holding a done item (all states count, not just visible ones)", () => {
+    expect(canDeleteList(lists, [listed("a", "done", "l2")], "l2")).toBe(false);
+  });
+  it("refuses the last remaining list", () => {
+    expect(canDeleteList([L("l1", "Work")], [], "l1")).toBe(false);
+  });
+  it("refuses an unknown list id", () => {
+    expect(canDeleteList(lists, [], "nope")).toBe(false);
+  });
+  it("refuses when no lists are persisted (the synthesised default is never deletable)", () => {
+    expect(canDeleteList([], [], "default")).toBe(false);
   });
 });
