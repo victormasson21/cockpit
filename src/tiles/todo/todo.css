@@ -25,3 +25,29 @@
 .todo__row--done .todo__text { text-decoration: line-through; color: var(--tx-3); }
 .todo__del { background: none; border: none; cursor: pointer; color: var(--tx-3); opacity: 0; }
 .todo__row:hover .todo__del { opacity: 0.7; }
+/* Tab bar: one tab per list, `+` appends. Same underline-active idiom as the Home|Diff tabs, tile-scaled. */
+.todo__tabs { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); border-bottom: 1px solid var(--bdr); }
+.todo__tab { display: flex; align-items: center; gap: var(--space-1); }
+/* These reset the global `button` baseline: its padding would blow the tab row out (same reason
+   .wt-info__btn resets it rather than reusing .icon-btn). */
+.todo__tab-name, .todo__tab-add, .todo__tab-del, .todo__section-toggle {
+  background: none; border: none; padding: 0; cursor: pointer; color: var(--tx-2);
+  font-size: var(--fs-sm); line-height: 1;
+}
+.todo__tab-name { padding: 4px 2px; margin-bottom: -1px; border-bottom: 2px solid transparent; transition: color 200ms ease-out; }
+.todo__tab-name:hover, .todo__tab-add:hover, .todo__section-toggle:hover { color: var(--tx); }
+.todo__tab--active .todo__tab-name { color: var(--tx-hi); border-bottom-color: var(--accent); font-weight: 600; }
+.todo__tab-del { color: var(--tx-3); font-size: var(--fs-2xs); }
+.todo__tab-del:hover { color: var(--bad); }
+.todo__tab-add { padding: 4px 6px; }
+/* Inherits bg/border/radius/padding/font from the global `input` baseline (tokens.css); only size here. */
+.todo__tab-edit { font-size: var(--fs-sm); width: 8em; min-width: 0; }
+.todo__section-toggle { align-self: flex-start; font-size: var(--fs-2xs); letter-spacing: 0.08em; color: var(--tx-3); }
+/* Row prefix naming the owning list, for the cross-list sections. Fixed-size and self-ellipsising so a
+   long list name can't eat the row: .todo__text (flex: 1; min-width: 0) truncates first. The Cockpit
+   centre column has a 320px floor, so that ordering matters. */
+.todo__list-tag {
+  flex: 0 0 auto; max-width: 6em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--tx-3); font-size: var(--fs-xs);
+}
+.todo__list-tag::after { content: "·"; margin-left: 4px; }
