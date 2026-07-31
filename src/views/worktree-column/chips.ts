@@ -22,8 +22,10 @@ function findLink(links: WorktreeLink[], needle: string): string | undefined {
   return links.find((l) => l.url.toLowerCase().includes(needle))?.url;
 }
 
-// worktreeChips: linear (from branch ref + linear.app link) / pr / issue (from name+branch) / localhost (from host.address).
-export function worktreeChips(w: Worktree): Chip[] {
+// worktreeChips: linear (from branch ref + linear.app link) / pr / issue (from name+branch) / localhost.
+// `address` is passed in already resolved (worktree value or repo default) rather than read off the model —
+// keeps this pure helper ignorant of knownRepos while still reflecting a default saved after creation.
+export function worktreeChips(w: Worktree, address: string): Chip[] {
   const chips: Chip[] = [];
 
   // Linear detection is rename-robust: the name is user-editable, so read the immutable branch ref
@@ -39,10 +41,10 @@ export function worktreeChips(w: Worktree): Chip[] {
   if (pr) chips.push({ kind: "pr", label: `PR #${pr[1]}`, url: findLink(w.links, "/pull/") });
   else if (issue) chips.push({ kind: "issue", label: `Issue #${issue[1]}`, url: findLink(w.links, "/issues/") });
 
-  // localhost: opens host.address — the same dev URL the host terminal serves below.
-  if (w.host.address) {
-    const port = w.host.address.match(/:(\d+)/);
-    chips.push({ kind: "localhost", label: port ? `localhost:${port[1]}` : "localhost", url: w.host.address });
+  // localhost: opens the resolved address — the same dev URL the host terminal serves below.
+  if (address) {
+    const port = address.match(/:(\d+)/);
+    chips.push({ kind: "localhost", label: port ? `localhost:${port[1]}` : "localhost", url: address });
   }
 
   return chips;

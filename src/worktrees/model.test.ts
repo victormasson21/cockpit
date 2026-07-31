@@ -1,6 +1,6 @@
 // model.test.ts — pure worktree helpers (existing link reducers + source link construction from a deduction).
 import { describe, it, expect } from "vitest";
-import { makeWorktree, addLink, updateLink, removeLink, sourceLinkFrom, prLinkToAdd, branchSpecFrom, FORM_DEFAULTS, resolveStartCmd } from "./model";
+import { makeWorktree, addLink, updateLink, removeLink, sourceLinkFrom, prLinkToAdd, branchSpecFrom, FORM_DEFAULTS, resolveHost } from "./model";
 import type { DeducedWorktree } from "./api";
 import type { KnownRepo, Worktree } from "../settings/types";
 
@@ -96,31 +96,41 @@ describe("FORM_DEFAULTS", () => {
   });
 });
 
-describe("resolveStartCmd", () => {
-  const wt = (startCmd: string): Worktree => makeWorktree({
+describe("resolveHost", () => {
+  const wt = (startCmd: string, address = ""): Worktree => makeWorktree({
     id: "wt-1", name: "n", repoPath: "/repo", branch: "b", worktreePath: "/wt",
-    host: { startCmd, address: "" },
+    host: { startCmd, address },
   });
   const repos: KnownRepo[] = [{ path: "/repo", host: { startCmd: "pnpm dev", address: "http://localhost:8181" } }];
 
-  it("uses the worktree's own start command when set", () => {
-    expect(resolveStartCmd(wt("npm start"), repos)).toBe("npm start");
+  it("uses the worktree's own values when set", () => {
+    expect(resolveHost(wt("npm start", "http://localhost:3000"), repos))
+      .toEqual({ startCmd: "npm start", address: "http://localhost:3000" });
   });
-  it("falls back to the repo default when the worktree's is empty", () => {
-    expect(resolveStartCmd(wt(""), repos)).toBe("pnpm dev");
+  it("falls back to the repo default when the worktree's are empty", () => {
+    expect(resolveHost(wt("", ""), repos)).toEqual({ startCmd: "pnpm dev", address: "http://localhost:8181" });
   });
-  it("falls back when the worktree's is whitespace only", () => {
-    expect(resolveStartCmd(wt("   "), repos)).toBe("pnpm dev");
+  it("falls back per field, so one blank half doesn't drag the other", () => {
+    expect(resolveHost(wt("npm start", ""), repos))
+      .toEqual({ startCmd: "npm start", address: "http://localhost:8181" });
+    expect(resolveHost(wt("", "http://localhost:3000"), repos))
+      .toEqual({ startCmd: "pnpm dev", address: "http://localhost:3000" });
   });
-  it("trims the resolved command", () => {
-    expect(resolveStartCmd(wt(" npm start "), repos)).toBe("npm start");
-    expect(resolveStartCmd(wt(""), [{ path: "/repo", host: { startCmd: " pnpm dev ", address: "" } }])).toBe("pnpm dev");
+  it("falls back when the worktree's value is whitespace only", () => {
+    expect(resolveHost(wt("   ", "  "), repos)).toEqual({ startCmd: "pnpm dev", address: "http://localhost:8181" });
   });
-  it("returns empty when neither the worktree nor the repo has one", () => {
-    expect(resolveStartCmd(wt(""), [{ path: "/repo" }])).toBe("");
-    expect(resolveStartCmd(wt(""), [])).toBe("");
+  it("trims the resolved values", () => {
+    expect(resolveHost(wt(" npm start ", " http://x "), repos))
+      .toEqual({ startCmd: "npm start", address: "http://x" });
+    expect(resolveHost(wt("", ""), [{ path: "/repo", host: { startCmd: " pnpm dev ", address: " http://y " } }]))
+      .toEqual({ startCmd: "pnpm dev", address: "http://y" });
+  });
+  it("returns empty when neither the worktree nor the repo has values", () => {
+    expect(resolveHost(wt("", ""), [{ path: "/repo" }])).toEqual({ startCmd: "", address: "" });
+    expect(resolveHost(wt("", ""), [])).toEqual({ startCmd: "", address: "" });
   });
   it("only matches the worktree's own repo", () => {
-    expect(resolveStartCmd(wt(""), [{ path: "/other", host: { startCmd: "pnpm dev", address: "" } }])).toBe("");
+    expect(resolveHost(wt("", ""), [{ path: "/other", host: { startCmd: "pnpm dev", address: "http://z" } }]))
+      .toEqual({ startCmd: "", address: "" });
   });
 });

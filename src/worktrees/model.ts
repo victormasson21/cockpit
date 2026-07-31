@@ -1,5 +1,5 @@
 // model.ts — pure helpers for worktree domain data (creation defaults + immutable link editing + deduction link). No IO.
-import type { KnownRepo, Worktree, WorktreeLink } from "../settings/types";
+import type { HostConfig, KnownRepo, Worktree, WorktreeLink } from "../settings/types";
 import type { DeducedWorktree, BranchSpec, WorktreePr } from "./api";
 
 // Build a worktree model from resolved fields, applying defaults (ongoing, no links).
@@ -9,13 +9,17 @@ export function makeWorktree(
   return { status: "ongoing", links: [], ...fields };
 }
 
-// The start command to actually run, falling back to the repo's saved default when the worktree has none.
+// The host config to actually use, falling back per field to the repo's saved default.
 // `worktree.host` is only ever a snapshot taken at creation (deduce/checkout) and no UI edits it afterwards,
-// so a default saved after a worktree existed would otherwise never reach it — the Run button stayed dead.
-export function resolveStartCmd(worktree: Worktree, knownRepos: KnownRepo[]): string {
-  const own = worktree.host.startCmd.trim();
-  if (own) return own;
-  return (knownRepos.find((r) => r.path === worktree.repoPath)?.host?.startCmd ?? "").trim();
+// so a default saved after a worktree existed would otherwise never reach it — the Run button stayed dead
+// and the localhost chip missing. Per field, not whole-object: one blank half must not drag the other.
+export function resolveHost(worktree: Worktree, knownRepos: KnownRepo[]): HostConfig {
+  const saved = knownRepos.find((r) => r.path === worktree.repoPath)?.host;
+  const pick = (own: string, fallback: string | undefined) => own.trim() || (fallback ?? "").trim();
+  return {
+    startCmd: pick(worktree.host.startCmd, saved?.startCmd),
+    address: pick(worktree.host.address, saved?.address),
+  };
 }
 
 // Append a link (returns a new array).

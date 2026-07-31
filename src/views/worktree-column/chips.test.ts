@@ -7,8 +7,8 @@ const base: Worktree = {
   id: "wt", name: "", repoPath: "/r", branch: "", worktreePath: "/wt",
   host: { startCmd: "pnpm dev", address: "http://localhost:5173" }, links: [], status: "ongoing",
 };
-const kinds = (w: Worktree) => worktreeChips(w).map((c) => c.kind);
-const chip = (w: Worktree, k: string) => worktreeChips(w).find((c) => c.kind === k);
+const kinds = (w: Worktree) => worktreeChips(w, w.host.address).map((c) => c.kind);
+const chip = (w: Worktree, k: string) => worktreeChips(w, w.host.address).find((c) => c.kind === k);
 
 describe("worktreeChips", () => {
   it("shows a Linear chip (label 'Linear') from a Linear branch ref", () => {
@@ -67,5 +67,17 @@ describe("linkGlyph", () => {
   it("matches case-insensitively (pasted urls vary)", () => {
     expect(linkGlyph("HTTPS://LINEAR.APP/acme/issue/ENG-1")).toBe("linear");
     expect(linkGlyph("https://GitHub.com/o/r/PULL/7")).toBe("pr");
+  });
+});
+
+describe("worktreeChips localhost address", () => {
+  it("uses the passed resolved address, not the worktree's own blank one", () => {
+    const w = { ...base, host: { startCmd: "", address: "" } };
+    expect(worktreeChips(w, "http://localhost:8181").find((c) => c.kind === "localhost"))
+      .toEqual({ kind: "localhost", label: "localhost:8181", url: "http://localhost:8181" });
+  });
+  it("omits the chip when the resolved address is empty too", () => {
+    const w = { ...base, host: { startCmd: "", address: "" } };
+    expect(worktreeChips(w, "").some((c) => c.kind === "localhost")).toBe(false);
   });
 });
