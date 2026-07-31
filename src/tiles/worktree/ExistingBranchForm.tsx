@@ -48,7 +48,8 @@ export function ExistingBranchForm({ onCreated }: { onCreated: (worktreeId: stri
     try {
       const worktreePath = await createWorktree(repoPath, name, { kind: "existing", branch });
       const id = `wt-${Date.now()}`;
-      // Reuse the repo's saved host default if present; else leave host blank (user can fill in the column later).
+      // Snapshot the repo's saved host default if present; a blank host is fine — `resolveStartCmd` falls
+      // back to the repo default at Run time, so a default saved after this checkout still reaches the button.
       const host = cockpit.knownRepos.find((r) => r.path === repoPath)?.host ?? { startCmd: "", address: "" };
       addWorktree(makeWorktree({ id, name, repoPath, branch, worktreePath, host }));
       onCreated(id);

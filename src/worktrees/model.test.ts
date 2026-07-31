@@ -1,7 +1,8 @@
 // model.test.ts — pure worktree helpers (existing link reducers + source link construction from a deduction).
 import { describe, it, expect } from "vitest";
-import { makeWorktree, addLink, updateLink, removeLink, sourceLinkFrom, prLinkToAdd, branchSpecFrom, FORM_DEFAULTS } from "./model";
+import { makeWorktree, addLink, updateLink, removeLink, sourceLinkFrom, prLinkToAdd, branchSpecFrom, FORM_DEFAULTS, resolveStartCmd } from "./model";
 import type { DeducedWorktree } from "./api";
+import type { KnownRepo, Worktree } from "../settings/types";
 
 describe("makeWorktree", () => {
   it("defaults status to ongoing and links to empty", () => {
@@ -92,5 +93,34 @@ describe("FORM_DEFAULTS", () => {
       name: "", repoPath: "", mode: "new",
       branch: "", base: "main", startCmd: "npm run dev", address: "http://localhost:3000",
     });
+  });
+});
+
+describe("resolveStartCmd", () => {
+  const wt = (startCmd: string): Worktree => makeWorktree({
+    id: "wt-1", name: "n", repoPath: "/repo", branch: "b", worktreePath: "/wt",
+    host: { startCmd, address: "" },
+  });
+  const repos: KnownRepo[] = [{ path: "/repo", host: { startCmd: "pnpm dev", address: "http://localhost:8181" } }];
+
+  it("uses the worktree's own start command when set", () => {
+    expect(resolveStartCmd(wt("npm start"), repos)).toBe("npm start");
+  });
+  it("falls back to the repo default when the worktree's is empty", () => {
+    expect(resolveStartCmd(wt(""), repos)).toBe("pnpm dev");
+  });
+  it("falls back when the worktree's is whitespace only", () => {
+    expect(resolveStartCmd(wt("   "), repos)).toBe("pnpm dev");
+  });
+  it("trims the resolved command", () => {
+    expect(resolveStartCmd(wt(" npm start "), repos)).toBe("npm start");
+    expect(resolveStartCmd(wt(""), [{ path: "/repo", host: { startCmd: " pnpm dev ", address: "" } }])).toBe("pnpm dev");
+  });
+  it("returns empty when neither the worktree nor the repo has one", () => {
+    expect(resolveStartCmd(wt(""), [{ path: "/repo" }])).toBe("");
+    expect(resolveStartCmd(wt(""), [])).toBe("");
+  });
+  it("only matches the worktree's own repo", () => {
+    expect(resolveStartCmd(wt(""), [{ path: "/other", host: { startCmd: "pnpm dev", address: "" } }])).toBe("");
   });
 });
