@@ -9,6 +9,7 @@ import { WorktreePane } from "./WorktreePane";
 import { WorktreeInfo } from "./WorktreeInfo";
 import { LinksList } from "../../tiles/worktree/LinksList";
 import { claudePaneAutostart } from "../../worktrees/claudeCmd";
+import { resolveStartCmd } from "../../worktrees/model";
 import { makePtyId } from "../../worktrees/ptyId";
 import { EMPTY_PANE_SET, MAX_EXTRAS, isPaneOpen } from "../../worktrees/paneSet";
 import { CopyIcon, PlayIcon, PlusIcon } from "../icons";
@@ -22,6 +23,7 @@ export function WorktreeBody({ worktree, variant, switcher }: { worktree: Worktr
   const addShellPane = useSettings((s) => s.addShellPane);
   const toggleWorktreePane = useSettings((s) => s.toggleWorktreePane);
   const expandWorktreePane = useSettings((s) => s.expandWorktreePane);
+  const knownRepos = useSettings((s) => s.cockpit.knownRepos);
 
   // Full variant routes collapse/expand through the slice so expand can collapse the LIVE siblings.
   const paneProps = (role: string) =>
@@ -53,7 +55,8 @@ export function WorktreeBody({ worktree, variant, switcher }: { worktree: Worktr
   // True only for the first spawn after a restart, on a worktree the previous session had open.
   const restored = useSettings((s) => Boolean(s.restoredWorktrees[worktree.id]));
   const prompt = worktree.prompt; // captured so TS narrowing survives into the JSX callbacks (no `!`)
-  const startCmd = worktree.host.startCmd.trim();
+  // Resolved live (not read off the model) so a repo default saved after this worktree was created still runs.
+  const startCmd = resolveStartCmd(worktree, knownRepos);
   return (
     // Re-keyed by id upstream so switching the picker remounts panes (detach old, attach new) without killing PTYs.
     <div className="wt-col__body">
@@ -94,7 +97,7 @@ export function WorktreeBody({ worktree, variant, switcher }: { worktree: Worktr
           <WorktreePane
             title="localhost" icon={<span className="wt-ico wt-ico--chrome" aria-hidden />}
             worktreeId={worktree.id} role="host" cwd={worktree.worktreePath}
-            autostartCmd={worktree.host.startCmd}
+            autostartCmd={startCmd}
             onClose={() => closePane("host")}
             {...paneProps("host")}
           />
