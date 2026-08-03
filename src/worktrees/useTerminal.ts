@@ -6,10 +6,10 @@ import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { type UnlistenFn } from "@tauri-apps/api/event";
 import "@xterm/xterm/css/xterm.css";
-import { makePtyId, isAttentionRole } from "./ptyId";
+import { isAttentionRole } from "./ptyId";
+import { ptyPane, type PtyPane } from "./ptyPane";
 import { shouldInsertNewline, NEWLINE_ESCAPE } from "./keys";
 import { useSettings } from "../settings/store";
 
@@ -54,7 +54,8 @@ const TERM_THEME = {
 // Mount an xterm into a div and keep it attached to the (worktree, role) PTY for the component's lifetime.
 export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured }: UseTerminalArgs) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const ptyIdRef = useRef<string>(makePtyId(worktreeId, role));
+  // The pane's IPC handle, in a ref so restart/close (defined below the effect) reach the same PTY.
+  const paneRef = useRef<PtyPane>(ptyPane(worktreeId, role));
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   // autostartCmd/onEnsured live in refs: a post-mount change (the one-shot prompt being consumed)
@@ -66,8 +67,9 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured }: 
   const fontScale = useSettings((s) => s.fontScale);
 
   useEffect(() => {
-    const ptyId = makePtyId(worktreeId, role);
-    ptyIdRef.current = ptyId;
+    const pane = ptyPane(worktreeId, role);
+    paneRef.current = pane;
+    const ptyId = pane.id; // attention is keyed by pty id (read by SlotColumn + WorktreePane)
     // Mount at the current zoom; a separate effect reflows on later zoom changes without remounting.
     const term = new Terminal({
       allowProposedApi: true, // required by the Unicode11 addon's term.unicode.activeVersion = "11"
@@ -116,7 +118,7 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured }: 
     term.attachCustomKeyEventHandler((e) => {
       if (shouldInsertNewline(e)) {
         if (armed) useSettings.getState().clearAttention(ptyId);
-        invoke("pty_write", { ptyId, bytes: NEWLINE_ESCAPE });
+        pane.write(NEWLINE_ESCAPE);
         return false;
       }
       return true;
@@ -126,15 +128,13 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured }: 
     // A failed spawn (e.g. missing worktree path / bad shell) rejects here and is shown in-pane (spec §G).
     (async () => {
       try {
-        await invoke("pty_ensure", {
-          worktreeId, role, cwd, autostartCmd: autostartRef.current, cols: term.cols, rows: term.rows,
-        });
+        await pane.ensure({ cwd, autostartCmd: autostartRef.current, cols: term.cols, rows: term.rows });
         onEnsuredRef.current?.(); // autostart consumed (or PTY already alive) — callers clear one-shot flags here
-        const scrollback = await invoke<number[]>("pty_attach", { ptyId });
+        const scrollback = await pane.attach();
         if (disposed) return;
-        term.write(new Uint8Array(scrollback));
+        term.write(scrollback);
         bellLive = true; // replay done — bells from here on are live and meaningful.
-        unlisten = await listen<number[]>(`pty://${ptyId}`, (e) => term.write(new Uint8Array(e.payload)));
+        unlisten = await pane.onOutput((bytes) => term.write(bytes));
       } catch (e) {
         if (!disposed) term.write(`\r\n[failed to start: ${String(e)}]\r\n`);
       }
@@ -144,9 +144,9 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured }: 
     // responding to Claude. (NOT on focus/window-switch: that would clear before they notice it.)
     const onData = term.onData((data) => {
       if (armed) useSettings.getState().clearAttention(ptyId);
-      invoke("pty_write", { ptyId, bytes: Array.from(new TextEncoder().encode(data)) });
+      pane.write(data);
     });
-    const onResize = term.onResize(({ cols, rows }) => invoke("pty_resize", { ptyId, cols, rows }));
+    const onResize = term.onResize(({ cols, rows }) => pane.resize(cols, rows));
     const ro = new ResizeObserver(() => fit.fit());
     ro.observe(containerRef.current!);
 
@@ -178,13 +178,11 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured }: 
   // restart re-runs the role's autostart; close respawns a BARE shell (a dead pane with no
   // process behind it silently eats keystrokes — pty_write fails on the missing id).
   const respawn = (cmd: string | undefined, label: string) => {
-    const ptyId = ptyIdRef.current;
+    const pane = paneRef.current;
     const term = termRef.current;
-    const cols = term?.cols ?? 80;
-    const rows = term?.rows ?? 24;
-    useSettings.getState().clearAttention(ptyId); // a manual restart/close resets any pending highlight.
-    invoke("pty_kill", { ptyId })
-      .then(() => invoke("pty_ensure", { worktreeId, role, cwd, autostartCmd: cmd, cols, rows }))
+    useSettings.getState().clearAttention(pane.id); // a manual restart/close resets any pending highlight.
+    pane
+      .respawn({ cwd, autostartCmd: cmd, cols: term?.cols ?? 80, rows: term?.rows ?? 24 })
       .catch((e) => term?.write(`\r\n[${label} failed: ${String(e)}]\r\n`));
   };
   // restart reads the ref so it picks up the current autostart (e.g. plain `claude` after the one-shot prompt).

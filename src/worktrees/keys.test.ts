@@ -18,6 +18,10 @@ describe("shouldInsertNewline", () => {
 
 describe("NEWLINE_ESCAPE", () => {
   it("is backslash followed by carriage return", () => {
-    expect(NEWLINE_ESCAPE).toEqual([92, 13]);
+    expect(NEWLINE_ESCAPE).toBe("\\\r");
+  });
+  // It was a byte array before ptyPane owned the encoding — pin the bytes it must still produce.
+  it("encodes to the same two bytes as before", () => {
+    expect(Array.from(new TextEncoder().encode(NEWLINE_ESCAPE))).toEqual([92, 13]);
   });
 });
