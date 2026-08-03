@@ -8,7 +8,8 @@ import { Dropdown } from "../../views/Dropdown";
 import "./ExistingBranchForm.css";
 
 export function ExistingBranchForm({ onCreated }: { onCreated: (worktreeId: string) => void }) {
-  const { cockpit, addWorktree } = useSettings();
+  const knownRepos = useSettings((s) => s.cockpit.knownRepos);
+  const addWorktree = useSettings((s) => s.addWorktree);
   const [repoPath, setRepoPath] = useState("");
   const [branches, setBranches] = useState<BranchInfo[]>([]);
   const [branch, setBranch] = useState("");
@@ -50,7 +51,7 @@ export function ExistingBranchForm({ onCreated }: { onCreated: (worktreeId: stri
       const id = `wt-${Date.now()}`;
       // Snapshot the repo's saved host default if present; a blank host is fine — `resolveStartCmd` falls
       // back to the repo default at Run time, so a default saved after this checkout still reaches the button.
-      const host = cockpit.knownRepos.find((r) => r.path === repoPath)?.host ?? { startCmd: "", address: "" };
+      const host = knownRepos.find((r) => r.path === repoPath)?.host ?? { startCmd: "", address: "" };
       addWorktree(makeWorktree({ id, name, repoPath, branch, worktreePath, host }));
       onCreated(id);
     } catch (e) {
@@ -67,8 +68,8 @@ export function ExistingBranchForm({ onCreated }: { onCreated: (worktreeId: stri
   return (
     <div className="eb-form">
       <Dropdown variant="form" placeholder="select repo…" value={repoPath || null} onChange={pickRepo}
-        groups={[{ options: cockpit.knownRepos.map((r) => ({ value: r.path, label: r.path })) }]} />
-      {cockpit.knownRepos.length === 0 && (
+        groups={[{ options: knownRepos.map((r) => ({ value: r.path, label: r.path })) }]} />
+      {knownRepos.length === 0 && (
         <div className="eb-form__hint">Add a known repo (in the New worktree form) to enable this.</div>
       )}
       {loading && <div className="eb-form__hint">loading branches…</div>}

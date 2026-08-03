@@ -10,7 +10,7 @@ import { linkGlyph } from "../../views/worktree-column/chips";
 // Returns chip elements (a fragment) so links sit in the same flex row as the derived chips.
 // worktreePath backs the "+ PR" button, which asks gh for the branch's PR and links it.
 export function LinksList({ worktreeId, worktreePath, links }: { worktreeId: string; worktreePath: string; links: WorktreeLink[] }) {
-  const { updateWorktree } = useSettings();
+  const updateWorktree = useSettings((s) => s.updateWorktree);
   const commit = (next: WorktreeLink[]) => updateWorktree(worktreeId, { links: next });
   // A link is being edited if explicitly opened OR still blank (freshly added via + link).
   const [editing, setEditing] = useState<Set<number>>(new Set());
