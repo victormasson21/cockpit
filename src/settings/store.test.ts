@@ -317,70 +317,33 @@ describe("startDeduceWorktree — pending worktree flow", () => {
     });
   });
 
-  it("places a spinning pending tile immediately (deducing)", () => {
-    vi.mocked(deduceWorktree).mockReturnValue(new Promise(() => {})); // never resolves this tick
-    useSettings.getState().startDeduceWorktree("fix the login bug", "worktrees");
-    const st = useSettings.getState();
-    expect(st.pendingWorktrees).toEqual([{ id: "pending-1", prompt: "fix the login bug", status: "deducing", view: "worktrees" }]);
+  // Wiring check: the sequence itself is covered in worktrees/deduceFlow.test.ts against a fake session.
+  // This one test drives the REAL store, so the private deduceSession port implementation — the ~10
+  // single-step reads and writes the flow calls — is proven to actually work against zustand state.
+  it("wiring: the real store's session port carries a deduction through to a placed worktree", async () => {
+    vi.mocked(deduceWorktree).mockResolvedValue(deduced);
+    vi.mocked(createWorktree).mockResolvedValue("/wt/fix-login");
+    useSettings.getState().startDeduceWorktree("fix the login bug", "cockpit", "pr-review");
+    // Placed synchronously, on both slot surfaces, before the chain awaits anything.
+    expect(useSettings.getState().pendingWorktrees).toEqual([
+      { id: "pending-1", prompt: "fix the login bug", status: "deducing", view: "cockpit" },
+    ]);
     expect(slotIds()).toEqual(["pending-1"]);
-  });
-
-  it("success: swaps the pending id for the real worktree in the same slot and persists the model", async () => {
-    vi.mocked(deduceWorktree).mockResolvedValue(deduced);
-    vi.mocked(createWorktree).mockResolvedValue("/wt/fix-login");
-    useSettings.getState().startDeduceWorktree("fix the login bug", "worktrees");
-    await flush();
-    const st = useSettings.getState();
-    expect(st.pendingWorktrees).toEqual([]);
-    expect(st.slots[0].id).toMatch(/^wt-/);
-    expect(st.cockpit.worktrees).toHaveLength(1);
-    expect(st.cockpit.worktrees[0].id).toBe(st.slots[0].id);
-    expect(st.cockpit.worktrees[0].worktreePath).toBe("/wt/fix-login");
-    expect(st.worktreeError).toBeNull();
-  });
-
-  it("success on cockpit view: swaps cockpitWorktreeId too", async () => {
-    vi.mocked(deduceWorktree).mockResolvedValue(deduced);
-    vi.mocked(createWorktree).mockResolvedValue("/wt/fix-login");
-    useSettings.getState().startDeduceWorktree("fix the login bug", "cockpit");
     expect(useSettings.getState().cockpit.cockpitWorktreeId).toBe("pending-1");
+
     await flush();
+
     const st = useSettings.getState();
-    expect(st.cockpit.cockpitWorktreeId).toMatch(/^wt-/);
+    const wt = st.cockpit.worktrees[0];
     expect(st.pendingWorktrees).toEqual([]);
-  });
-
-  it("prepends the per-source context to the pane prompt; deduce still gets the bare input", async () => {
-    vi.mocked(deduceWorktree).mockResolvedValue(deduced);
-    vi.mocked(createWorktree).mockResolvedValue("/wt/fix-login");
-    useSettings.getState().startDeduceWorktree("review https://github.com/a/b/pull/3", "cockpit", "pr-review");
-    await flush();
-    const st = useSettings.getState();
-    expect(st.cockpit.worktrees[0].prompt).toBe(
-      "use the /code-review tool to review this PR\n\nreview https://github.com/a/b/pull/3"
-    );
-    expect(deduceWorktree).toHaveBeenCalledWith("review https://github.com/a/b/pull/3", ["/a"]);
-  });
-
-  it("deduce failure: discards the tile, clears the slot, sets worktreeError", async () => {
-    vi.mocked(deduceWorktree).mockRejectedValue("couldn't resolve Linear ticket");
-    useSettings.getState().startDeduceWorktree("ENG-1 fix login", "worktrees");
-    await flush();
-    const st = useSettings.getState();
-    expect(st.pendingWorktrees).toEqual([]);
-    expect(slotIds()).toEqual([]);
-    expect(st.cockpit.worktrees).toHaveLength(0);
-    expect(st.worktreeError).toEqual({ prompt: "ENG-1 fix login", message: "couldn't resolve Linear ticket" });
-  });
-
-  it("success: stores the prompt on the model and marks the initial claude send pending", async () => {
-    vi.mocked(deduceWorktree).mockResolvedValue(deduced);
-    vi.mocked(createWorktree).mockResolvedValue("/wt/fix-login");
-    useSettings.getState().startDeduceWorktree("fix the login bug", "worktrees");
-    await flush();
-    const st = useSettings.getState();
-    expect(st.cockpit.worktrees[0].prompt).toBe("fix the login bug");
-    expect(st.initialPromptPending[st.cockpit.worktrees[0].id]).toBe(true);
+    expect(wt.id).toMatch(/^wt-/);
+    expect(wt.worktreePath).toBe("/wt/fix-login");
+    expect(slotIds()).toEqual([wt.id]); // swapped in place, same column
+    expect(st.cockpit.cockpitWorktreeId).toBe(wt.id);
+    expect(st.initialPromptPending[wt.id]).toBe(true);
+    expect(wt.prompt).toBe("use the /code-review tool to review this PR\n\nfix the login bug");
+    expect(deduceWorktree).toHaveBeenCalledWith("fix the login bug", ["/a"]); // deduce got the bare input
+    expect(st.worktreeError).toBeNull();
   });
 
   it("clearInitialPrompt removes the flag; no-op (same object) when absent", () => {
@@ -390,20 +353,6 @@ describe("startDeduceWorktree — pending worktree flow", () => {
     const before = useSettings.getState().initialPromptPending;
     useSettings.getState().clearInitialPrompt("wt-ghost");
     expect(useSettings.getState().initialPromptPending).toBe(before);
-  });
-
-  it("mid-flight discard: if the pending tile is removed before deduce resolves, no worktree is added", async () => {
-    let resolveDeduce!: (d: DeducedWorktree) => void;
-    vi.mocked(deduceWorktree).mockReturnValue(new Promise((res) => { resolveDeduce = res; }));
-    useSettings.getState().startDeduceWorktree("fix the login bug", "worktrees");
-    // User repicks the slot away from the pending tile and it drops out of the pending list.
-    useSettings.setState({ pendingWorktrees: [], slots: [] });
-    resolveDeduce(deduced);
-    await flush();
-    const st = useSettings.getState();
-    expect(st.cockpit.worktrees).toHaveLength(0);
-    expect(slotIds()).toEqual([]);
-    expect(createWorktree).not.toHaveBeenCalled();
   });
 
   it("clearWorktreeError nulls the field", () => {
