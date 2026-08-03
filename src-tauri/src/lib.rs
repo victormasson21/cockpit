@@ -1,6 +1,7 @@
 mod auth;
 mod commands;
 mod deduce;
+mod git;
 mod github;
 mod keychain;
 mod pr_reviews;

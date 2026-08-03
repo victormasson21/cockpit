@@ -1,5 +1,6 @@
 //! deduce.rs — deduction provider: builds repo digests, shells out to the claude CLI (headless JSON), returns validated worktree params.
 use serde::{Deserialize, Serialize};
+use crate::git;
 use crate::github::{self, GithubContext, GithubRef};
 
 // The deduced worktree parameters the agent returns; mirrors the TS DeducedWorktree.
@@ -278,11 +279,6 @@ pub fn validate_repo(d: DeducedWorktree, repo_paths: &[String]) -> Result<Deduce
     }
 }
 
-// "origin/master" -> "master" (pure); leaves an already-bare branch name unchanged.
-pub fn strip_origin_prefix(s: &str) -> String {
-    s.strip_prefix("origin/").unwrap_or(s).to_string()
-}
-
 use std::io::Read;
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -371,23 +367,6 @@ fn read_repo_digest(repo_path: &str) -> serde_json::Value {
         "isTauri": is_tauri,
         "devUrl": dev_url,
     })
-}
-
-// Read the repo's default branch from git (origin/HEAD -> e.g. "master"); None when there is no remote/HEAD.
-fn default_branch(repo_path: &str) -> Option<String> {
-    let out = Command::new("git")
-        .args(["-C", repo_path, "symbolic-ref", "--short", "refs/remotes/origin/HEAD"])
-        .output()
-        .ok()?;
-    if !out.status.success() {
-        return None;
-    }
-    let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    if s.is_empty() {
-        None
-    } else {
-        Some(strip_origin_prefix(&s))
-    }
 }
 
 // One headless claude invocation's knobs; lets the plain and ticket paths share the spawn/timeout logic.
@@ -483,7 +462,7 @@ pub fn deduce_worktree(prompt: String, repo_paths: Vec<String>) -> Result<Deduce
             })?;
             let deduced = parse_envelope(&stdout)?;
             // Issue branches off the git default; PR uses the PR's own base (handled in apply_github_overrides).
-            let base_default = default_branch(&repo_path);
+            let base_default = git::default_branch(&repo_path);
             Ok(apply_github_overrides(deduced, &r, &ctx, &repo_path, base_default))
         }
         // Linear: MCP-enabled ticket path (unchanged from the Linear iteration).
@@ -497,7 +476,7 @@ pub fn deduce_worktree(prompt: String, repo_paths: Vec<String>) -> Result<Deduce
                 permission_mode: None, // Linear's MCP tools don't require a permission bypass
             })?;
             let mut deduced = validate_repo(parse_envelope(&stdout)?, &repo_paths)?;
-            if let Some(b) = default_branch(&deduced.repo_path) {
+            if let Some(b) = git::default_branch(&deduced.repo_path) {
                 deduced.base = b;
             }
             if !deduced.source_resolved {
@@ -518,7 +497,7 @@ pub fn deduce_worktree(prompt: String, repo_paths: Vec<String>) -> Result<Deduce
                 permission_mode: Some(SLACK_PERMISSION_MODE), // Slack connector gates tool calls even when allow-listed
             })?;
             let mut deduced = validate_repo(parse_envelope(&stdout)?, &repo_paths)?;
-            if let Some(b) = default_branch(&deduced.repo_path) {
+            if let Some(b) = git::default_branch(&deduced.repo_path) {
                 deduced.base = b;
             }
             // Never fabricate on an unresolved message.
@@ -540,7 +519,7 @@ pub fn deduce_worktree(prompt: String, repo_paths: Vec<String>) -> Result<Deduce
                 permission_mode: None,
             })?;
             let mut deduced = validate_repo(parse_envelope(&stdout)?, &repo_paths)?;
-            if let Some(b) = default_branch(&deduced.repo_path) {
+            if let Some(b) = git::default_branch(&deduced.repo_path) {
                 deduced.base = b;
             }
             Ok(deduced)
@@ -657,13 +636,6 @@ mod tests {
         assert_eq!(tauri_dev_url(conf).as_deref(), Some("http://localhost:1420"));
         assert_eq!(tauri_dev_url(r#"{"build":{}}"#), None);
         assert_eq!(tauri_dev_url("not json"), None);
-    }
-
-    #[test]
-    fn strip_origin_prefix_handles_origin_head() {
-        assert_eq!(strip_origin_prefix("origin/master"), "master");
-        assert_eq!(strip_origin_prefix("origin/main"), "main");
-        assert_eq!(strip_origin_prefix("develop"), "develop"); // no prefix: unchanged
     }
 
     #[test]

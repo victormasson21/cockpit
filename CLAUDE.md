@@ -776,6 +776,30 @@ both Important findings fixed (in-batch dedupe, history pagination).
   coalescing. 288 JS tests (was 264); tsc + Vite clean; no Rust changes. Deferred (incl. a selector-discipline lint
   rule — there's no ESLint config in the repo yet): `docs/superpowers/plans/2026-08-03-settings-store-slices.md`.
 
+- **`git.rs` runner module (2026-08-03) — refactor + ONE behaviour change.** All 17 hand-rolled
+  `Command::new("git")` blocks (worktree.rs ×15, deduce.rs ×1, github.rs ×1) now go through
+  **`src-tauri/src/git.rs`**, the sibling of `github.rs::run_gh` / `deduce.rs::run_claude` / `slack.rs::api_get`
+  that git was missing. Interface is **two functions**: `run<I,S>(dir, args) -> Result<String,String>` and
+  `default_branch(repo_path) -> Option<String>` (+ `strip_origin_prefix`, moved here from deduce.rs).
+  **`run`'s contract matters:** stdout is returned **UNTRIMMED** (so `worktree_file_diff`'s raw patch survives
+  byte-for-byte — a trimming runner would silently alter it); `Err` carries git's **trimmed stderr**, shown to the
+  user verbatim; a non-zero exit is an `Err`, and the **seven sites that treat failure as data** (the dirty-default
+  in `worktree_status`, `remove_worktree`'s prune fallback, the main/master probes, `branch_exists`,
+  `origin_owner_repo`, the non-fatal `worktree list`) use `.ok()` and branch on the Option; args are generic like
+  `Command::args`, so `["a","b"]` and a `Vec<String>` arg-builder both pass unconverted. **One function, not
+  three** — `run(...).ok()` covers every probe, so the sketched `try_run`/`probe` were pure surface; don't re-add
+  them. `current_dir` won over `-C` (21 vs 4 uses; byte-identical output), so **`repo_root_args` lost its embedded
+  `-C <path>`** — the dir is `run`'s first arg. **⚠️ Behaviour change: `deduce.rs` GAINED the origin/main→master
+  fallback.** The two `repo_default_branch` copies were NOT equivalent (only worktree.rs had the fallback), so
+  deduce can now resolve a base in a locally-init-ed repo with no `origin/HEAD` instead of keeping the agent's
+  guess — same gap the Diff-tab fix closed (e94f72c). Worth a smoke. **One raw subprocess stays** in worktree.rs:
+  the `gh pr checkout` in `create_worktree` — it's `gh`, not git, and github.rs's runner would impose
+  `GH_TIMEOUT` (30s) on a PR fetch that can legitimately take longer, silently diverting to the
+  `refs/pull/<N>/head` fallback. 137 Rust tests (was 132: +10 in git.rs, −5 moved with their functions);
+  `worktree.rs` 819→667 lines; 239 deletions vs 54 insertions. **No frontend changes, no IPC signatures moved.**
+  Deferred (a timeout on git calls — now a one-line change in one place; routing `gh pr checkout`):
+  `docs/superpowers/plans/2026-08-03-git-runner-module.md`.
+
 **Next / resuming work — read `docs/ROADMAP.md` first.** It is the single prioritized backlog, split into
 **main build sub-projects** (the big sequential arc — sub-project 5 onward: Linear tile, then GitHub/Calendar
 tiles, reusing the SP4 provider+panel + Keychain seam) and **smaller iterations** (scoped polish/enhancements). When

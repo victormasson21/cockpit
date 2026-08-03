@@ -2,6 +2,8 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use crate::git;
+
 // Existing branch checkout vs. a new branch cut from a base. Deserialized from the frontend's tagged JSON.
 #[derive(serde::Deserialize)]
 #[serde(tag = "kind", rename_all = "lowercase")]
@@ -139,8 +141,9 @@ pub fn delete_branch_args(branch: &str) -> Vec<String> {
 }
 
 // git args to print a path's repo root; non-zero exit if the path is not inside a work tree.
-pub fn repo_root_args(path: &str) -> Vec<String> {
-    vec!["-C".into(), path.into(), "rev-parse".into(), "--show-toplevel".into()]
+// The directory to run in is git::run's first argument, so it isn't part of the argv.
+pub fn repo_root_args() -> Vec<String> {
+    vec!["rev-parse".into(), "--show-toplevel".into()]
 }
 
 // True when `branch` is a branch we refuse to force-delete on Wipe. It matches the repo's known
@@ -220,20 +223,15 @@ pub fn create_worktree(
     // onto the right branch. Non-PR specs keep failing on a colliding path (a "new branch" shouldn't reuse).
     let reuse = matches!(spec, BranchSpec::Pr { .. }) && wt.exists();
     if !reuse {
-        let args = worktree_add_args(&wt_str, &spec);
-        let out = Command::new("git")
-            .current_dir(&repo_path)
-            .args(&args)
-            .output()
-            .map_err(|e| e.to_string())?;
-        if !out.status.success() {
-            return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
-        }
+        git::run(&repo_path, worktree_add_args(&wt_str, &spec))?;
     }
     // PR: check out the PR inside the (fresh or reused) worktree.
     if let BranchSpec::Pr { number, branch } = &spec {
         let n = number.to_string();
         // Primary: `gh pr checkout` sets up a push-tracking branch for an open PR and handles forks.
+        // The one raw subprocess left in this module, deliberately: it's `gh`, not git, and github.rs's
+        // runner imposes GH_TIMEOUT (30s) — a slow PR fetch would trip it and divert to the fallback
+        // below. Unifying it needs that timeout decided on its own merits.
         let co = Command::new("gh")
             .current_dir(&wt)
             .args(["pr", "checkout", &n])
@@ -243,23 +241,10 @@ pub fn create_worktree(
             // Fallback: the live head branch may be gone (e.g. a merged PR with its branch deleted).
             // The immutable refs/pull/<N>/head always exists — fetch it and create the branch from it.
             let pull_ref = format!("pull/{n}/head");
-            let fetched = Command::new("git")
-                .current_dir(&wt)
-                .args(["fetch", "origin", &pull_ref])
-                .output()
-                .map_err(|e| format!("failed to run git: {e}"))?;
-            if !fetched.status.success() {
-                return Err(String::from_utf8_lossy(&fetched.stderr).trim().to_string());
-            }
+            let wt_dir = wt.to_string_lossy().to_string();
+            git::run(&wt_dir, ["fetch", "origin", &pull_ref])?;
             // -B (not -b): create the branch, or reset it to the PR head if a prior attempt left it — idempotent.
-            let checked = Command::new("git")
-                .current_dir(&wt)
-                .args(["checkout", "-B", branch, "FETCH_HEAD"])
-                .output()
-                .map_err(|e| format!("failed to run git: {e}"))?;
-            if !checked.status.success() {
-                return Err(String::from_utf8_lossy(&checked.stderr).trim().to_string());
-            }
+            git::run(&wt_dir, ["checkout", "-B", branch, "FETCH_HEAD"])?;
         }
     }
     Ok(wt_str)
@@ -268,32 +253,18 @@ pub fn create_worktree(
 // List a repo's local branches, most-recently-committed first, for the "open existing branch" picker.
 #[tauri::command(async)]
 pub fn list_branches(repo_path: String) -> Result<Vec<BranchInfo>, String> {
-    let out = Command::new("git")
-        .current_dir(&repo_path)
-        .args([
-            "for-each-ref",
-            "--sort=-committerdate",
-            "--format=%(refname:short)%09%(committerdate:relative)",
-            "refs/heads/",
-        ])
-        .output()
-        .map_err(|e| e.to_string())?;
-    if !out.status.success() {
-        return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
-    }
-    let branches = parse_branch_lines(&String::from_utf8_lossy(&out.stdout));
+    let out = git::run(&repo_path, [
+        "for-each-ref",
+        "--sort=-committerdate",
+        "--format=%(refname:short)%09%(committerdate:relative)",
+        "refs/heads/",
+    ])?;
+    let branches = parse_branch_lines(&out);
     // Flag branches already checked out elsewhere (git refuses to worktree-add those). A failure here is
     // non-fatal — we just return the branches unflagged rather than break the whole picker.
-    let wt_out = Command::new("git")
-        .current_dir(&repo_path)
-        .args(["worktree", "list", "--porcelain"])
-        .output()
-        .map_err(|e| e.to_string())?;
-    let worktree_branches = if wt_out.status.success() {
-        parse_worktree_branches(&String::from_utf8_lossy(&wt_out.stdout))
-    } else {
-        Vec::new()
-    };
+    let worktree_branches = git::run(&repo_path, ["worktree", "list", "--porcelain"])
+        .map(|o| parse_worktree_branches(&o))
+        .unwrap_or_default();
     Ok(mark_checked_out(branches, &worktree_branches))
 }
 
@@ -305,15 +276,11 @@ pub fn worktree_status(worktree_path: String) -> Result<WorktreeStatus, String> 
     if !Path::new(&worktree_path).exists() {
         return Ok(WorktreeStatus { exists: false, dirty: false });
     }
-    let out = Command::new("git")
-        .current_dir(&worktree_path)
-        .args(["status", "--porcelain"])
-        .output()
-        .map_err(|e| e.to_string())?;
-    let dirty = if out.status.success() {
-        !String::from_utf8_lossy(&out.stdout).trim().is_empty()
-    } else {
-        true // existing dir but git can't read it: treat as dirty so the dialog forces force-removal.
+    // Failure is data here, not an error: an existing dir git can't read counts as dirty, so the
+    // dialog forces a deliberate force-removal rather than silently risking data.
+    let dirty = match git::run(&worktree_path, ["status", "--porcelain"]) {
+        Ok(out) => !out.trim().is_empty(),
+        Err(_) => true,
     };
     Ok(WorktreeStatus { exists: true, dirty })
 }
@@ -322,39 +289,9 @@ pub fn worktree_status(worktree_path: String) -> Result<WorktreeStatus, String> 
 // One `rev-parse --show-toplevel` does both: non-zero exit => not a repo; stdout => the root.
 #[tauri::command(async)]
 pub fn resolve_repo_root(path: String) -> Result<String, String> {
-    let out = Command::new("git")
-        .args(repo_root_args(&path))
-        .output()
-        .map_err(|e| e.to_string())?;
-    if !out.status.success() {
-        return Err(format!("Not a git repository: {path}"));
-    }
-    Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
-}
-
-// Read the repo's default branch from origin/HEAD (e.g. "main"); when that symref is absent
-// (locally-init-ed repos never get one — only clone creates it), fall back to the conventional
-// names main/master if the remote-tracking ref exists (same convention as is_default_branch).
-// Self-contained (not shared with deduce.rs's private copy) to keep this module decoupled.
-fn repo_default_branch(repo_path: &str) -> Option<String> {
-    let out = Command::new("git")
-        .args(["-C", repo_path, "symbolic-ref", "--short", "refs/remotes/origin/HEAD"])
-        .output()
-        .ok()?;
-    if out.status.success() {
-        let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
-        let short = s.strip_prefix("origin/").unwrap_or(&s).to_string();
-        if !short.is_empty() {
-            return Some(short);
-        }
-    }
-    ["main", "master"].iter().find_map(|name| {
-        let probe = Command::new("git")
-            .args(["-C", repo_path, "show-ref", "--verify", "--quiet", &format!("refs/remotes/origin/{name}")])
-            .output()
-            .ok()?;
-        probe.status.success().then(|| name.to_string())
-    })
+    git::run(&path, repo_root_args())
+        .map(|out| out.trim().to_string())
+        .map_err(|_| format!("Not a git repository: {path}"))
 }
 
 // Resolve the base ref to diff against: an explicit base wins; else the repo default branch;
@@ -363,7 +300,7 @@ fn resolve_base(base: &str, repo_path: &str) -> Result<String, String> {
     if !base.is_empty() {
         return Ok(base.to_string());
     }
-    repo_default_branch(repo_path)
+    git::default_branch(repo_path)
         .ok_or_else(|| "couldn't determine a base branch (no origin/HEAD)".to_string())
 }
 
@@ -375,16 +312,8 @@ pub fn worktree_diff(worktree_path: String, repo_path: String, base: String) -> 
     if !Path::new(&worktree_path).exists() {
         return Err("worktree path not found".to_string());
     }
-    let out = Command::new("git")
-        .current_dir(&worktree_path)
-        .args(diff_stat_args(&base))
-        .output()
-        .map_err(|e| e.to_string())?;
-    if !out.status.success() {
-        return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
-    }
-    let files = parse_numstat(&String::from_utf8_lossy(&out.stdout));
-    Ok(DiffResult { base, files })
+    let out = git::run(&worktree_path, diff_stat_args(&base))?;
+    Ok(DiffResult { base, files: parse_numstat(&out) })
 }
 
 // One file's raw unified patch (fetched lazily when the user expands a file row). Coloring is
@@ -392,15 +321,8 @@ pub fn worktree_diff(worktree_path: String, repo_path: String, base: String) -> 
 #[tauri::command(async)]
 pub fn worktree_file_diff(worktree_path: String, repo_path: String, base: String, path: String) -> Result<String, String> {
     let base = resolve_base(&base, &repo_path)?;
-    let out = Command::new("git")
-        .current_dir(&worktree_path)
-        .args(file_diff_args(&base, &path))
-        .output()
-        .map_err(|e| e.to_string())?;
-    if !out.status.success() {
-        return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
-    }
-    Ok(String::from_utf8_lossy(&out.stdout).to_string())
+    // Raw patch, verbatim — git::run does not trim stdout, so coloring stays the frontend's job.
+    git::run(&worktree_path, file_diff_args(&base, &path))
 }
 
 // Remove the git worktree (Delete/Wipe). `force` allows removing a dirty worktree. If `git worktree
@@ -410,44 +332,27 @@ pub fn worktree_file_diff(worktree_path: String, repo_path: String, base: String
 // leftovers. The confirm dialog is the gate: once the user approves, the desired end state holds.
 #[tauri::command(async)]
 pub fn remove_worktree(repo_path: String, worktree_path: String, force: bool) -> Result<(), String> {
-    let args = worktree_remove_args(&worktree_path, force);
-    let out = Command::new("git")
-        .current_dir(&repo_path)
-        .args(&args)
-        .output()
-        .map_err(|e| e.to_string())?;
-    if out.status.success() {
+    let removed = git::run(&repo_path, worktree_remove_args(&worktree_path, force));
+    if removed.is_ok() {
         return Ok(());
     }
     // Fallback: no longer a valid worktree (dir gone, or a plain dir without a `.git` link) —
     // remove can't operate; deregister the stale entry and delete any leftover files instead.
     let path = Path::new(&worktree_path);
     if !path.exists() || !path.join(".git").exists() {
-        let pruned = Command::new("git")
-            .current_dir(&repo_path)
-            .args(["worktree", "prune"])
-            .output()
-            .map_err(|e| e.to_string())?;
-        if !pruned.status.success() {
-            return Err(String::from_utf8_lossy(&pruned.stderr).trim().to_string());
-        }
+        git::run(&repo_path, ["worktree", "prune"])?;
         if path.exists() {
             std::fs::remove_dir_all(path).map_err(|e| e.to_string())?;
         }
         return Ok(());
     }
-    Err(String::from_utf8_lossy(&out.stderr).trim().to_string())
+    Err(removed.unwrap_err())
 }
 
 // True when `branch` exists locally. A probe failure reports "exists" so `branch -D` runs and
 // surfaces the real git error instead of us silently swallowing it.
 fn branch_exists(repo_path: &str, branch: &str) -> bool {
-    Command::new("git")
-        .current_dir(repo_path)
-        .args(["rev-parse", "--verify", "--quiet", &format!("refs/heads/{branch}")])
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(true)
+    git::run(repo_path, ["rev-parse", "--verify", "--quiet", &format!("refs/heads/{branch}")]).is_ok()
 }
 
 // Force-delete a branch (Wipe). Must run AFTER the worktree is removed — git refuses to delete a
@@ -461,22 +366,13 @@ pub fn delete_branch(repo_path: String, branch: String) -> Result<(), String> {
     }
     // Guard: never force-delete the repo default branch (e.g. Wipe on a `main`-checked-out worktree).
     // Wipe then degrades to Delete — the worktree is already removed by the caller; the branch is kept.
-    let default = repo_default_branch(&repo_path);
+    let default = git::default_branch(&repo_path);
     if is_default_branch(&branch, default.as_deref()) {
         return Err(format!(
             "{branch} is the repo default branch — refusing to delete it (worktree removed; branch kept)."
         ));
     }
-    let args = delete_branch_args(&branch);
-    let out = Command::new("git")
-        .current_dir(&repo_path)
-        .args(&args)
-        .output()
-        .map_err(|e| e.to_string())?;
-    if !out.status.success() {
-        return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
-    }
-    Ok(())
+    git::run(&repo_path, delete_branch_args(&branch)).map(|_| ())
 }
 
 #[cfg(test)]
@@ -554,10 +450,8 @@ mod tests {
 
     #[test]
     fn repo_root_args_builds_rev_parse_toplevel() {
-        assert_eq!(
-            repo_root_args("/some/dir"),
-            vec!["-C", "/some/dir", "rev-parse", "--show-toplevel"]
-        );
+        // The directory is git::run's first argument, so it is deliberately absent from the argv.
+        assert_eq!(repo_root_args(), vec!["rev-parse", "--show-toplevel"]);
     }
 
     #[test]
@@ -611,54 +505,8 @@ mod tests {
         assert!(!verify.status.success());
     }
 
-    // Real-git tests for repo_default_branch's fallback: a locally-init-ed repo (git init +
-    // remote add + fetch) never gets a refs/remotes/origin/HEAD symref — only clone creates it.
-    #[test]
-    fn repo_default_branch_falls_back_to_origin_main_without_origin_head() {
-        let repo = init_test_repo();
-        let run = |args: &[&str]| {
-            let out = Command::new("git").current_dir(repo.path()).args(args).output().unwrap();
-            assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
-        };
-        run(&["update-ref", "refs/remotes/origin/main", "HEAD"]);
-        let path = repo.path().to_string_lossy().to_string();
-        assert_eq!(repo_default_branch(&path), Some("main".to_string()));
-    }
-
-    #[test]
-    fn repo_default_branch_falls_back_to_origin_master_without_origin_head() {
-        let repo = init_test_repo();
-        let run = |args: &[&str]| {
-            let out = Command::new("git").current_dir(repo.path()).args(args).output().unwrap();
-            assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
-        };
-        run(&["update-ref", "refs/remotes/origin/master", "HEAD"]);
-        let path = repo.path().to_string_lossy().to_string();
-        assert_eq!(repo_default_branch(&path), Some("master".to_string()));
-    }
-
-    #[test]
-    fn repo_default_branch_prefers_origin_head_over_conventional_names() {
-        // origin/HEAD is authoritative: a repo whose default is "develop" must not fall back to main.
-        let repo = init_test_repo();
-        let run = |args: &[&str]| {
-            let out = Command::new("git").current_dir(repo.path()).args(args).output().unwrap();
-            assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
-        };
-        run(&["update-ref", "refs/remotes/origin/main", "HEAD"]);
-        run(&["update-ref", "refs/remotes/origin/develop", "HEAD"]);
-        run(&["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/develop"]);
-        let path = repo.path().to_string_lossy().to_string();
-        assert_eq!(repo_default_branch(&path), Some("develop".to_string()));
-    }
-
-    #[test]
-    fn repo_default_branch_none_without_any_origin_refs() {
-        // No remote refs at all: still None, so the UI keeps its honest inline error (no guessing).
-        let repo = init_test_repo();
-        let path = repo.path().to_string_lossy().to_string();
-        assert_eq!(repo_default_branch(&path), None);
-    }
+    // repo_default_branch moved to git.rs (it was duplicated in deduce.rs); its four
+    // fallback cases moved with it — see git::tests::default_branch_*.
 
     #[test]
     fn remove_worktree_cleans_leftover_dir_when_no_longer_a_worktree() {
