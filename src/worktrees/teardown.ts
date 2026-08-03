@@ -1,7 +1,14 @@
-// teardown.ts — cumulative worktree teardown steps (Close ⊂ Pause ⊂ Delete ⊂ Wipe). No React: the
-// store action is injected so the sequence is unit-testable.
-import { killPanes } from "./paneLifecycle";
+// teardown.ts — cumulative worktree teardown steps (Close ⊂ Pause ⊂ Delete ⊂ Wipe). No React and no
+// store: the PTY kill and the model write are injected, so the sequence is unit-testable on its own.
 import { removeWorktreeGit, deleteBranch } from "./api";
+
+export interface TeardownDeps {
+  // Stop the worktree's live PTYs. A thunk, not (id, roles): which panes are live is a pane concern,
+  // bound by the caller, so teardown never has to model them.
+  killPtys: () => Promise<void>;
+  // Drop the worktree from the persisted model.
+  removeModel: (id: string) => void;
+}
 
 // Delete/Wipe: kill PTYs → git worktree remove(force) → [Wipe: delete branch] → drop model. If remove
 // throws, the model is kept (caller surfaces the error and the user retries). A branch-delete failure
@@ -10,10 +17,9 @@ import { removeWorktreeGit, deleteBranch } from "./api";
 export async function teardownWorktree(
   wt: { id: string; repoPath: string; worktreePath: string; branch: string },
   opts: { wipe: boolean; force: boolean },
-  removeWorktreeModel: (id: string) => void,
-  roles: string[],
+  deps: TeardownDeps,
 ): Promise<string | null> {
-  await killPanes(wt.id, roles); // 1. kill first — frees the dir so git worktree remove can't be blocked.
+  await deps.killPtys(); // 1. kill first — frees the dir so git worktree remove can't be blocked.
   await removeWorktreeGit(wt.repoPath, wt.worktreePath, opts.force); // 2. throws → abort, keep model.
   let warning: string | null = null;
   if (opts.wipe) {
@@ -24,6 +30,6 @@ export async function teardownWorktree(
       warning = `Worktree removed, but branch could not be deleted: ${String(e)}`;
     }
   }
-  removeWorktreeModel(wt.id); // 4. drop model only after the worktree is actually gone.
+  deps.removeModel(wt.id); // 4. drop model only after the worktree is actually gone.
   return warning;
 }

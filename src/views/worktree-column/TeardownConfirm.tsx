@@ -5,7 +5,7 @@ import type { Worktree } from "../../settings/types";
 import { useSettings } from "../../settings/store";
 import { worktreeStatus, type WorktreeStatus } from "../../worktrees/api";
 import { teardownWorktree } from "../../worktrees/teardown";
-import { liveRoles } from "../../worktrees/paneLifecycle";
+import { killPanes, liveRoles } from "../../worktrees/paneLifecycle";
 import { Modal } from "../Modal";
 
 export function TeardownConfirm({ worktree, action, onClose, onDone }: {
@@ -34,8 +34,8 @@ export function TeardownConfirm({ worktree, action, onClose, onDone }: {
       const w = await teardownWorktree(
         worktree,
         { wipe: action === "wipe", force: status?.dirty ?? true },
-        removeWorktree,
-        liveRoles(worktree.id),
+        // Roles are read when the kill runs, which is teardown's first step — before any await.
+        { killPtys: () => killPanes(worktree.id, liveRoles(worktree.id)), removeModel: removeWorktree },
       );
       if (w) {
         setWarning(w); // teardown succeeded with a caveat — show it, let the user dismiss.
