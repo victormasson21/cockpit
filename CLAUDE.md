@@ -731,6 +731,30 @@ both Important findings fixed (in-batch dedupe, history pagination).
   `views → worktrees` is the established import direction). Linear/Slack sources and GitHub *issues* keep their
   fetched title; the `+ PR` button's `prLinkToAdd` keeps `PR #<n>` (already short, and the number is useful).
 
+- **Deduce flow module (2026-08-03) — pure refactor, no behaviour change.** The deduce→create chain moved out
+  of the store into **`src/worktrees/deduceFlow.ts`**: `startDeduceFlow({ prompt, view, source }, { session,
+  deduce, create })`. It keeps EVERY decision (both liveness guards, host precedence, the context prepend,
+  `branchSpecFrom`, the two-surface swap, the rollback); `store.ts`'s `startDeduceWorktree` is now a one-line
+  delegation. It returns a promise (`void startDeduceFlow(...)` at the call site), so tests `await` it instead of
+  the old `setTimeout(0)` flush. Only the deduce path — **`ExistingBranchForm` (checkout) is untouched**; its
+  shape differs (synchronous, inline busy/error, no pending tile) and the apparent shared tail is 3 lines with a
+  *different* host rule (deduce falls back per field over the agent's guess, checkout takes the whole saved object
+  or blank). **The port is 14 granular single-step ops on purpose — do NOT coarsen it:** a semantic
+  `commit(pendingId, worktree)` reads better but absorbs the swap/repin/rollback into the port's implementation,
+  i.e. back out of the test surface (moving complexity instead of concentrating it). **The port impl is a private
+  `deduceSession` closure inside `store.ts`'s `create()`, NOT new store actions** — 7 of the 14 ops were inline
+  `set` calls, and exposing them would push `SettingsState` from 72 members to ~79, worsening the store's width to
+  fix the saga's depth; the public store interface grows by zero. Reads (`knownRepos`, `contexts`, `cockpitPin`,
+  `isLive`) are **getters, not a start-time snapshot** — they're read 15-43s later, after `deduce` resolves, so a
+  repo host default saved mid-deduce must still land (the same bug `resolveHost` fixed on 2026-07-31); two tests
+  pin it. IPC is **injected** (diverging from `teardown.ts`, which imports its IPC and mocks the module — fine
+  there, since it branches on neither call). Tests were **replaced, not layered**: 16 sequence tests in
+  `deduceFlow.test.ts` against a plain fake session (no store, no `vi.mock`), the 6 old saga tests + the mid-flight
+  one deleted from `store.test.ts`, and **one** new wiring test there driving the real store so the private port
+  impl is proven — the last remaining `vi.mock("../worktrees/api")`. 264 JS tests (was 254); tsc + Vite clean; no
+  Rust changes. Deferred (with the review's four sibling candidates) in
+  `docs/superpowers/plans/2026-08-03-deduce-flow-module.md`.
+
 **Next / resuming work — read `docs/ROADMAP.md` first.** It is the single prioritized backlog, split into
 **main build sub-projects** (the big sequential arc — sub-project 5 onward: Linear tile, then GitHub/Calendar
 tiles, reusing the SP4 provider+panel + Keychain seam) and **smaller iterations** (scoped polish/enhancements). When

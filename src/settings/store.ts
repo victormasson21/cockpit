@@ -6,10 +6,10 @@ import { nextState, reorderWithinState, activeListId, canDeleteList, DEFAULT_LIS
 import { mergePrItems } from "../tiles/pr/merge";
 import { initSlots, addEmptySlot as addEmptySlotFn, setSlotId, removeSlot as removeSlotFn, placeEntity, fillEntity, clearEntity, swapSlotId, swapSlots as swapSlotsFn, type Slots, type ScratchTerminal, type PendingWorktree } from "../views/slots";
 import { deduceWorktree, createWorktree } from "../worktrees/api";
-import { makeWorktree, sourceLinkFrom, branchSpecFrom } from "../worktrees/model";
+import { startDeduceFlow, type DeduceFlowSession } from "../worktrees/deduceFlow";
 import { runHost, addExtra, removePane, togglePane, expandPane, EMPTY_PANE_SET, type WorktreePaneSet } from "../worktrees/paneSet";
 import { tick } from "../tiles/timer/timer";
-import { effectiveContext, type WorktreeSource } from "../worktrees/worktreeContext";
+import { type WorktreeSource } from "../worktrees/worktreeContext";
 import { restoreWorkspace, withWorkspace } from "./workspace";
 
 const TIMER_DEFAULT_MIN = 25;
@@ -64,7 +64,8 @@ interface SettingsState {
   addScratch: () => string;
   removeScratch: (id: string) => void;
   renameScratch: (id: string, title: string) => void;
-  // Session-only pending worktrees (spinner tiles) + the whole deduce→create background chain.
+  // Session-only pending worktrees (spinner tiles). The deduce→create chain itself lives in
+  // worktrees/deduceFlow.ts; this action just starts it with the store as its session port.
   pendingWorktrees: PendingWorktree[];
   pendingSeq: number;
   startDeduceWorktree: (prompt: string, view: View, source?: WorktreeSource) => void;
@@ -145,6 +146,34 @@ export const useSettings = create<SettingsState>((set, get) => {
     set(patch);
     scheduleSave(get);
   };
+
+  // deduceSession: the store's implementation of the deduce flow's session port. Deliberately a private
+  // closure rather than ~10 more members on SettingsState — consumers have no use for these single-step
+  // operations, and the store's public interface is already wide. Each one is a mechanical read or write;
+  // all the sequencing lives in worktrees/deduceFlow.ts, where it is unit-tested.
+  const deduceSession: DeduceFlowSession = {
+    isLive: (id) => get().pendingWorktrees.some((p) => p.id === id),
+    knownRepos: () => get().cockpit.knownRepos,
+    contexts: () => get().cockpit.worktreeContexts,
+    cockpitPin: () => get().cockpit.cockpitWorktreeId,
+    addPending: (prompt, view) => {
+      const n = get().pendingSeq + 1;
+      const id = `pending-${n}`;
+      set((st) => ({ pendingSeq: n, pendingWorktrees: [...st.pendingWorktrees, { id, prompt, status: "deducing", view }] }));
+      return id;
+    },
+    setPendingStatus: (id, status) =>
+      set((st) => ({ pendingWorktrees: st.pendingWorktrees.map((p) => (p.id === id ? { ...p, status } : p)) })),
+    dropPending: (id) => setSession((st) => ({ pendingWorktrees: st.pendingWorktrees.filter((p) => p.id !== id) })),
+    placeEntity: (id, view) => get().placeNewEntity(id, view),
+    swapSlotId: (from, to) => setSession((st) => ({ slots: swapSlotId(st.slots, from, to) })),
+    clearSlots: (id) => setSession((st) => ({ slots: clearEntity(st.slots, id) })),
+    addWorktree: (wt) => get().addWorktree(wt),
+    armInitialPrompt: (id) => setSession((st) => ({ initialPromptPending: { ...st.initialPromptPending, [id]: true } })),
+    setCockpitPin: (id) => get().setCockpitWorktree(id),
+    setError: (worktreeError) => set({ worktreeError }),
+  };
+
   return {
   cockpit: { version: 1, tiles: [], worktrees: [], knownRepos: [], integrations: {}, todos: [], todoLists: [], worktreeContexts: {}, preferences: { theme: "system", defaultView: "worktrees" } },
   layout: { version: 1, views: {} },
@@ -311,63 +340,10 @@ export const useSettings = create<SettingsState>((set, get) => {
   renameScratch: (id, title) =>
     setSession((st) => ({ scratchTerminals: st.scratchTerminals.map((s) => (s.id === id ? { ...s, title } : s)) })),
   clearWorktreeError: () => set({ worktreeError: null }),
-  // startDeduceWorktree: place a spinning pending tile immediately, then run deduce→create in the
-  // background (this action outlives the modal, so the fire-and-forget async survives modal close).
-  // On success the pending id is swapped in place for the real `wt-*` id; on failure the tile is
-  // discarded and worktreeError is set so App reopens the modal prefilled.
+  // Start the deduce→create chain, with the store as its session port. Fire-and-forget on purpose: the
+  // chain outlives the modal that submitted it (and the flow never rejects, so nothing is swallowed).
   startDeduceWorktree: (prompt, view, source = "manual") => {
-    const n = get().pendingSeq + 1;
-    const pendingId = `pending-${n}`;
-    set((st) => ({
-      pendingSeq: n,
-      pendingWorktrees: [...st.pendingWorktrees, { id: pendingId, prompt, status: "deducing", view }],
-    }));
-    get().placeNewEntity(pendingId, view);
-
-    // isLive: the user may repick/close the slot mid-flight; if the pending entity is gone, abandon quietly.
-    const isLive = () => get().pendingWorktrees.some((p) => p.id === pendingId);
-
-    void (async () => {
-      try {
-        const d = await deduceWorktree(prompt, get().cockpit.knownRepos.map((r) => r.path));
-        if (!isLive()) return;
-        set((st) => ({
-          pendingWorktrees: st.pendingWorktrees.map((p) => (p.id === pendingId ? { ...p, status: "creating" } : p)),
-        }));
-        // A repo's saved host default wins over the agent's guess (matches the old runDeduce precedence).
-        const saved = get().cockpit.knownRepos.find((r) => r.path === d.repoPath)?.host;
-        const startCmd = saved?.startCmd ?? d.startCmd;
-        const address = saved?.address ?? d.address;
-        const spec = branchSpecFrom({ prNumber: d.prNumber ?? 0, mode: d.existingBranch ? "existing" : "new", branch: d.branch, base: d.base });
-        const worktreePath = await createWorktree(d.repoPath, d.name, spec);
-        if (!isLive()) return;
-        const realId = `wt-${Date.now()}`;
-        const sl = sourceLinkFrom(d);
-        // Prepend the per-source context to the pane prompt (step 2 only); deduce used the bare prompt.
-        const ctx = effectiveContext(source, get().cockpit.worktreeContexts);
-        const panePrompt = ctx ? `${ctx}\n\n${prompt}` : prompt;
-        get().addWorktree(makeWorktree({
-          id: realId, name: d.name, repoPath: d.repoPath, branch: d.branch, worktreePath,
-          host: { startCmd, address }, links: sl ? [sl] : [], prompt: panePrompt,
-        }));
-        // Swap in place across both slot surfaces, then drop the pending entity.
-        // The initial-send flag arms the claude pane's one-shot prompt autostart (cleared on first ensure).
-        setSession((st) => ({
-          slots: swapSlotId(st.slots, pendingId, realId),
-          pendingWorktrees: st.pendingWorktrees.filter((p) => p.id !== pendingId),
-          initialPromptPending: { ...st.initialPromptPending, [realId]: true },
-        }));
-        get().setCockpit((c) => (c.cockpitWorktreeId === pendingId ? { ...c, cockpitWorktreeId: realId } : c));
-      } catch (e) {
-        // Discard the tile + clear its slot(s), and signal App to reopen the modal prefilled.
-        setSession((st) => ({
-          pendingWorktrees: st.pendingWorktrees.filter((p) => p.id !== pendingId),
-          slots: clearEntity(st.slots, pendingId),
-          worktreeError: { prompt, message: String(e) },
-        }));
-        get().setCockpit((c) => (c.cockpitWorktreeId === pendingId ? { ...c, cockpitWorktreeId: undefined } : c));
-      }
-    })();
+    void startDeduceFlow({ prompt, view, source }, { session: deduceSession, deduce: deduceWorktree, create: createWorktree });
   },
   // Countdown actions (session-only). App runs a 1s interval calling tickTimer while timerRunning.
   startTimer: () => set((st) => (st.timerRemaining > 0 ? { timerRunning: true } : st)),
