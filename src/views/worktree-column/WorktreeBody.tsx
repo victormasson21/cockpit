@@ -1,6 +1,5 @@
 // WorktreeBody.tsx — the worktree slot body: chips + dynamic panes (claude always; host via Run; extra shells via Add) + the bottom Run/Add bar.
 import type { ReactNode } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { Worktree } from "../../settings/types";
 import { useSettings } from "../../settings/store";
@@ -10,7 +9,7 @@ import { WorktreeInfo } from "./WorktreeInfo";
 import { LinksList } from "../../tiles/worktree/LinksList";
 import { claudePaneAutostart } from "../../worktrees/claudeCmd";
 import { resolveHost } from "../../worktrees/model";
-import { makePtyId } from "../../worktrees/ptyId";
+import { closePane } from "../../worktrees/paneLifecycle";
 import { EMPTY_PANE_SET, MAX_EXTRAS, isPaneOpen } from "../../worktrees/paneSet";
 import { CopyIcon, PlayIcon, PlusIcon } from "../icons";
 
@@ -35,20 +34,8 @@ export function WorktreeBody({ worktree, variant, switcher }: { worktree: Worktr
         }
       : {}; // calm: single pane, self-managed, no expand
 
-  // Close on host/extras REMOVES the pane: kill the PTY, drop any attention mark, drop it from the set.
-  // Await the kill before dropping the pane: the `host` role reuses a fixed pty id, so a fire-and-forget
-  // kill racing an immediate re-Run could let pty_ensure reattach the still-alive entry, then the lagging
-  // kill removes it — leaving a dead pane. Extras are immune (monotonic role) but share this path.
-  const closePane = async (role: string) => {
-    const ptyId = makePtyId(worktree.id, role);
-    useSettings.getState().clearAttention(ptyId);
-    try {
-      await invoke("pty_kill", { ptyId });
-    } catch (e) {
-      console.error("pty_kill failed", e);
-    }
-    useSettings.getState().removeWorktreePane(worktree.id, role);
-  };
+  // Close on host/extras REMOVES the pane (kill + drop) — the ordering that matters is in closePane.
+  const close = (role: string) => { void closePane(worktree.id, role); };
 
   // One-shot: true only in the session that created this worktree, until the claude PTY's first ensure.
   const promptPending = useSettings((s) => Boolean(s.initialPromptPending[worktree.id]));
@@ -99,7 +86,7 @@ export function WorktreeBody({ worktree, variant, switcher }: { worktree: Worktr
             title="localhost" icon={<span className="wt-ico wt-ico--chrome" aria-hidden />}
             worktreeId={worktree.id} role="host" cwd={worktree.worktreePath}
             autostartCmd={startCmd}
-            onClose={() => closePane("host")}
+            onClose={() => close("host")}
             {...paneProps("host")}
           />
         )}
@@ -108,7 +95,7 @@ export function WorktreeBody({ worktree, variant, switcher }: { worktree: Worktr
             key={role}
             title="terminal" icon={<span className="wt-ico wt-ico--terminal" aria-hidden />}
             worktreeId={worktree.id} role={role} cwd={worktree.worktreePath}
-            onClose={() => closePane(role)}
+            onClose={() => close(role)}
             {...paneProps(role)}
           />
         ))}

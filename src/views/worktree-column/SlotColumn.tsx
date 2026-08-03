@@ -1,6 +1,5 @@
 // SlotColumn.tsx — one Worktrees-view column: picker + gear menu over a slot's entity body (a worktree or a scratch terminal).
 import { useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { useSettings } from "../../settings/store";
 import { makePtyId } from "../../worktrees/ptyId";
 import { resolveSlotEntity } from "../slots";
@@ -11,8 +10,7 @@ import { WorktreeBody } from "./WorktreeBody";
 import { ScratchBody } from "./ScratchBody";
 import { PendingBody } from "./PendingBody";
 import { TeardownConfirm } from "./TeardownConfirm";
-import { killWorktreePtys } from "../../worktrees/teardown";
-import { paneRoles, EMPTY_PANE_SET } from "../../worktrees/paneSet";
+import { killPanes, liveRoles } from "../../worktrees/paneLifecycle";
 import "./WorktreeColumn.css";
 
 export function SlotColumn({ value, onSelect, variant = "full", onPin, onClose }: { value: string | null; onSelect: (id: string | null) => void; variant?: "full" | "calm"; onPin?: (id: string) => void; onClose?: () => void }) {
@@ -42,9 +40,8 @@ export function SlotColumn({ value, onSelect, variant = "full", onPin, onClose }
     if (entity?.kind !== "worktree") return;
     setMenuOpen(false);
     const id = entity.worktree.id;
-    const st = useSettings.getState();
-    await killWorktreePtys(id, paneRoles(st.worktreePanes[id] ?? EMPTY_PANE_SET));
-    st.resetWorktreePanes(id);
+    await killPanes(id, liveRoles(id));
+    useSettings.getState().resetWorktreePanes(id);
     close();
   };
 
@@ -52,7 +49,7 @@ export function SlotColumn({ value, onSelect, variant = "full", onPin, onClose }
   const deleteScratch = async () => {
     if (entity?.kind !== "scratch") return;
     setMenuOpen(false);
-    await invoke("pty_kill", { ptyId: makePtyId(entity.scratch.id, "shell") });
+    await killPanes(entity.scratch.id, ["shell"]);
     removeScratch(entity.scratch.id);
   };
 
