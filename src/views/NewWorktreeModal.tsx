@@ -15,7 +15,8 @@ function SectionHeading({ icon, label }: { icon: "claude" | "branch" | "terminal
 }
 
 export function NewWorktreeModal({ view, onClose }: { view: "cockpit" | "worktrees" | "calm"; onClose: () => void }) {
-  const { placeNewEntity, addScratch } = useSettings();
+  const placeNewEntity = useSettings((s) => s.placeNewEntity);
+  const addScratch = useSettings((s) => s.addScratch);
   // Existing-branch create: place the new worktree in a slot, then close.
   const created = (id: string) => { placeNewEntity(id, view); onClose(); };
   // Terminal: spin up a scratch shell in a slot (same wiring as the old top-nav Terminal button), then close.

@@ -12,10 +12,19 @@ import "./todo.css";
 const GLYPH: Record<TodoState, string> = { todo: "○", in_progress: "◐", done: "●" };
 
 export function TodoTile() {
-  const {
-    cockpit, addTodo, cycleTodo, removeTodo, editTodo, reorderTodo,
-    addTodoList, renameTodoList, removeTodoList, setActiveTodoList,
-  } = useSettings();
+  // One selector per field: a bare useSettings() would re-render this tile on every unrelated store write.
+  const todos = useSettings((s) => s.cockpit.todos);
+  const todoLists = useSettings((s) => s.cockpit.todoLists);
+  const activeTodoListId = useSettings((s) => s.cockpit.activeTodoList);
+  const addTodo = useSettings((s) => s.addTodo);
+  const cycleTodo = useSettings((s) => s.cycleTodo);
+  const removeTodo = useSettings((s) => s.removeTodo);
+  const editTodo = useSettings((s) => s.editTodo);
+  const reorderTodo = useSettings((s) => s.reorderTodo);
+  const addTodoList = useSettings((s) => s.addTodoList);
+  const renameTodoList = useSettings((s) => s.renameTodoList);
+  const removeTodoList = useSettings((s) => s.removeTodoList);
+  const setActiveTodoList = useSettings((s) => s.setActiveTodoList);
   const [draft, setDraft] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
@@ -26,10 +35,10 @@ export function TodoTile() {
   const [renameDraft, setRenameDraft] = useState<string | null>(null);
   const [doneOpen, setDoneOpen] = useState(false); // session-only; DONE starts collapsed
 
-  const lists = resolveLists(cockpit.todoLists);
-  const activeId = activeListId(cockpit.todoLists, cockpit.activeTodoList);
-  const backlog = activeTodos(cockpit.todos, cockpit.todoLists, activeId);
-  const groups = groupByState(cockpit.todos); // global buckets for IN PROGRESS / DONE
+  const lists = resolveLists(todoLists);
+  const activeId = activeListId(todoLists, activeTodoListId);
+  const backlog = activeTodos(todos, todoLists, activeId);
+  const groups = groupByState(todos); // global buckets for IN PROGRESS / DONE
 
   const add = () => { const t = draft.trim(); if (!t) return; addTodo(t); setDraft(""); };
   const startEdit = (id: string, text: string) => { setEditingId(id); setEditDraft(text); };
@@ -124,7 +133,7 @@ export function TodoTile() {
                   title={l.id === activeId ? "Click to rename" : `Switch to ${l.name}`}
                 >{l.name}</button>
               )}
-              {l.id === activeId && canDeleteList(cockpit.todoLists, cockpit.todos, l.id) && (
+              {l.id === activeId && canDeleteList(todoLists, todos, l.id) && (
                 <button className="todo__tab-del" aria-label="delete list" title="Delete this list" onClick={() => removeTodoList(l.id)}>✕</button>
               )}
             </span>
@@ -147,7 +156,7 @@ export function TodoTile() {
           )}
         </nav>
 
-        {cockpit.todos.length === 0 && <div className="todo__empty">No todos yet</div>}
+        {todos.length === 0 && <div className="todo__empty">No todos yet</div>}
 
         {/* Active list's backlog + the add input (which adds to this list). */}
         <div className="todo__section">
@@ -161,7 +170,7 @@ export function TodoTile() {
         {groups.in_progress.length > 0 && (
           <div className="todo__section">
             <div className="todo__section-label">IN PROGRESS</div>
-            {groups.in_progress.map((t) => row(t, listNameOf(t, cockpit.todoLists)))}
+            {groups.in_progress.map((t) => row(t, listNameOf(t, todoLists)))}
           </div>
         )}
 
@@ -171,7 +180,7 @@ export function TodoTile() {
             <button className="todo__section-toggle" onClick={() => setDoneOpen(!doneOpen)}>
               DONE ({groups.done.length}) {doneOpen ? "▾" : "▸"}
             </button>
-            {doneOpen && groups.done.map((t) => row(t, listNameOf(t, cockpit.todoLists)))}
+            {doneOpen && groups.done.map((t) => row(t, listNameOf(t, todoLists)))}
           </div>
         )}
       </div>

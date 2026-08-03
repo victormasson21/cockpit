@@ -755,6 +755,27 @@ both Important findings fixed (in-batch dedupe, history pagination).
   Rust changes. Deferred (with the review's four sibling candidates) in
   `docs/superpowers/plans/2026-08-03-deduce-flow-module.md`.
 
+- **Settings store slices + the timer's own store (2026-08-03) — pure refactor, no behaviour change.**
+  `store.ts` (was 474 lines / 64 members over 8 concerns) is now a **54-line assembly point**: it composes slice
+  creators and owns `init`, the one action that hydrates every slice at once. New layout: `settings/storeState.ts`
+  (the combined `SettingsState` type), `settings/slices/persist.ts` (**THE single writer to disk** — debounce +
+  `withWorkspace` composition live only here), and `slices/{config,zoom,todos,integrations,workspace}.ts`. The
+  deduce port (`deduceSession`) moved into `slices/workspace.ts`. **The countdown left the settings store
+  entirely** → `tiles/timer/timerStore.ts` (`useTimer`, fields renamed `minutes`/`remaining`/`running`/`start`/
+  `pause`/`reset`/`setMinutes`/`tick`): it was writing once a second, and every bare `useSettings()` re-rendered on
+  each tick — including `SlotColumn`, which holds the terminals. **All 10 bare `useSettings()` subscriptions are now
+  selectors**; none remain (`TodoTile` and `SlotColumn` were the ones that mattered). **It is still ONE store on
+  purpose — do NOT split it into several:** the persisted `workspace` block is composed from session state at save
+  time, and `removeWorktree`/`placeNewEntity`/`setFontScale`/`init` genuinely span concerns, so separate stores would
+  only turn that coupling into cross-store reads. Slices are typed over the whole `SettingsState` so those actions
+  keep working via `get()`. Honest scope: this buys **implementation locality**, not a narrower interface — with
+  zustand's slices pattern `useSettings` still exposes everything. Consumers are unchanged (they only ever imported
+  `useSettings`). Test file split to match (`slices/*.test.ts` over a shared `slices/fixtures.ts`), which exposed
+  gaps now covered: `updateWorktree`, the `removeWorktree` flag/pane sweep, Slack writers' sibling preservation, the
+  todo item lifecycle, `swapSlots`, the attention map, pane sets, an unresolvable restored slot id, cross-slice save
+  coalescing. 288 JS tests (was 264); tsc + Vite clean; no Rust changes. Deferred (incl. a selector-discipline lint
+  rule — there's no ESLint config in the repo yet): `docs/superpowers/plans/2026-08-03-settings-store-slices.md`.
+
 **Next / resuming work — read `docs/ROADMAP.md` first.** It is the single prioritized backlog, split into
 **main build sub-projects** (the big sequential arc — sub-project 5 onward: Linear tile, then GitHub/Calendar
 tiles, reusing the SP4 provider+panel + Keychain seam) and **smaller iterations** (scoped polish/enhancements). When

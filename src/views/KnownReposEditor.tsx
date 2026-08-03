@@ -14,8 +14,10 @@ export function mergeHost(current: HostConfig | undefined, patch: Partial<HostCo
 }
 
 export function KnownReposEditor() {
-  const { cockpit, addKnownRepo, removeKnownRepo, setRepoHost } = useSettings();
-  const repos = cockpit.knownRepos;
+  const repos = useSettings((s) => s.cockpit.knownRepos);
+  const addKnownRepo = useSettings((s) => s.addKnownRepo);
+  const removeKnownRepo = useSettings((s) => s.removeKnownRepo);
+  const setRepoHost = useSettings((s) => s.setRepoHost);
   const [error, setError] = useState<string | null>(null);
 
   // Open the native folder picker; validate + normalize the pick to its repo root, then add it.

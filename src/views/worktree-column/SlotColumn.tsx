@@ -16,10 +16,17 @@ import { paneRoles, EMPTY_PANE_SET } from "../../worktrees/paneSet";
 import "./WorktreeColumn.css";
 
 export function SlotColumn({ value, onSelect, variant = "full", onPin, onClose }: { value: string | null; onSelect: (id: string | null) => void; variant?: "full" | "calm"; onPin?: (id: string) => void; onClose?: () => void }) {
-  const { cockpit, removeScratch, scratchTerminals, pendingWorktrees, updateWorktree, renameScratch } = useSettings();
-  const ongoing = cockpit.worktrees.filter((w) => w.status === "ongoing");
+  // One selector per field, deliberately: this column owns the terminals, so a bare useSettings() would
+  // remount nothing but re-render the whole subtree on every unrelated store write.
+  const worktrees = useSettings((s) => s.cockpit.worktrees);
+  const scratchTerminals = useSettings((s) => s.scratchTerminals);
+  const pendingWorktrees = useSettings((s) => s.pendingWorktrees);
+  const removeScratch = useSettings((s) => s.removeScratch);
+  const updateWorktree = useSettings((s) => s.updateWorktree);
+  const renameScratch = useSettings((s) => s.renameScratch);
+  const ongoing = worktrees.filter((w) => w.status === "ongoing");
   const activeId = value;
-  const entity = resolveSlotEntity(activeId, cockpit.worktrees, scratchTerminals, pendingWorktrees);
+  const entity = resolveSlotEntity(activeId, worktrees, scratchTerminals, pendingWorktrees);
   const [menuOpen, setMenuOpen] = useState(false);
   // Delete/Wipe open a confirmation dialog (worktree only); state is local to each column instance.
   const [confirm, setConfirm] = useState<"delete" | "wipe" | null>(null);

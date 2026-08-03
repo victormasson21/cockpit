@@ -9,9 +9,11 @@ import { filterConversations } from "./watchFilter";
 import "./SlackConnections.css";
 
 export function SlackConnections() {
-  const { cockpit, setSlackClientId, setSlackWatched, setPrChannel } = useSettings();
-  const slack = cockpit.integrations?.slack;
-  const prChannelId = cockpit.integrations?.prReviews?.channelId;
+  const slack = useSettings((s) => s.cockpit.integrations?.slack);
+  const prChannelId = useSettings((s) => s.cockpit.integrations?.prReviews?.channelId);
+  const setSlackClientId = useSettings((s) => s.setSlackClientId);
+  const setSlackWatched = useSettings((s) => s.setSlackWatched);
+  const setPrChannel = useSettings((s) => s.setPrChannel);
   const [status, setStatus] = useState<SlackStatus>({ connected: false, hasCredentials: false });
   const [clientId, setClientId] = useState(slack?.clientId ?? "");
   const [clientSecret, setClientSecret] = useState("");

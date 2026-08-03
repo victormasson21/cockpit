@@ -14,7 +14,7 @@ export function TeardownConfirm({ worktree, action, onClose, onDone }: {
   onClose: () => void;
   onDone: (warning: string | null) => void;
 }) {
-  const { removeWorktree } = useSettings();
+  const removeWorktree = useSettings((s) => s.removeWorktree);
   const [status, setStatus] = useState<WorktreeStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

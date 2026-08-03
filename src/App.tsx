@@ -32,7 +32,8 @@ function normalizeView(v: string): View {
 }
 
 function App() {
-  const { loaded, init } = useSettings();
+  const loaded = useSettings((s) => s.loaded);
+  const init = useSettings((s) => s.init);
   const setCockpitWorktree = useSettings((s) => s.setCockpitWorktree);
   const worktreeError = useSettings((s) => s.worktreeError);
   const clearWorktreeError = useSettings((s) => s.clearWorktreeError);

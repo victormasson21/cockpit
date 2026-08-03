@@ -7,10 +7,12 @@ import "./NewWorktreeForm.css";
 type View = "cockpit" | "worktrees" | "calm";
 
 export function NewWorktreeForm({ view, onClose }: { view: View; onClose: () => void }) {
-  const { startDeduceWorktree, clearWorktreeError, worktreeError, cockpit } = useSettings();
+  const startDeduceWorktree = useSettings((s) => s.startDeduceWorktree);
+  const clearWorktreeError = useSettings((s) => s.clearWorktreeError);
+  const worktreeError = useSettings((s) => s.worktreeError);
+  const noRepos = useSettings((s) => s.cockpit.knownRepos.length === 0);
   // Seed from a prior failure so a reopened modal shows the prompt the user was working on.
   const [prompt, setPrompt] = useState(worktreeError?.prompt ?? "");
-  const noRepos = cockpit.knownRepos.length === 0;
 
   // submit: hand the prompt to the store's background chain, then close the modal immediately.
   const submit = () => {
