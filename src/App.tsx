@@ -16,6 +16,7 @@ import { NewWorktreeModal } from "./views/NewWorktreeModal";
 import { SettingsModal } from "./views/SettingsModal";
 import { GearIcon } from "./views/icons";
 import { HeaderTimer } from "./tiles/timer/HeaderTimer";
+import { useTimer } from "./tiles/timer/timerStore";
 import "./App.css";
 
 type View = "cockpit" | "worktrees" | "calm";
@@ -35,8 +36,8 @@ function App() {
   const setCockpitWorktree = useSettings((s) => s.setCockpitWorktree);
   const worktreeError = useSettings((s) => s.worktreeError);
   const clearWorktreeError = useSettings((s) => s.clearWorktreeError);
-  const timerRunning = useSettings((s) => s.timerRunning);
-  const tickTimer = useSettings((s) => s.tickTimer);
+  const timerRunning = useTimer((s) => s.running);
+  const tickTimer = useTimer((s) => s.tick);
   const fontScale = useSettings((s) => s.fontScale);
   const zoomIn = useSettings((s) => s.zoomIn);
   const zoomOut = useSettings((s) => s.zoomOut);
