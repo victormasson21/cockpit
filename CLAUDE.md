@@ -828,9 +828,18 @@ both Important findings fixed (in-batch dedupe, history pagination).
   unchanged — the pane handle joined them as `paneRef`, where `ptyIdRef` used to sit. **⚠️ Behaviour
   change: clearing the attention mark now belongs to the kill**, so **Pause, scratch Delete and
   teardown clear it too** — before, only restart/close did, so pausing a belled worktree left a live
-  mark that glowed again on re-select. **No Rust changes** (137 tests unchanged); 306 JS tests (was
-  288). Deferred (`teardown.ts` now reaching the store transitively; the preserved unhandled-rejection
-  on writes): `docs/superpowers/plans/2026-08-03-pane-session-module.md`.
+  mark that glowed again on re-select. **`teardown.ts` was realigned to injected deps in the same
+  branch** (the realignment the deduceFlow plan deferred): its tail is now a **deps object**
+  `{ killPtys, removeModel }`, so the signature got *shorter* rather than gaining a fifth positional
+  arg, and it is store-free again. **`killPtys` is a THUNK, not `(id, roles)`** — which panes are live
+  is a pane concern, so binding it at the call site (`() => killPanes(id, liveRoles(id))`) deleted the
+  `roles` param the lazy-panes iteration threaded through; roles are read on teardown's first statement,
+  before any await, so it's equivalent to reading them at the call. The git IPC stays imported +
+  module-mocked (the test branches on it fine via `mockRejectedValueOnce`; the store was the problem,
+  not the mock), and its two per-role ordering tests collapsed into one — asserting *which* roles die
+  belongs to `paneLifecycle.test.ts`. **No Rust changes** (137 tests unchanged); 306 JS tests (was
+  288). Deferred (the preserved unhandled-rejection on writes; `data-pty-id` still composed by
+  `makePtyId`): `docs/superpowers/plans/2026-08-03-pane-session-module.md`.
 
 **Next / resuming work — read `docs/ROADMAP.md` first.** It is the single prioritized backlog, split into
 **main build sub-projects** (the big sequential arc — sub-project 5 onward: Linear tile, then GitHub/Calendar

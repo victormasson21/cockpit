@@ -118,12 +118,34 @@ killing everything; a scratch terminal and its Delete; Calm view; Shift+Enter in
 rather than submitting; dragging a file from Finder onto a pane; and the attention glow clearing when
 you type.
 
+## `teardown.ts` realigned to injected deps
+
+Routing `teardown.ts` through `killPanes` gave it a transitive dependency on the settings store, which
+its test then had to drag in. Fixed in the same branch, closing the realignment the deduceFlow plan had
+deferred: the tail is a **deps object** rather than a fifth positional parameter, so the signature got
+*shorter*, not longer.
+
+```ts
+teardownWorktree(wt, opts, { killPtys: () => Promise<void>, removeModel: (id) => void })
+```
+
+**`killPtys` is a thunk, not `(id, roles)`.** Which panes are live is a pane concern; binding it at the
+call site means teardown never models panes at all, and the `roles` parameter that the lazy-panes
+iteration threaded through leaves the signature. `TeardownConfirm` passes
+`() => killPanes(worktree.id, liveRoles(worktree.id))`, so the roles are read when the kill runs —
+teardown's first statement, before any await, so identical to reading them at the call.
+
+The git IPC (`removeWorktreeGit`/`deleteBranch`) stays imported and module-mocked. It could be injected
+too, but the test branches on those results via `mockRejectedValueOnce` perfectly well, and the point
+of this change was the store, not the mock.
+
+Its test lost the `@tauri-apps/api/core` mock entirely, and the two per-role ordering tests collapsed
+into one "kill before remove" — asserting *which* roles get killed belongs to `paneLifecycle.test.ts`,
+which already does it. A new test covers the policy that matters here: a failed kill propagates and
+never reaches the git remove. Still 7 tests, still 306 overall.
+
 ## Deferred
 
-- **`teardown.ts` now reaches the store transitively** through `killPanes`, so its test pulls in the
-  whole settings store (it passes — the `@tauri-apps/api/core` mock still intercepts the kills).
-  Injecting the kill would restore its isolation. This is the same realignment the deduceFlow plan
-  already deferred; doing it here would have meant a fifth positional parameter, so it waits for that.
 - **Unhandled rejections on the write path.** `write` returns its promise and the two terminal callers
   keep no `.catch`, exactly as before, so a write to a dead pty still logs an unhandled rejection.
   Preserved on purpose — it is the symptom that makes the dead-pane bug visible.
