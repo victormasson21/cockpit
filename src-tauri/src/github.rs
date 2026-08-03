@@ -125,14 +125,8 @@ fn parse_gh_json(stdout: &str, kind: &GithubKind) -> Result<GithubContext, Strin
 
 // Read a repo's origin remote URL via git and parse owner/repo; None if no git/remote/GitHub match.
 fn origin_owner_repo(repo_path: &str) -> Option<(String, String)> {
-    let out = Command::new("git")
-        .args(["-C", repo_path, "remote", "get-url", "origin"])
-        .output()
-        .ok()?;
-    if !out.status.success() {
-        return None;
-    }
-    parse_owner_repo(String::from_utf8_lossy(&out.stdout).trim())
+    let out = crate::git::run(repo_path, ["remote", "get-url", "origin"]).ok()?;
+    parse_owner_repo(out.trim())
 }
 
 // Run a gh subcommand with the default hard timeout; returns stdout, or an Err carrying gh's stderr.
