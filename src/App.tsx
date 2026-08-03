@@ -2,9 +2,9 @@
 import { useEffect, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import { invoke } from "@tauri-apps/api/core";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { dropCommand } from "./worktrees/drop";
+import { writePty } from "./worktrees/ptyPane";
 import { loadSettings } from "./settings/api";
 import { versionLabel } from "./version";
 import { slackInit } from "./tiles/slack/api";
@@ -113,10 +113,7 @@ function App() {
           document.elementFromPoint(x, y)?.closest("[data-pty-id]")?.getAttribute("data-pty-id") ?? null,
         );
         if (!cmd) return; // not a drop, no paths, or not over a pane — ignore silently
-        invoke("pty_write", {
-          ptyId: cmd.ptyId,
-          bytes: Array.from(new TextEncoder().encode(cmd.text)),
-        }).catch(() => {});
+        writePty(cmd.ptyId, cmd.text).catch(() => {});
         // Move keyboard focus into the pane we just wrote to: the user's next keystroke is usually
         // the Enter that sends the screenshot, and it must land here rather than in whichever pane
         // happened to be focused before the drag started.
