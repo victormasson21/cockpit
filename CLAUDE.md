@@ -800,6 +800,38 @@ both Important findings fixed (in-batch dedupe, history pagination).
   Deferred (a timeout on git calls — now a one-line change in one place; routing `gh pr checkout`):
   `docs/superpowers/plans/2026-08-03-git-runner-module.md`.
 
+- **Pane-session module (2026-08-03) — refactor + ONE behaviour change.** PTY was the only IPC family
+  without a typed module; **eleven** raw `invoke("pty_*")` calls across `useTerminal.ts`,
+  `WorktreeBody.tsx`, `SlotColumn.tsx`, `teardown.ts` and `App.tsx` carried the invariants with them.
+  Now **two layers**: **`src/worktrees/ptyPane.ts`** — `ptyPane(worktreeId, role)` returns one pane's
+  handle (`id · ensure · attach · onOutput · write · resize · kill · respawn`), **store-free** so it
+  stays substitutable; and **`src/worktrees/paneLifecycle.ts`** — `liveRoles` / `killPanes` /
+  `closePane`, the sequences where IPC meets the store, with deps injected over a real default
+  (`teardown.ts`'s idiom) so the orderings are unit-tested against a plain fake. `killWorktreePtys` is
+  gone; `teardown.ts` calls `killPanes`. **`write` takes TEXT, not bytes** — `NEWLINE_ESCAPE` is now the
+  string `"\\\r"`, so the module owns UTF-8 conversion outright and the encoder is **hoisted to module
+  scope**: the keystroke path (`pty_write`, the one Rust command deliberately left sync for latency)
+  allocates *less* than before, and `keys.test.ts` pins the `[92, 13]` bytes it must still produce.
+  **`writePty(ptyId, text)` is the only id-keyed export**, for the file drop — its DOM hit-test yields
+  an opaque `data-pty-id` with no pair to key on. **`respawn` names the kill-before-ensure ordering**
+  (`pty_ensure` reattaches a still-alive entry, so a lagging kill would remove the pane it just
+  restored). **`liveRoles` reads the store internally** — NOT a store member (`SettingsState` stays as
+  wide as it was) and NOT a `paneSet` helper (callers would still hand it the map, so `EMPTY_PANE_SET`
+  would still leak into the views). **Don't undo these:** `roles` stays a *required* arg to `killPanes`
+  — defaulting it to `liveRoles` would delete three arguments and silently kill the wrong pty for a
+  **scratch** (no `worktreePanes` entry → the default computes `["claude"]`); and the lifecycle layer
+  needs **two** functions, not one, because `killPanes` must *propagate* a kill failure (teardown can't
+  reach `git worktree remove` with a process holding the dir) while `closePane` must *swallow* it (a
+  pane on screen with no process blinks a cursor and eats keystrokes) — opposite error policies for the
+  same kill. `makePtyId`/`isAttentionRole` stay in `ptyId.ts` (the id is also a store key + a DOM
+  attribute, not just IPC); the mount effect's `[worktreeId, role, cwd]` deps and the refs are
+  unchanged — the pane handle joined them as `paneRef`, where `ptyIdRef` used to sit. **⚠️ Behaviour
+  change: clearing the attention mark now belongs to the kill**, so **Pause, scratch Delete and
+  teardown clear it too** — before, only restart/close did, so pausing a belled worktree left a live
+  mark that glowed again on re-select. **No Rust changes** (137 tests unchanged); 306 JS tests (was
+  288). Deferred (`teardown.ts` now reaching the store transitively; the preserved unhandled-rejection
+  on writes): `docs/superpowers/plans/2026-08-03-pane-session-module.md`.
+
 **Next / resuming work — read `docs/ROADMAP.md` first.** It is the single prioritized backlog, split into
 **main build sub-projects** (the big sequential arc — sub-project 5 onward: Linear tile, then GitHub/Calendar
 tiles, reusing the SP4 provider+panel + Keychain seam) and **smaller iterations** (scoped polish/enhancements). When
