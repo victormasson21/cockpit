@@ -32,3 +32,8 @@
 }
 .wt-view__add:hover { color: var(--tx); background: var(--hover); }
 .wt-view__add svg { width: 22px; height: 22px; }
+
+/* Calm density: the same mounted columns, decluttered. Only the view-level affordances come off here;
+   the per-column suppressions live in WorktreeColumn.css / WorktreePane.css under .wt-col--calm. */
+.wt-view--calm .wt-view__add,
+.wt-view--calm .wt-view__swap { display: none; }
