@@ -115,8 +115,9 @@ failure (`EADDRINUSE`, a crash) is invisible until the user leaves Calm.
 ### B. Resize the PTY on attach
 
 In `useTerminal`, after wiring the output subscription, resize the PTY to the terminal's current dimensions
-unconditionally. This fixes the same defect on every path that genuinely remounts — Cockpit ↔ Worktrees for
-a pinned worktree, switching a slot's worktree in the picker, app restart.
+when the pane's container has measurable dimensions — guarded to prevent a hidden mount from locking the PTY
+at xterm's default 80×24. This fixes the same defect on every path that genuinely remounts — Cockpit ↔
+Worktrees for a pinned worktree, switching a slot's worktree in the picker, app restart.
 
 **Ordering is load-bearing**, in this exact sequence:
 
