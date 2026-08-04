@@ -11,6 +11,7 @@ import "@xterm/xterm/css/xterm.css";
 import { isAttentionRole } from "./ptyId";
 import { ptyPane, type PtyPane } from "./ptyPane";
 import { shouldInsertNewline, NEWLINE_ESCAPE } from "./keys";
+import { shouldFit } from "./fit";
 import { useSettings } from "../settings/store";
 
 export interface UseTerminalArgs {
@@ -147,7 +148,12 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured }: 
       pane.write(data);
     });
     const onResize = term.onResize(({ cols, rows }) => pane.resize(cols, rows));
-    const ro = new ResizeObserver(() => fit.fit());
+    // Skip while the pane is off screen (collapsed, or a density that hides it): fitting at zero size
+    // would push a 2x1 geometry onto the PTY. It re-fits as soon as it has real dimensions again.
+    const ro = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      if (shouldFit(width, height)) fit.fit();
+    });
     ro.observe(containerRef.current!);
 
     // detach (do NOT kill): switching worktrees leaves the process running in the background.
