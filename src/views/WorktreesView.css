@@ -1,6 +1,7 @@
 /* WorktreesView.css — equal columns split by dividers; 1 column is centered; a slim `+` rail on the right. */
 .wt-view { display: flex; height: 100%; }
-/* Columns fill the space left of the `+` rail (Worktrees); Calm applies --single directly on .wt-view. */
+/* Columns fill the space left of the `+` rail. --single (centred, one fixed-width column) is applied to
+   .wt-view__cols whenever there's exactly one slot, in both densities — Calm is no longer a separate mount. */
 /* position: relative so the on-divider swap buttons can be absolutely positioned by percentage. */
 .wt-view__cols { flex: 1; min-width: 0; display: flex; height: 100%; position: relative; }
 
