@@ -1,0 +1,80 @@
+/* nightSky.css — the night-sky variant's artwork. Colours are literal here by design: a background IS
+   colour (see the variant contract in background.css).
+
+   Only opacity and transform are animated, so every star lives on the compositor. Its glow is a STATIC
+   radial gradient: it rasterises once into the star's layer and is composited thereafter, never
+   repainted. */
+
+.ns { position: absolute; inset: 0; }
+
+/* The star itself: a crisp dot. Its halo is the ::after below. */
+.ns__star {
+  position: absolute;
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0; /* resting state: unanimated stars (reduced motion aside) stay invisible */
+}
+
+/* The glow, as an explicit radial gradient reaching exactly zero alpha at its edge — so there is no
+   boundary against the sky at any alpha. box-shadow was wrong for this: its blur leaves the shape's own
+   area fully opaque and only softens outwards from there, which reads as a disc with a soft rim once the
+   radius is wide. The stops approximate a natural falloff: steep near the core, long faint tail.
+   `closest-side` puts the 0-alpha stop on the element's edge, so the circle is inscribed exactly. */
+.ns__star::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  /* --glow is the halo's overall WIDTH (diameter), so it is the box size directly. */
+  width: var(--glow);
+  height: var(--glow);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  /* --glow-alpha scales the whole ramp via opacity rather than each stop's alpha: multiplying every
+     stop by one constant is exactly what element opacity does, and it keeps calc() out of the colour
+     channels. It composes with the star's animated opacity, so the halo fades with its star. */
+  opacity: var(--glow-alpha);
+  background: radial-gradient(circle closest-side,
+    rgba(255, 255, 255, 1) 0%,
+    rgba(255, 255, 255, 0.45) 28%,
+    rgba(255, 255, 255, 0.14) 52%,
+    rgba(255, 255, 255, 0.04) 74%,
+    rgba(255, 255, 255, 0) 100%);
+}
+
+/* Fixed stars: fade in, hold, fade out over --peak and the element's animation-duration (its lifespan).
+   The shape is fixed here on purpose — the configurable knob is the duration, set per star in JS. */
+.ns__star--fixed { animation: ns-life linear forwards; }
+
+@keyframes ns-life {
+  0%, 100% { opacity: 0; }
+  12%, 88% { opacity: var(--peak); }
+}
+
+/* Shooting stars: rotate FIRST, then translate along the rotated X axis — so one --angle drives both the
+   direction of travel and the tail's orientation, and the tail always trails the head. */
+.ns__star--shooting { animation: ns-shoot linear forwards; }
+
+@keyframes ns-shoot {
+  0% { opacity: 0; transform: rotate(var(--angle)) translateX(0); }
+  15%, 80% { opacity: var(--peak); }
+  100% { opacity: 0; transform: rotate(var(--angle)) translateX(var(--travel)); }
+}
+
+/* The streak, drawn behind the head (right: 50% puts it on the trailing side of the +X travel). */
+.ns__star--shooting::before {
+  content: "";
+  position: absolute;
+  right: 50%;
+  top: 50%;
+  width: var(--tail);
+  height: 1px;
+  transform: translateY(-50%);
+  background: linear-gradient(to left, rgba(255, 255, 255, 0.5), transparent);
+}
+
+/* Reduced motion: a still starfield. No births, no travel — the component stops scheduling shooting
+   stars and drops the animation class, so this only has to make the fixed stars visible. */
+@media (prefers-reduced-motion: reduce) {
+  .ns__star { opacity: var(--peak); }
+}

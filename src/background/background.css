@@ -12,10 +12,7 @@
   overflow: hidden; /* a variant may oversize its artwork to animate it without showing an edge */
 }
 
-/* Variants own their own colours — a background IS colour, so this file is a literal-colour site like
-   deepSlate.css and TERM_THEME, not a consumer of the chrome tokens.
+/* Variants own their own colours and live in their own stylesheet — a background IS colour, so those
+   files are a literal-colour site like deepSlate.css and TERM_THEME, not consumers of the chrome tokens.
    Every variant must: animate only transform/opacity/filter (compositor-only, no per-frame layout —
    this sits behind live terminals), and hold still under prefers-reduced-motion. */
-
-/* pink-test: deliberately garish and static. Proves the layer reaches behind every view; not a design. */
-.bg-pink-test { position: absolute; inset: 0; background: #ff2d95; }
