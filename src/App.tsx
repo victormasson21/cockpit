@@ -11,7 +11,7 @@ import { slackInit } from "./tiles/slack/api";
 import { useSettings } from "./settings/store";
 import { WorktreesView } from "./views/WorktreesView";
 import { CockpitView } from "./views/CockpitView";
-import { CalmView } from "./views/CalmView";
+import { BackgroundLayer } from "./background/BackgroundLayer";
 import { NewWorktreeModal } from "./views/NewWorktreeModal";
 import { SettingsModal } from "./views/SettingsModal";
 import { GearIcon } from "./views/icons";
@@ -151,6 +151,8 @@ function App() {
 
   return (
     <div className="app">
+      {/* Sits behind every view via z-index: -1; renders nothing when no background is selected. */}
+      <BackgroundLayer />
       {/* data-tauri-drag-region: empty header areas drag the window (overlay titlebar); buttons still click. */}
       <header className="app__header" data-tauri-drag-region>
         <div className="app__brand">
@@ -173,8 +175,10 @@ function App() {
       </header>
       <main className="app__body">
         {view === "cockpit" && <CockpitView onOpenSettings={() => setSettingsOpen(true)} />}
-        {view === "worktrees" && <WorktreesView onPin={pinToCockpit} />}
-        {view === "calm" && <CalmView />}
+        {/* Worktrees and Calm are ONE mounted tree at two densities, deliberately: they render the same
+            slots, and swapping trees would dispose every xterm — the replayed scrollback was drawn at
+            the old width, so the TUI came back with broken linebreaks. */}
+        {view !== "cockpit" && <WorktreesView onPin={pinToCockpit} calm={view === "calm"} />}
       </main>
       {creating && <NewWorktreeModal view={view} onClose={() => { setCreating(false); clearWorktreeError(); }} />}
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}

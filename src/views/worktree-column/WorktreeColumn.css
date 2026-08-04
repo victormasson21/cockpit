@@ -139,6 +139,13 @@
 /* ~10% vertical breathing room top+bottom; centre the width-capped tile horizontally so it floats */
 .wt-col--calm .wt-col__panes { align-items: center; padding: 10vh var(--space-3); }
 .wt-col--calm .wt-pane { width: 100%; max-width: 760px; }
+/* The regions the full density shows and this one does not. They stay MOUNTED and are hidden — that is
+   the point: the host and extra terminals keep their PTYs attached and their scrollback intact while
+   Calm shows only Claude. */
+.wt-col--calm .wt-col__chips,
+.wt-col--calm .wt-col__actions { display: none; }
+/* Claude is always the first pane in the column; host + extra shells follow it. */
+.wt-col--calm .wt-pane:not(:first-child) { display: none; }
 
 /* Teardown confirm dialog (rendered inside <Modal>): identity line, dirty/wipe warnings, actions row. */
 .tc__line { color: var(--tx-2); font-size: var(--fs-md); margin: 0 0 var(--space-2); }

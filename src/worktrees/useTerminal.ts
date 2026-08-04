@@ -11,6 +11,7 @@ import "@xterm/xterm/css/xterm.css";
 import { isAttentionRole } from "./ptyId";
 import { ptyPane, type PtyPane } from "./ptyPane";
 import { shouldInsertNewline, NEWLINE_ESCAPE } from "./keys";
+import { shouldFit } from "./fit";
 import { useSettings } from "../settings/store";
 
 export interface UseTerminalArgs {
@@ -135,6 +136,14 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured }: 
         term.write(scrollback);
         bellLive = true; // replay done — bells from here on are live and meaningful.
         unlisten = await pane.onOutput((bytes) => term.write(bytes));
+        // pty_ensure is a no-op on a live PTY, so this pane may have remounted at a width the PTY knows
+        // nothing about — and the bytes just replayed were drawn for the old one. Resizing raises SIGWINCH
+        // and the TUI repaints itself. It MUST come after onOutput: the repaint is output, and without a
+        // subscriber it would land in the Rust scrollback buffer instead of on screen. Skipped when the
+        // pane mounts hidden (fit.fit() bailed above, so term is still xterm's 80x24 default) — it picks
+        // up its real geometry from the first live ResizeObserver callback once it is shown.
+        const el = containerRef.current;
+        if (el && shouldFit(el.clientWidth, el.clientHeight)) await pane.resize(term.cols, term.rows);
       } catch (e) {
         if (!disposed) term.write(`\r\n[failed to start: ${String(e)}]\r\n`);
       }
@@ -147,7 +156,12 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured }: 
       pane.write(data);
     });
     const onResize = term.onResize(({ cols, rows }) => pane.resize(cols, rows));
-    const ro = new ResizeObserver(() => fit.fit());
+    // Skip while the pane is off screen (collapsed, or a density that hides it): fitting at zero size
+    // would push a 2x1 geometry onto the PTY. It re-fits as soon as it has real dimensions again.
+    const ro = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      if (shouldFit(width, height)) fit.fit();
+    });
     ro.observe(containerRef.current!);
 
     // detach (do NOT kill): switching worktrees leaves the process running in the background.
