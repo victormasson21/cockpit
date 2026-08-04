@@ -16,22 +16,24 @@ export const NIGHT_SKY = {
   fixed: {
     count: 70, // how many exist at once — a death immediately spawns a replacement
     size: [1, 2.6] as Range, // px, the dot itself
-    glow: [2, 25] as Range, // px, blur radius of the glow around it
-    // Alpha of the glow relative to the dot. A wide halo at a high alpha reads as a headlight rather
-    // than a star, so this is the knob to pull down if the big ones look too solid.
-    glowAlpha: [0.35, 0.9] as Range,
+    glow: [5, 26] as Range, // px, blur radius of the glow around it
+    // Alpha of the glow relative to the dot. Pull the top down if wide halos start reading as
+    // headlights rather than stars; raise the floor for a hazier sky.
+    glowAlpha: [0.55, 1] as Range,
     peak: [0.35, 1] as Range, // opacity held between the fade in and the fade out
     life: [90, 240] as Range, // seconds from first appearance to fully gone
   },
   shooting: {
-    perMinute: 4, // average; each gap is jittered ±50% so they never feel metronomic
+    perMinute: 7, // average; each gap is jittered ±50% so they never feel metronomic
     size: [1.4, 2.6] as Range,
-    glow: [6, 25] as Range,
-    glowAlpha: [0.5, 0.9] as Range,
+    glow: [8, 26] as Range,
+    glowAlpha: [0.7, 1] as Range,
     peak: [0.6, 1] as Range,
     travel: [45, 90] as Range, // vh of screen crossed before it dies
     duration: [1.1, 2.8] as Range, // seconds to cross
-    angle: [100, 165] as Range, // deg of travel: 0 = rightwards, 90 = straight down
+    // deg of travel: 0 = rightwards, 90 = straight down, 180 = leftwards. Spanning either side of 90
+    // is what gives both down-right and down-left streaks; keep it inside (0, 180) so none fly upward.
+    angle: [20, 160] as Range,
     tail: [25, 70] as Range, // px of streak trailing the head
   },
 } as const;
@@ -74,11 +76,23 @@ export function makeFixedStar(id: string, rng: Rng, cfg = NIGHT_SKY.fixed, aged 
   };
 }
 
+// Where a streak of this angle should start, horizontally. A leftward star born near the left edge spends
+// most of its life clipped, so it starts on the side it is travelling AWAY from — which is what makes the
+// crossing visible for its full duration rather than a flash at the margin.
+export function startXPct(angle: number, rng: Rng): number {
+  const dx = Math.cos((angle * Math.PI) / 180);
+  if (dx < -0.15) return 55 + rng() * 45; // heading left → start right
+  if (dx > 0.15) return rng() * 45; // heading right → start left
+  return rng() * 100; // near-vertical → anywhere is fine
+}
+
 // Shooting stars start biased towards the upper screen, so they fall INTO the view rather than out of it.
 export function makeShootingStar(id: string, rng: Rng, cfg = NIGHT_SKY.shooting): ShootingStar {
+  const angle = pick(cfg.angle, rng);
   return {
     id,
-    leftPct: rng() * 100,
+    angle,
+    leftPct: startXPct(angle, rng),
     topPct: rng() * 40,
     size: pick(cfg.size, rng),
     glow: pick(cfg.glow, rng),
@@ -86,7 +100,6 @@ export function makeShootingStar(id: string, rng: Rng, cfg = NIGHT_SKY.shooting)
     peak: pick(cfg.peak, rng),
     travel: pick(cfg.travel, rng),
     duration: pick(cfg.duration, rng),
-    angle: pick(cfg.angle, rng),
     tail: pick(cfg.tail, rng),
   };
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  NIGHT_SKY, pick, makeFixedStar, makeShootingStar, nextShootingGap,
+  NIGHT_SKY, pick, makeFixedStar, makeShootingStar, nextShootingGap, startXPct,
   fixedStarStyle, shootingStarStyle, type Rng,
 } from "./nightSky";
 
@@ -98,11 +98,44 @@ describe("makeShootingStar", () => {
     }
   });
 
-  it("travels downwards and to the left or right, never straight up", () => {
-    // 100-165deg: 90 is straight down, so the whole range has a downward component.
-    for (let i = 0; i < 100; i++) {
+  it("always travels downwards, never up", () => {
+    // The angle range must stay inside (0, 180): sin > 0 is the whole point of that bound.
+    for (let i = 0; i < 200; i++) {
       const { angle } = makeShootingStar("a", Math.random);
       expect(Math.sin((angle * Math.PI) / 180)).toBeGreaterThan(0);
+    }
+  });
+
+  // Regression: the original range was 100-165deg, whose cosine is negative throughout — so every
+  // streak flew leftwards and the sky had no variety.
+  it("produces both leftward and rightward streaks", () => {
+    const dxs = Array.from({ length: 300 }, () =>
+      Math.cos((makeShootingStar("a", Math.random).angle * Math.PI) / 180));
+    expect(dxs.some((dx) => dx < -0.15)).toBe(true);
+    expect(dxs.some((dx) => dx > 0.15)).toBe(true);
+  });
+});
+
+describe("startXPct", () => {
+  // Regression: start position used to be uniform across the width, so a leftward star born near the
+  // left edge spent most of its life clipped off-screen — the crossings looked rarer than the rate.
+  it("starts a leftward streak on the right half", () => {
+    expect(startXPct(160, always(0))).toBe(55);
+    expect(startXPct(160, always(0.999))).toBeCloseTo(99.955);
+  });
+  it("starts a rightward streak on the left half", () => {
+    expect(startXPct(20, always(0))).toBe(0);
+    expect(startXPct(20, always(0.999))).toBeCloseTo(44.955);
+  });
+  it("puts a near-vertical streak anywhere", () => {
+    expect(startXPct(90, always(0.999))).toBeCloseTo(99.9);
+  });
+  it("gives every streak room to cross: it never starts on the side it is heading for", () => {
+    for (let i = 0; i < 300; i++) {
+      const s = makeShootingStar("a", Math.random);
+      const dx = Math.cos((s.angle * Math.PI) / 180);
+      if (dx < -0.15) expect(s.leftPct).toBeGreaterThanOrEqual(55);
+      if (dx > 0.15) expect(s.leftPct).toBeLessThan(45);
     }
   });
 });
@@ -131,15 +164,15 @@ describe("style mapping", () => {
 
   it("exposes the glow, its alpha and the peak opacity as custom properties", () => {
     const style = fixedStarStyle(makeFixedStar("a", always(0.5))) as Record<string, string>;
-    expect(style["--glow"]).toBe("13.5px"); // midpoint of [2, 25]
-    expect(style["--glow-alpha"]).toBe("0.625"); // midpoint of [0.35, 0.9]
+    expect(style["--glow"]).toBe("15.5px"); // midpoint of [5, 26]
+    expect(style["--glow-alpha"]).toBe("0.775"); // midpoint of [0.55, 1]
     expect(style["--peak"]).toBe("0.675"); // midpoint of [0.35, 1]
   });
 
   // The angle needs its unit in the value: the keyframes feed it straight into rotate().
   it("gives the shooting star's angle a deg unit and its travel a vh unit", () => {
     const style = shootingStarStyle(makeShootingStar("a", always(0.5))) as Record<string, string>;
-    expect(style["--angle"]).toBe("132.5deg"); // midpoint of [100, 165]
+    expect(style["--angle"]).toBe("90deg"); // midpoint of [20, 160]
     expect(style["--travel"]).toBe("67.5vh"); // midpoint of [45, 90]
     expect(style["--tail"]).toBe("47.5px"); // midpoint of [25, 70]
   });
