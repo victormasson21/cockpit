@@ -21,6 +21,7 @@ export interface ConfigSlice {
   setRepoHost: (path: string, host: HostConfig) => void;
   setWorktreeContext: (source: WorktreeSource, text: string) => void;
   setDefaultView: (v: View) => void;
+  setBackground: (id: string) => void;
 }
 
 export const EMPTY_CONFIG: CockpitConfig = {
@@ -75,5 +76,6 @@ export const createConfigSlice: SettingsSlice<ConfigSlice> = (set, get) => {
       get().setCockpit((c) => ({ ...c, worktreeContexts: { ...c.worktreeContexts, [source]: text } })),
     // The view you switch to becomes the view you launch into (defaultView has no other writer).
     setDefaultView: (v) => get().setCockpit((c) => ({ ...c, preferences: { ...c.preferences, defaultView: v } })),
+    setBackground: (id) => get().setCockpit((c) => ({ ...c, preferences: { ...c.preferences, background: id } })),
   };
 };

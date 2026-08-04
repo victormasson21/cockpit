@@ -152,6 +152,9 @@ pub struct Preferences {
     // Text zoom multiplier (Cmd +/-/0); 1.0 = 100%. Defaults for older files without it.
     #[serde(default = "default_font_scale", rename = "fontScale")]
     pub font_scale: f32,
+    // Which app background to draw, by registry id. None = off; the frontend owns the id vocabulary.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<String>,
 }
 
 fn default_panes() -> u32 {
@@ -257,7 +260,7 @@ impl Default for CockpitConfig {
             worktree_contexts: std::collections::HashMap::new(),
             cockpit_worktree_id: None,
             workspace: None,
-            preferences: Preferences { theme: "system".into(), default_view: "main".into(), panes: 3, font_scale: 1.0 },
+            preferences: Preferences { theme: "system".into(), default_view: "main".into(), panes: 3, font_scale: 1.0, background: None },
         }
     }
 }

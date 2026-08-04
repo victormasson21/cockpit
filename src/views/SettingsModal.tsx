@@ -6,10 +6,12 @@ import { Modal } from "./Modal";
 import { SlackConnections } from "../tiles/slack/SlackConnections";
 import { KnownReposEditor } from "./KnownReposEditor";
 import { WorktreeContexts } from "./WorktreeContexts";
+import { AppearanceSettings } from "./AppearanceSettings";
 import "./SettingsModal.css";
 
 // One entry per settings pane: nav label + what to render on the right.
 const PANES: { id: string; label: string; render: () => ReactNode }[] = [
+  { id: "appearance", label: "Appearance", render: () => <AppearanceSettings /> },
   { id: "slack", label: "Slack", render: () => <SlackConnections /> },
   { id: "repos", label: "Known repos", render: () => <KnownReposEditor /> },
   { id: "worktree-contexts", label: "Worktree contexts", render: () => <WorktreeContexts /> },
