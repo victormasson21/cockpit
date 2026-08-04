@@ -90,6 +90,18 @@ export function startXPct(angle: number, rng: Rng): number {
   return rng() * 100; // near-vertical → anywhere is fine
 }
 
+// Travel is applied along the streak's own axis in vh, so on a wide window a near-horizontal streak
+// crosses far less of the frame than a vertical one covering the same number of units — which is why the
+// sky reads as "mostly top-to-bottom" even though the angle is uniform. Stretching by the horizontal
+// component evens out the fraction of the view each direction covers. Crossing TIME is unchanged, so
+// shallow streaks are simply faster.
+export const NOMINAL_ASPECT = 1.6; // a typical window; only sets how far shallow streaks are stretched
+
+export function travelVh(base: number, angle: number, aspect = NOMINAL_ASPECT): number {
+  const horizontal = Math.abs(Math.cos((angle * Math.PI) / 180));
+  return base * (1 + (aspect - 1) * horizontal);
+}
+
 // Shooting stars start biased towards the upper screen, so they fall INTO the view rather than out of it.
 export function makeShootingStar(id: string, rng: Rng, cfg = NIGHT_SKY.shooting): ShootingStar {
   const angle = pick(cfg.angle, rng);
@@ -102,7 +114,7 @@ export function makeShootingStar(id: string, rng: Rng, cfg = NIGHT_SKY.shooting)
     glow: pick(cfg.glow, rng),
     glowAlpha: pick(cfg.glowAlpha, rng),
     peak: pick(cfg.peak, rng),
-    travel: pick(cfg.travel, rng),
+    travel: travelVh(pick(cfg.travel, rng), angle),
     duration: pick(cfg.duration, rng),
     tail: pick(cfg.tail, rng),
   };

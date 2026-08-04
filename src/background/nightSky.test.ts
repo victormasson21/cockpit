@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  NIGHT_SKY, pick, makeFixedStar, makeShootingStar, nextShootingGap, startXPct, admitShootingStar,
+  NIGHT_SKY, pick, makeFixedStar, makeShootingStar, nextShootingGap, startXPct, admitShootingStar, travelVh,
   fixedStarStyle, shootingStarStyle, type Rng,
 } from "./nightSky";
 
@@ -80,8 +80,9 @@ describe("makeShootingStar", () => {
   it("keeps every value inside its configured range", () => {
     for (let i = 0; i < 200; i++) {
       const s = makeShootingStar(`s${i}`, Math.random);
+      // travel is stretched by direction (see travelVh), so the ceiling is the aspect-scaled one.
       expect(s.travel).toBeGreaterThanOrEqual(cfg.travel[0]);
-      expect(s.travel).toBeLessThan(cfg.travel[1]);
+      expect(s.travel).toBeLessThan(cfg.travel[1] * 1.6);
       expect(s.duration).toBeGreaterThanOrEqual(cfg.duration[0]);
       expect(s.duration).toBeLessThan(cfg.duration[1]);
       expect(s.angle).toBeGreaterThanOrEqual(cfg.angle[0]);
@@ -113,6 +114,30 @@ describe("makeShootingStar", () => {
       Math.cos((makeShootingStar("a", Math.random).angle * Math.PI) / 180));
     expect(dxs.some((dx) => dx < -0.15)).toBe(true);
     expect(dxs.some((dx) => dx > 0.15)).toBe(true);
+  });
+});
+
+describe("travelVh", () => {
+  // Straight down: the vh unit already matches the axis it travels along, so nothing is stretched.
+  it("leaves a vertical streak untouched", () => {
+    expect(travelVh(60, 90)).toBeCloseTo(60);
+  });
+
+  // Fully horizontal: stretched by the whole aspect ratio, so it covers the same share of a wide frame
+  // as a vertical streak covers of a tall one.
+  it("stretches a horizontal streak by the aspect ratio", () => {
+    expect(travelVh(60, 0, 1.6)).toBeCloseTo(96);
+    expect(travelVh(60, 180, 1.6)).toBeCloseTo(96);
+  });
+
+  it("stretches diagonals in between, symmetrically either side of vertical", () => {
+    expect(travelVh(60, 45, 1.6)).toBeCloseTo(travelVh(60, 135, 1.6));
+    expect(travelVh(60, 45, 1.6)).toBeGreaterThan(60);
+    expect(travelVh(60, 45, 1.6)).toBeLessThan(96);
+  });
+
+  it("is a no-op at a square aspect", () => {
+    expect(travelVh(60, 20, 1)).toBeCloseTo(60);
   });
 });
 
