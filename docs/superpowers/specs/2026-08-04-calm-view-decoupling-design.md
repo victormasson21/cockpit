@@ -71,7 +71,10 @@ Render the slot columns **once** and let the view toggle a class, instead of swa
   `.wt-view.wt-view--calm` when set. `App.tsx` renders it for both `view === "worktrees"` and
   `view === "calm"`, so React keeps the same element identity across the switch and no xterm is disposed.
 - Calm's suppressions become CSS on `.wt-view--calm`: the `+` rail, the swap buttons, the column divider,
-  the gear menu, the chips row, the Run/Add bar, and the host/extra panes.
+  the chips row, the Run/Add bar, and the host/extra panes. The gear menu stays a JS branch in
+  `SlotColumn.tsx` (`variant !== "calm"`): it is what hides the gear specifically on scratch, pending and
+  empty Calm columns, whose column header still renders in Calm (only a calm worktree skips the header
+  outright, moving its switcher into the Claude pane instead).
 - The width change then flows through the path xterm is designed for: `ResizeObserver` → `fit()` →
   `term.onResize` → `pty_resize` → `SIGWINCH` → Claude repaints itself. **No replay, no stale bytes.**
 
@@ -99,6 +102,15 @@ lifetime changes — but a hidden pane's container measures 0, so the `ResizeObs
 `useTerminal` must **skip `fit()` when the container has zero width or height**. We guard this ourselves
 rather than relying on `FitAddon`'s internal handling, so a zero-size measurement can never be pushed to
 the PTY as a bogus size.
+
+**Restore is the exception to "no process lifetime changes":** that reasoning holds for switches within a
+running session, but not for restoring the app straight onto Calm — the active view persists to
+`preferences.defaultView`, and the restored workspace brings back `host: true` and any extra shells
+regardless of view. Reopening onto Calm therefore does spawn those PTYs, including autostarting the dev
+server, where the old, separately-mounted `CalmView` never rendered them and nothing spawned until the
+user opened Worktrees. **Accepted deliberately:** restore is meant to bring back what was running, and
+switching to Worktrees correctly shows it already live. Cost: a hidden pane binds a port, so a spawn
+failure (`EADDRINUSE`, a crash) is invisible until the user leaves Calm.
 
 ### B. Resize the PTY on attach
 
@@ -161,4 +173,6 @@ GUI smoke is the acceptance gate:
   and terminal live at once.
 - **The animated background.** This spec is the gardening that makes Calm worth keeping; the background is
   a separate iteration on top of it.
-- Persisting which panes are open per view, and any change to pane process lifetime.
+- Persisting which panes are open per view, and any change to pane process lifetime beyond the restore
+  consequence recorded in Solution A (that one is inherent to session restore, not a scope choice made
+  here).
