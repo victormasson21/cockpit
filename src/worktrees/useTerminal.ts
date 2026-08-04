@@ -139,8 +139,11 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured }: 
         // pty_ensure is a no-op on a live PTY, so this pane may have remounted at a width the PTY knows
         // nothing about — and the bytes just replayed were drawn for the old one. Resizing raises SIGWINCH
         // and the TUI repaints itself. It MUST come after onOutput: the repaint is output, and without a
-        // subscriber it would land in the Rust scrollback buffer instead of on screen.
-        await pane.resize(term.cols, term.rows);
+        // subscriber it would land in the Rust scrollback buffer instead of on screen. Skipped when the
+        // pane mounts hidden (fit.fit() bailed above, so term is still xterm's 80x24 default) — it picks
+        // up its real geometry from the first live ResizeObserver callback once it is shown.
+        const el = containerRef.current;
+        if (el && shouldFit(el.clientWidth, el.clientHeight)) await pane.resize(term.cols, term.rows);
       } catch (e) {
         if (!disposed) term.write(`\r\n[failed to start: ${String(e)}]\r\n`);
       }
