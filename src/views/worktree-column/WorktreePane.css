@@ -51,12 +51,16 @@
    terminal floats on the app ground; keep only the icon/title/restart (+ attention badge). */
 .wt-col--calm .wt-pane { background: none; border: none; }
 .wt-col--calm .wt-pane__header { background: none; border-bottom: none; }
-/* single self-managed pane — collapse/expand/close are meaningless here */
+/* single visible pane — collapse/expand/close and the copy-prompt button are all noise here */
 .wt-col--calm .wt-pane__close,
 .wt-col--calm .wt-pane__expand,
+.wt-col--calm .wt-pane__copy,
 .wt-col--calm .wt-pane__chevron { display: none; }
-/* the terminal body is still the terminal (always-dark --term); soft radius, no border → floating */
-.wt-col--calm .wt-pane__body { border-radius: var(--r); }
+/* the terminal body is still the terminal (always-dark --term); soft radius, no border → floating.
+   display overrides .wt-pane--closed (same specificity, later in the file): collapse state is shared
+   with the full density, and this one hides the chevron — so a pane collapsed over there must not
+   arrive here as a header with nothing under it and no way to reopen it. */
+.wt-col--calm .wt-pane__body { border-radius: var(--r); display: block; }
 /* attention: keep the "Attention" text badge, drop the box glow (a glow is a frame) */
 .wt-col--calm .wt-pane--attention { border: none; box-shadow: none; }
 /* slightly lighter switcher here only — the shared .dd--heading also serves the Worktrees view,

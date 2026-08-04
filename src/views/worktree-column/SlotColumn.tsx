@@ -134,7 +134,7 @@ export function SlotColumn({ value, onSelect, variant = "full", onPin, onClose }
       ) : entity.kind === "worktree" ? (
         // Key on the component (not a wrapper div) so the remount preserves the .wt-col → .wt-col__body flex chain.
         // calm: hand the switcher down so it renders inside the Claude pane header (no column header above).
-        <WorktreeBody key={entity.worktree.id} worktree={entity.worktree} variant={variant} switcher={calmWorktree ? switcher : undefined} />
+        <WorktreeBody key={entity.worktree.id} worktree={entity.worktree} switcher={calmWorktree ? switcher : undefined} />
       ) : entity.kind === "scratch" ? (
         <ScratchBody key={entity.scratch.id} scratchId={entity.scratch.id} />
       ) : (
