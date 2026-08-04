@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  NIGHT_SKY, pick, makeFixedStar, makeShootingStar, nextShootingGap, startXPct,
+  NIGHT_SKY, pick, makeFixedStar, makeShootingStar, nextShootingGap, startXPct, admitShootingStar,
   fixedStarStyle, shootingStarStyle, type Rng,
 } from "./nightSky";
 
@@ -141,16 +141,65 @@ describe("startXPct", () => {
 });
 
 describe("nextShootingGap", () => {
-  it("averages the configured rate", () => {
-    // 0.5 + 0.5 = 1x the mean gap; 4/min => 15s.
-    expect(nextShootingGap(4, always(0.5))).toBe(15_000);
+  const cfg = { perMinute: 4, minGap: 0.9 }; // mean gap 15s
+
+  // The defining property of the exponential draw: u = 1 - 1/e maps to exactly the mean.
+  it("returns the mean gap at the distribution's midpoint", () => {
+    expect(nextShootingGap(cfg, always(1 - 1 / Math.E))).toBeCloseTo(15_000);
   });
-  it("jitters between half and one-and-a-half times the mean", () => {
-    expect(nextShootingGap(4, always(0))).toBe(7_500);
-    expect(nextShootingGap(4, always(0.999))).toBeCloseTo(22_485);
-  });
+
   it("scales inversely with the rate", () => {
-    expect(nextShootingGap(1, always(0.5))).toBe(60_000);
+    expect(nextShootingGap({ perMinute: 1, minGap: 0.9 }, always(1 - 1 / Math.E))).toBeCloseTo(60_000);
+  });
+
+  // Poisson gaps are unbounded above — a long lull must be reachable, which the old uniform ±50%
+  // jitter could never produce.
+  it("can produce a lull far longer than the mean", () => {
+    expect(nextShootingGap(cfg, always(0.99))).toBeGreaterThan(60_000);
+  });
+
+  // ...and short gaps must be reachable too, so streaks occasionally arrive in pairs.
+  it("can produce a gap far shorter than the mean", () => {
+    expect(nextShootingGap(cfg, always(0.05))).toBeLessThan(1_000);
+  });
+
+  it("never returns less than the configured floor", () => {
+    expect(nextShootingGap(cfg, always(0))).toBe(900);
+    for (let i = 0; i < 500; i++) {
+      expect(nextShootingGap(cfg, Math.random)).toBeGreaterThanOrEqual(900);
+    }
+  });
+
+  // The rate is the contract: whatever the shape, 4/min must average ~15s. The floor lifts the mean a
+  // little, hence the generous tolerance.
+  it("averages the configured rate over many draws", () => {
+    const n = 20_000;
+    let total = 0;
+    for (let i = 0; i < n; i++) total += nextShootingGap(cfg, Math.random);
+    expect(total / n).toBeGreaterThan(13_000);
+    expect(total / n).toBeLessThan(17_000);
+  });
+});
+
+describe("admitShootingStar", () => {
+  const star = (id: string) => makeShootingStar(id, Math.random);
+
+  it("admits a star while there is room", () => {
+    expect(admitShootingStar([], star("a"), 3)).toHaveLength(1);
+    expect(admitShootingStar([star("a"), star("b")], star("c"), 3)).toHaveLength(3);
+  });
+
+  // The backstop against the swarm: a hidden window freezes animations, so deaths stop while births
+  // continue. Births are paused on hidden too, but this bounds the symptom whatever the cause.
+  it("drops the spawn at the ceiling rather than queueing it", () => {
+    const full = [star("a"), star("b"), star("c")];
+    expect(admitShootingStar(full, star("d"), 3)).toBe(full); // same array — no re-render either
+  });
+
+  it("never exceeds the ceiling however many are offered", () => {
+    let live = [] as ReturnType<typeof star>[];
+    for (let i = 0; i < 50; i++) live = admitShootingStar(live, star(`s${i}`), 3);
+    expect(live).toHaveLength(3);
   });
 });
 

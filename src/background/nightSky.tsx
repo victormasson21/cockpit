@@ -24,7 +24,11 @@ export const NIGHT_SKY = {
     life: [90, 240] as Range, // seconds from first appearance to fully gone
   },
   shooting: {
-    perMinute: 7, // average; each gap is jittered ±50% so they never feel metronomic
+    // Long-run average rate. Arrivals are a Poisson process, so the gaps vary a lot around it — see
+    // nextShootingGap.
+    perMinute: 7,
+    minGap: 0.9, // seconds; the floor that stops two streaks landing on top of each other
+    maxConcurrent: 3, // hard ceiling on streaks in flight — the backstop against a burst
     size: [1.4, 2.6] as Range,
     glow: [12, 30] as Range, // px, halo width — a touch wider than fixed stars, they are the event
     glowAlpha: [0.6, 0.95] as Range,
@@ -104,10 +108,22 @@ export function makeShootingStar(id: string, rng: Rng, cfg = NIGHT_SKY.shooting)
   };
 }
 
-// Milliseconds until the next shooting star. Jittered ±50% around the average so the rhythm reads as
-// natural rather than mechanical.
-export function nextShootingGap(perMinute: number, rng: Rng): number {
-  return (60_000 / perMinute) * (0.5 + rng());
+// Bounds the streaks in flight. Even with births paused while the window is hidden, a coalesced burst of
+// timers must not be able to produce a swarm — dropping the extra spawn is right, because queueing it
+// would just move the swarm later.
+export function admitShootingStar(current: ShootingStar[], star: ShootingStar, max: number): ShootingStar[] {
+  return current.length >= max ? current : [...current, star];
+}
+
+// Milliseconds until the next shooting star, drawn from an exponential distribution — i.e. arrivals are
+// a Poisson process, like real meteors. Most gaps come in under the mean, long lulls happen occasionally,
+// and streaks sometimes arrive in pairs. A uniform ±50% jitter (what this used to be) can do none of
+// that: bounded gaps read as a metronome with wobble over a few minutes.
+// `minGap` is the floor, so a pair never lands on top of itself.
+export function nextShootingGap(cfg: { perMinute: number; minGap: number }, rng: Rng): number {
+  const mean = 60_000 / cfg.perMinute;
+  // rng() is [0, 1), so 1 - rng() is (0, 1] — the log is always defined and the gap never negative.
+  return Math.max(cfg.minGap * 1000, -mean * Math.log(1 - rng()));
 }
 
 // The models carry numbers; the CSS owns the look. Custom properties are the handoff.
@@ -154,8 +170,24 @@ function useStillSky(): boolean {
   return still;
 }
 
+// A hidden window freezes CSS animations but keeps timers running, so births would continue while deaths
+// (which are animationend firing) could not — the streaks piled up and then all animated at once on
+// return. This is the signal that stops that. Note it is VISIBILITY, not focus: an unfocused but visible
+// window still animates normally, and the sky is meant to be ambient, so pausing on mere blur would stop
+// it while you can plainly see it.
+function useVisible(): boolean {
+  const [visible, setVisible] = useState(() => !document.hidden);
+  useEffect(() => {
+    const onChange = () => setVisible(!document.hidden);
+    document.addEventListener("visibilitychange", onChange);
+    return () => document.removeEventListener("visibilitychange", onChange);
+  }, []);
+  return visible;
+}
+
 export function NightSky() {
   const still = useStillSky();
+  const visible = useVisible();
   const seq = useRef(0);
   const nextId = () => `s${seq.current++}`;
   // Built once, lazily: re-running this on every render would reshuffle the whole sky.
@@ -164,19 +196,25 @@ export function NightSky() {
   );
   const [shooting, setShooting] = useState<ShootingStar[]>([]);
 
-  // Each shooting star schedules the next one, so the interval is re-jittered every time.
+  // Each shooting star schedules the next one, so every gap is a fresh draw from the distribution.
   useEffect(() => {
     if (still) return;
+    // Hidden: stop giving birth, and drop anything mid-flight — a frozen streak would otherwise resume
+    // together with the rest the moment the window comes back.
+    if (!visible) {
+      setShooting((prev) => (prev.length ? [] : prev));
+      return;
+    }
     let timer = 0;
     const schedule = () => {
       timer = window.setTimeout(() => {
-        setShooting((prev) => [...prev, makeShootingStar(nextId(), Math.random)]);
+        setShooting((prev) => admitShootingStar(prev, makeShootingStar(nextId(), Math.random), NIGHT_SKY.shooting.maxConcurrent));
         schedule();
-      }, nextShootingGap(NIGHT_SKY.shooting.perMinute, Math.random));
+      }, nextShootingGap(NIGHT_SKY.shooting, Math.random));
     };
     schedule();
     return () => window.clearTimeout(timer);
-  }, [still]);
+  }, [still, visible]);
 
   return (
     <div className="ns">
