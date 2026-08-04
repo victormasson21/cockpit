@@ -136,6 +136,11 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured }: 
         term.write(scrollback);
         bellLive = true; // replay done — bells from here on are live and meaningful.
         unlisten = await pane.onOutput((bytes) => term.write(bytes));
+        // pty_ensure is a no-op on a live PTY, so this pane may have remounted at a width the PTY knows
+        // nothing about — and the bytes just replayed were drawn for the old one. Resizing raises SIGWINCH
+        // and the TUI repaints itself. It MUST come after onOutput: the repaint is output, and without a
+        // subscriber it would land in the Rust scrollback buffer instead of on screen.
+        await pane.resize(term.cols, term.rows);
       } catch (e) {
         if (!disposed) term.write(`\r\n[failed to start: ${String(e)}]\r\n`);
       }
