@@ -1,7 +1,10 @@
 /* WorktreePane.css — terminal pane as a card; open panes flex-fill the column's vertical space. */
+/* --pane-bdr is the REST-state border colour, component-local (not a theme token). A density that wants
+   a frameless pane overrides it rather than setting border-color, so the focus/attention rules below
+   still win on their own terms — no dependence on source order or doubled selectors. */
 .wt-pane {
   display: flex; flex-direction: column; min-height: 0;
-  background: var(--surface); border: 1px solid var(--bdr); border-radius: var(--r); overflow: hidden;
+  background: var(--surface); border: 1px solid var(--pane-bdr, var(--bdr)); border-radius: var(--r); overflow: hidden;
 }
 .wt-pane--open { flex: 1; }
 .wt-pane--closed { flex: 0 0 auto; }
@@ -47,9 +50,12 @@
 .wt-pane__restart { margin-left: auto; }
 .wt-pane__body { flex: 1; min-height: 0; padding: var(--space-1); background: var(--term); }
 
-/* Calm variant: no card. Drop the pane border + surface background + header divider so the
-   terminal floats on the app ground; keep only the icon/title/restart (+ attention badge). */
-.wt-col--calm .wt-pane { background: none; border: none; }
+/* Calm variant: no card. Drop the surface background + header divider so the terminal floats on the app
+   ground; keep only the icon/title/restart (+ attention badge). The border stays as a transparent 1px
+   box rather than being removed, so focus and attention have something to colour and lighting it up
+   shifts no layout. */
+.wt-col--calm { --pane-bdr: transparent; }
+.wt-col--calm .wt-pane { background: none; }
 .wt-col--calm .wt-pane__header { background: none; border-bottom: none; }
 /* single visible pane — collapse/expand/close and the copy-prompt button are all noise here */
 .wt-col--calm .wt-pane__close,
@@ -61,8 +67,6 @@
    with the full density, and this one hides the chevron — so a pane collapsed over there must not
    arrive here as a header with nothing under it and no way to reopen it. */
 .wt-col--calm .wt-pane__body { border-radius: var(--r); display: block; }
-/* attention: keep the "Attention" text badge, drop the box glow (a glow is a frame) */
-.wt-col--calm .wt-pane--attention { border: none; box-shadow: none; }
 /* slightly lighter switcher here only — the shared .dd--heading also serves the Worktrees view,
    so this stays scoped to the calm pane header (higher specificity → wins without touching that). */
 .wt-col--calm .wt-pane__header .dd--heading button.dd__trigger { font-size: var(--fs-lg); font-weight: 600; }
