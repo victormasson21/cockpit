@@ -164,8 +164,8 @@ describe("style mapping", () => {
 
   it("exposes the glow, its alpha and the peak opacity as custom properties", () => {
     const style = fixedStarStyle(makeFixedStar("a", always(0.5))) as Record<string, string>;
-    expect(style["--glow"]).toBe("15.5px"); // midpoint of [5, 26]
-    expect(style["--glow-alpha"]).toBe("0.775"); // midpoint of [0.55, 1]
+    expect(style["--glow"]).toBe("17px"); // midpoint of [8, 26]
+    expect(style["--glow-alpha"]).toBe("0.675"); // midpoint of [0.45, 0.9]
     expect(style["--peak"]).toBe("0.675"); // midpoint of [0.35, 1]
   });
 

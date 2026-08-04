@@ -3,8 +3,8 @@
 //
 // The performance shape that matters: JS runs ONLY at a star's birth and death. All motion is one CSS
 // animation per element, so the browser drives it on the compositor and the main thread is idle in
-// between — no per-frame work behind the live terminals. Each star's glow is a STATIC box-shadow, so it
-// rasterises once into that element's layer; only opacity and transform animate.
+// between — no per-frame work behind the live terminals. Each star's glow is a STATIC radial gradient, so
+// it rasterises once into that element's layer; only opacity and transform animate.
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import "./nightSky.css";
 
@@ -16,18 +16,18 @@ export const NIGHT_SKY = {
   fixed: {
     count: 70, // how many exist at once — a death immediately spawns a replacement
     size: [1, 2.6] as Range, // px, the dot itself
-    glow: [5, 26] as Range, // px, blur radius of the glow around it
-    // Alpha of the glow relative to the dot. Pull the top down if wide halos start reading as
-    // headlights rather than stars; raise the floor for a hazier sky.
-    glowAlpha: [0.55, 1] as Range,
+    // px, overall WIDTH of the halo — its gradient reaches zero alpha exactly at this diameter, so
+    // there is never an edge against the sky. This and glowAlpha together are "how much glow".
+    glow: [8, 26] as Range,
+    glowAlpha: [0.45, 0.9] as Range, // brightness of the halo; the pair above is the knob to tune first
     peak: [0.35, 1] as Range, // opacity held between the fade in and the fade out
     life: [90, 240] as Range, // seconds from first appearance to fully gone
   },
   shooting: {
     perMinute: 7, // average; each gap is jittered ±50% so they never feel metronomic
     size: [1.4, 2.6] as Range,
-    glow: [8, 26] as Range,
-    glowAlpha: [0.7, 1] as Range,
+    glow: [12, 30] as Range, // px, halo width — a touch wider than fixed stars, they are the event
+    glowAlpha: [0.6, 0.95] as Range,
     peak: [0.6, 1] as Range,
     travel: [45, 90] as Range, // vh of screen crossed before it dies
     duration: [1.1, 2.8] as Range, // seconds to cross
