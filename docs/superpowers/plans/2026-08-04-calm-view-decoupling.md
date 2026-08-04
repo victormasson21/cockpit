@@ -587,8 +587,15 @@ running in each.
 8. Calm with a single assigned column → the terminal is centred and width-capped as before, and the `+`
    rail and swap buttons are absent.
 9. Calm over a **scratch** terminal and over a **pending** (spinner) tile → both render as before.
-10. On Worktrees, collapse the Claude pane with its chevron → switch to Calm → **the terminal is still
-    shown** (not a bare header), because collapse state is shared between the densities.
+10. On Worktrees, collapse the Claude pane with its chevron → switch to Calm → the terminal **fills the
+    Calm column** (not a bare header, and not a short content-height box floating at the top), because
+    collapse state is shared between the densities.
+11. **Cockpit → Calm directly** (item 7 only covers Cockpit ↔ Worktrees). `▶ Run` a dev server on
+    Worktrees → Cockpit → Calm → wait → back to Worktrees, and check the dev-server pane's recent output
+    is **not** hard-wrapped at 80 columns. This is the path that remounts panes *hidden* over live PTYs.
+12. **Quit while on Calm, then reopen.** The app lands on Calm and the dev server starts invisibly — this
+    is the accepted behaviour above, so the check is that it starts *correctly*: switch to Worktrees and
+    confirm `▶ Run` reads as already running and the pane holds real output, not an error.
 
 - [ ] **Step 4: Record the outcome**
 
@@ -601,7 +608,29 @@ down (check `App.tsx` renders `<WorktreesView>` at the same child position for b
 
 ## Status
 
-Not started.
+Tasks 1-5 complete and reviewed; 310 JS tests in 34 files green, `tsc && vite build` clean. Task 6 (GUI
+smoke) is the outstanding acceptance gate — it needs a human at a native macOS window.
+
+The final whole-branch review added four fixes on top of the five tasks, two of which matter:
+
+- **`useTerminal.ts`: the Task 2 resize is guarded**, not unconditional. Task 1 added `shouldFit` so a
+  zero-size measurement could never reach the PTY, but Task 2's resize bypassed it — and Task 4 made
+  "mounts while hidden" routine, so a hidden host pane would have SIGWINCH'd a running dev server down to
+  xterm's default 80×24, invisibly, until the user next opened Worktrees.
+- **`.wt-col--calm .wt-pane--closed { flex: 1 }`**, because forcing the body's `display` open (Task 4)
+  restored visibility but not height: a pane collapsed in the full density arrived in Calm as a
+  content-height box, uncorrectable with the chevron hidden.
+
+Two smoke gaps the reviewer identified are folded into Task 6 below as items 11-12, and item 10's pass
+condition was sharpened.
+
+## Accepted behaviour change (owner decision)
+
+Reopening the app **onto Calm** now spawns the host and extra PTYs, including autostarting the dev server —
+the old separately-mounted `CalmView` never rendered those panes, so nothing spawned until the user opened
+Worktrees. Accepted deliberately: restore is meant to bring back what was running. Cost: a hidden pane binds
+a port, so a spawn failure (`EADDRINUSE`, a crash) is invisible until the user leaves Calm. Recorded in the
+spec's §A.
 
 ## Deferred
 
