@@ -67,6 +67,10 @@
    with the full density, and this one hides the chevron — so a pane collapsed over there must not
    arrive here as a header with nothing under it and no way to reopen it. */
 .wt-col--calm .wt-pane__body { border-radius: var(--r); display: block; }
+/* ...and the pane itself must not arrive here at .wt-pane--closed's content-height `flex: 0 0 auto` —
+   that leaves it floating at the top of the padded column with no chevron to fix it. Two classes beat
+   .wt-pane--closed's one, so this wins on specificity regardless of source order. */
+.wt-col--calm .wt-pane--closed { flex: 1; }
 /* slightly lighter switcher here only — the shared .dd--heading also serves the Worktrees view,
    so this stays scoped to the calm pane header (higher specificity → wins without touching that). */
 .wt-col--calm .wt-pane__header .dd--heading button.dd__trigger { font-size: var(--fs-lg); font-weight: 600; }
