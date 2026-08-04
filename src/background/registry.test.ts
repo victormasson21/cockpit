@@ -1,24 +1,34 @@
 import { describe, it, expect } from "vitest";
-import { BACKGROUNDS, NO_BACKGROUND, resolveBackground } from "./registry";
+import { BACKGROUNDS, DEFAULT_BACKGROUND, NO_BACKGROUND, resolveBackground } from "./registry";
+
+const theDefault = BACKGROUNDS.find((b) => b.id === DEFAULT_BACKGROUND);
 
 describe("resolveBackground", () => {
-  it("is off when no background has ever been chosen", () => {
-    expect(resolveBackground(undefined)).toBeNull();
-  });
-  it("is off when off was chosen explicitly", () => {
+  // Explicit off is the ONLY route to no background; every other unresolvable value means "no valid
+  // stored choice", which is the fresh-install situation and gets the default.
+  it("is off only when off was chosen explicitly", () => {
     expect(resolveBackground(NO_BACKGROUND)).toBeNull();
+  });
+  it("shows the default when no background has ever been chosen", () => {
+    expect(resolveBackground(undefined)).toBe(theDefault);
   });
   it("resolves a shipped variant to its entry", () => {
     const first = BACKGROUNDS[0];
     expect(resolveBackground(first.id)).toBe(first);
   });
-  // The case that matters: a cockpit.json naming a variant we have since deleted must fall back to a
-  // blank ground, not blank the app or throw.
-  it("falls back to off for an id we no longer ship", () => {
-    expect(resolveBackground("variant-we-deleted")).toBeNull();
+  // The case that matters: a cockpit.json naming a variant we have since deleted must degrade to the
+  // default, never blank the app or throw.
+  it("falls back to the default for an id we no longer ship", () => {
+    expect(resolveBackground("variant-we-deleted")).toBe(theDefault);
   });
-  it("treats the empty string as off (a cleared field)", () => {
-    expect(resolveBackground("")).toBeNull();
+  it("treats the empty string as unset, not as off", () => {
+    expect(resolveBackground("")).toBe(theDefault);
+  });
+});
+
+describe("DEFAULT_BACKGROUND", () => {
+  it("names a variant that is actually shipped", () => {
+    expect(theDefault).toBeDefined();
   });
 });
 

@@ -1,6 +1,6 @@
 // AppearanceSettings.tsx — Settings › Appearance: picks the app background from the registry.
 import { useSettings } from "../settings/store";
-import { BACKGROUNDS, NO_BACKGROUND } from "../background/registry";
+import { BACKGROUNDS, DEFAULT_BACKGROUND, NO_BACKGROUND } from "../background/registry";
 import { Dropdown } from "./Dropdown";
 
 export function AppearanceSettings() {
@@ -12,9 +12,10 @@ export function AppearanceSettings() {
       <Dropdown
         variant="form"
         placeholder="None"
-        // Off is a real, persisted choice rather than a cleared field, so it survives a future
-        // change of default — hence a row, not a null value.
-        value={current ?? NO_BACKGROUND}
+        // Off is a real, persisted choice rather than a cleared field, so it survives a future change
+        // of default — hence a row, not a null value. An unset field shows the default, matching what
+        // resolveBackground actually renders.
+        value={current ?? DEFAULT_BACKGROUND}
         onChange={(id) => setBackground(id)}
         groups={[{ options: [
           { value: NO_BACKGROUND, label: "None" },
