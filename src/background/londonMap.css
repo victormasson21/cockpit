@@ -32,17 +32,34 @@
 
 .lm__line--secondary { stroke-width: 0.6px; opacity: 0.1; }
 .lm__line--primary { stroke-width: 1px; opacity: 0.18; }
+/* Paints nothing today: there is no motorway-tagged way inside the §3 bbox at all (see the tier list
+   in scripts/bake-london-map.mjs), so this rule is here for a wider box, not for tuning. */
 .lm__line--motorway { stroke-width: 1.4px; opacity: 0.26; }
 .lm__line--thames { stroke-width: 3px; opacity: 0.14; }
 .lm__line--tube { stroke-width: 1.2px; opacity: 0.45; }
 
-/* The halo: the same strokes again, blurred, painted underneath. NOT box-shadow or drop-shadow — a
-   shadow leaves the stroke's own area fully opaque and only softens outwards, which reads as a hard
-   core with a soft rim. That was the lesson from the night sky's star glow. */
-.lm__glow {
-  filter: blur(2.5px);
-  opacity: 0.55;
-}
+/* The halo: the same strokes again, WIDER, blurred, and painted underneath. Two things are
+   load-bearing here.
+
+   The WIDTH is one of them. Blur conserves total alpha, so spreading a stroke over ~10px drops its
+   peak by roughly that factor — re-blurring a 1px stroke at these opacities leaves nothing a dark
+   ground will show. The halo needs real width of its own, which is what this rule gives it.
+
+   And it is NOT box-shadow or drop-shadow: a shadow leaves the stroke's own area fully opaque and only
+   softens outwards, which reads as a hard core with a soft rim. That was the lesson from the night
+   sky's star glow.
+
+   The blur itself is an SVG <filter> in londonMap.tsx, deliberately not `filter: blur()` here — read
+   the comment on its pinned region before moving it back. That also means the blur radius is in USER
+   units while these widths are device pixels (`vector-effect` above), so the halo scales with the
+   viewBox fit and the strokes don't: the ratio below is only exact at the window size it was tuned at. */
+.lm__glow .lm__line { stroke-width: 4px; }
+
+/* Group opacity is the halo's one brightness knob. Each glow path keeps its own class's opacity, so
+   the weight hierarchy carries over untouched and this scales the lot. Arithmetic to tune against: a
+   4px stroke blurred at ~3 device px keeps roughly 45% of its peak alpha, so the tube's halo peaks near
+   0.45 x 0.45 x 0.7 ≈ 0.14 under a 0.45 core — a soft halo about a third the core's brightness. */
+.lm__glow { opacity: 0.7; }
 
 /* Reduced motion: the map holds still. It is static anyway, so only the drift has to stop. */
 @media (prefers-reduced-motion: reduce) {
