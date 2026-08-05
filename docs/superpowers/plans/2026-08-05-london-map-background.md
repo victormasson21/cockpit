@@ -538,9 +538,23 @@ Overpass 504s and retries in the log are expected and harmless. If a tier fails 
 
 - [ ] **Step 3: Sanity-check the generated file**
 
-Run: `ls -lh src/background/londonMap.data.ts && node -e "const {LONDON_MAP:m}=await import('./src/background/londonMap.data.ts').catch(()=>({LONDON_MAP:null}))" 2>/dev/null; head -c 400 src/background/londonMap.data.ts`
+Node cannot import a `.ts` module, so check the file as text and parse the object out of it:
 
-Expected: a file of roughly 60–120 KB whose header is the generated-file comment, followed by `export const LONDON_MAP = {"projection":...`. Confirm by eye that `layers.tube` is non-empty and `tubeLines` has 11 or more entries (branching lines contribute more than one).
+```bash
+ls -lh src/background/londonMap.data.ts
+head -c 300 src/background/londonMap.data.ts
+node -e '
+const fs = require("node:fs");
+const src = fs.readFileSync("src/background/londonMap.data.ts", "utf8");
+const json = src.slice(src.indexOf("{"), src.lastIndexOf("}") + 1);
+const m = JSON.parse(json);
+console.log("frame", m.width + "x" + m.height, "aspect", (m.width / m.height).toFixed(2));
+for (const [k, d] of Object.entries(m.layers)) console.log(k, (d.length / 1024).toFixed(1) + " KB", d.startsWith("M") ? "ok" : "MALFORMED");
+console.log("tubeLines", m.tubeLines.length, "stations", m.tubeLines.reduce((n, l) => n + l.stations.length, 0));
+'
+```
+
+Expected: a file of roughly 60–120 KB; aspect ~1.6; every layer non-empty and starting with `M`; `tubeLines` at least 11 (branching lines contribute more than one) with several hundred stations in total.
 
 - [ ] **Step 4: Verify the build accepts the generated module**
 
