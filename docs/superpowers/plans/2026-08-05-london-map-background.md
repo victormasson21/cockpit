@@ -396,7 +396,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function getJson(url, init, attempts = 4) {
   for (let attempt = 1; ; attempt++) {
     try {
-      const res = await fetch(url, init);
+      // A User-Agent is required, not politeness: Overpass's Apache front-end answers node's default
+      // fetch UA with a 406.
+      const res = await fetch(url, { ...init, headers: { "User-Agent": "cockpit-london-map-bake/1.0 (+https://github.com/victormasson21/cockpit)", ...init?.headers } });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     } catch (err) {
@@ -411,7 +413,12 @@ async function getJson(url, init, attempts = 4) {
 // the whole bbox, which 504s reliably on both the public endpoint and the kumi mirror; a union of
 // exact matches uses the index and returns in seconds.
 async function fetchWays(tagFilters) {
-  const lines = [];
+  // Keyed by OSM way id, because a bbox query returns each matching way's FULL, unclipped geometry as
+  // soon as ONE of its nodes falls inside — so every way crossing a strip boundary comes back complete
+  // from both adjacent queries. Without this, mergeChains joins the duplicate to itself and emits a
+  // chain that runs out to the far end and back over its own path. Measured on the trunk tier: 10 ways
+  // shared between two adjacent strips.
+  const byId = new Map();
   for (let strip = 0; strip < STRIPS; strip++) {
     const w = BBOX.west + ((BBOX.east - BBOX.west) * strip) / STRIPS;
     const e = BBOX.west + ((BBOX.east - BBOX.west) * (strip + 1)) / STRIPS;
@@ -420,12 +427,19 @@ async function fetchWays(tagFilters) {
       method: "POST",
       body: new URLSearchParams({ data: `[out:json][timeout:180];(${union});out geom;` }),
     });
+    let duplicates = 0;
     for (const way of data.elements) {
-      if (way.geometry) lines.push(way.geometry.map((g) => [g.lon, g.lat]));
+      if (!way.geometry) continue;
+      if (byId.has(way.id)) {
+        duplicates++;
+        continue;
+      }
+      byId.set(way.id, way.geometry.map((g) => [g.lon, g.lat]));
     }
+    console.log(`  strip ${strip}: ${data.elements.length} ways, ${duplicates} already seen`);
     await sleep(5000);
   }
-  return lines;
+  return [...byId.values()];
 }
 
 // Merge BEFORE projecting. Two ways meeting at a junction share an OSM node, so their endpoints are
