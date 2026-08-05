@@ -124,14 +124,22 @@ encoding for free.
 
 ### 5.3 Projection and framing
 
-Equirectangular with a `cos(latitude)` correction on x (≈0.62 at 51.5°N; without it London looks
-horizontally stretched). Baked into a fixed pixel space of ~2000px width, which at 21 km is ~10 m/px —
-also the simplification tolerance, since sub-pixel precision is dead weight.
+Equirectangular with a `cos(latitude)` correction. Baked into a fixed pixel space of 2000 × 1246 px,
+which at 21 km is ~10 m/px — also the simplification tolerance, since sub-pixel precision is dead weight.
+
+**The correction divides, it does not multiply.** Pixels-per-degree of *latitude* is the larger of the
+two, because a degree of longitude covers less ground the further from the equator:
+`scaleY = scaleX / cos(lat₀)`, ≈ scaleX / 0.622 at 51.5°N. Getting this backwards squashes London
+vertically, and it is easy to get backwards — a unit test pins the resulting aspect ratio.
 
 Framing is `viewBox` + `preserveAspectRatio="xMidYMid slice"`, which is `cover` with no CSS involved.
 
-`project(lat, lon) → {x, y}` is exported and pure. That matters for §7: a train's runtime position must
-go through the *identical* transform as the baked map, or the two layers disagree.
+**No projection ships at runtime.** An earlier draft of this spec promised an exported `project()` so
+train positions would use the same transform as the map. Planning found that unnecessary: if the bake
+emits tube station coordinates already *in pixel space*, then step 2 interpolates a train between two
+station pixel positions and never converts a lat/lon at all. The projection parameters are still
+recorded in the data file as provenance — and so a future lat/lon consumer has them — but there is no
+runtime transform to keep in agreement, which is a stronger guarantee than the original one.
 
 ### 5.4 Testable surface
 
@@ -158,9 +166,9 @@ Decisions made now, purely so step 2 needs no rework:
 - **Bake the full tube network; clip at render time.** Trains bound for Heathrow or Cockfosters sail
   off-frame naturally, and widening the box later is a CSS change rather than a re-bake and re-tune.
 - **Station sequences stay ordered and keyed by NaptanId** (`940GZZLUWWL`-style, confirmed present in the
-  API response). Arrival predictions reference exactly that id, so step 2 needs no name matching.
+  API response), **with their pixel coordinates baked alongside**. Arrival predictions reference exactly
+  that id, so step 2 needs neither name matching nor a coordinate transform (§5.3).
 - **The tube layer gets its own `<g>`**, so trains become siblings above it with no restructuring.
-- **`project` is exported and pure** (§5.3).
 - **Station-to-station segments are the data's native fidelity** (§5.1), so interpolating a train along a
   straight chord between two stations isn't an approximation — it's exactly as precise as the geometry.
 
