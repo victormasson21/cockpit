@@ -6,7 +6,7 @@
 // Attribution is a licence condition of both sources and is emitted into the generated file's header;
 // the app shows it in Settings beside the background picker.
 import { writeFile } from "node:fs/promises";
-import { mergeChains, projectionFor, project, simplify, splineD, toPathD } from "./mapGeometry.mjs";
+import { bakeLayer, projectionFor, project, splineD } from "./mapGeometry.mjs";
 
 const BBOX = { west: -0.2549, east: 0.0495, south: 51.448, north: 51.566 };
 const WIDTH = 2000;
@@ -16,6 +16,12 @@ const OUT = new URL("../src/background/londonMap.data.ts", import.meta.url);
 // The road tiers, grouped as they are STYLED (see the spec's stroke table) rather than as OSM tags
 // them. Measured: the three tiers below total ~51 KB of path data, so there is headroom — adding
 // `tertiary: ["tertiary", "tertiary_link"]` here is the whole change if the map wants more texture.
+//
+// `motorway` yields ZERO ways inside the §3 bbox — there is genuinely no motorway-tagged road in it
+// (the M4 and the M1 both start outside), so the tier bakes to an empty string and the variant renders
+// an empty <path>. It stays wired because that costs one empty path and makes the tier free if the box
+// is ever widened; the point of saying so here is that there are TWO visible road tiers, not three, and
+// nobody should tune `.lm__line--motorway` expecting to see it change.
 const ROAD_TIERS = {
   motorway: ["motorway", "motorway_link"],
   primary: ["trunk", "trunk_link", "primary", "primary_link"],
@@ -87,17 +93,13 @@ async function fetchWays(tagFilters, label) {
   return [...byId.values()];
 }
 
-// Merge BEFORE projecting. Two ways meeting at a junction share an OSM node, so their endpoints are
-// bit-identical in lat/lon and match exactly; projecting and rounding first would break that identity
-// and leave every road fragmented.
-function bakeLayer(lines, projection) {
-  const merged = mergeChains(lines);
-  const thinned = merged.map((chain) => simplify(chain.map(([lon, lat]) => project(lat, lon, projection)), TOLERANCE_PX));
-  return toPathD(thinned);
-}
-
 // A tube line's branches arrive as separate stopPointSequences, and the two directions mostly repeat
 // each other, so sequences are deduped by their station-id signature in both orders.
+//
+// This dedupes whole SEQUENCES, which leaves shared trunk sections drawn once per branch: 452 station
+// placements across only 272 distinct stations, ~10 deep on the Northern line's core. Harmless only
+// because the variant paints the whole network as ONE <path>, so its opacity composites once — see the
+// warning beside that path in londonMap.tsx before splitting the layer per line.
 async function fetchTubeLine(id) {
   const sequences = [];
   const seen = new Set();
@@ -125,12 +127,12 @@ async function main() {
   const layers = {};
   for (const [tier, values] of Object.entries(ROAD_TIERS)) {
     const lines = await fetchWays(values.map((v) => `["highway"="${v}"]`), tier);
-    layers[tier] = bakeLayer(lines, projection);
+    layers[tier] = bakeLayer(lines, projection, TOLERANCE_PX);
     console.log(`${tier}: ${lines.length} ways -> ${(layers[tier].length / 1024).toFixed(0)} KB`);
   }
 
   const thames = await fetchWays(['["waterway"="river"]["name"="River Thames"]'], "thames");
-  layers.thames = bakeLayer(thames, projection);
+  layers.thames = bakeLayer(thames, projection, TOLERANCE_PX);
   console.log(`thames: ${thames.length} ways -> ${(layers.thames.length / 1024).toFixed(1)} KB`);
 
   // Station pixel coordinates are baked alongside the strokes so the vehicles step can interpolate a

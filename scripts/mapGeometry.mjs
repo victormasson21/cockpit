@@ -34,7 +34,10 @@ export function mergeChains(lines) {
           if (used[j]) continue;
           const candidate = lines[j];
           const seg = key(candidate[0]) === key(end) ? [...candidate] : [...candidate].reverse();
-          if (key(seg[0]) !== key(end)) continue; // shares the far end only; leave it for its own turn
+          // An invariant, not a case: `ends` is keyed by BOTH endpoints of every line and the ternary
+          // above orients the candidate so the shared point comes first, so this cannot fire on
+          // well-formed input. Kept as a cheap tripwire on that indexing.
+          if (key(seg[0]) !== key(end)) continue;
           used[j] = true;
           chain = atFront ? [...seg.slice(1).reverse(), ...chain] : [...chain, ...seg.slice(1)];
           grew = true;
@@ -110,6 +113,20 @@ export function toPathD(lines) {
       return deduped.length < 2 ? "" : `M${deduped.map(([x, y]) => `${x} ${y}`).join("L")}`;
     })
     .join("");
+}
+
+// One road class, from raw OSM ways to a finished `d` string. Two orderings are pinned by tests here
+// because both are silently wrong rather than loudly wrong:
+//   - MERGE BEFORE PROJECTING. Two ways meeting at a junction share an OSM node, so their endpoints are
+//     bit-identical in lat/lon and match exactly; projecting and rounding first breaks that identity
+//     and leaves every road fragmented.
+//   - `lines` carries [lon, lat] pairs (Overpass's order) while `project` takes (lat, lon). The swap
+//     below is the most error-prone step in the whole bake: transposing it yields geometry that still
+//     looks like a plausible road network, just not London's.
+export function bakeLayer(lines, projection, tolerance) {
+  const merged = mergeChains(lines);
+  const thinned = merged.map((chain) => simplify(chain.map(([lon, lat]) => project(lat, lon, projection)), tolerance));
+  return toPathD(thinned);
 }
 
 // Catmull-Rom through the points, converted to cubic Béziers. Needed because TfL's lineStrings are

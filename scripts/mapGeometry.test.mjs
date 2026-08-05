@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mergeChains, simplify, projectionFor, project, toPathD, splineD } from "./mapGeometry.mjs";
+import { bakeLayer, mergeChains, simplify, projectionFor, project, toPathD, splineD } from "./mapGeometry.mjs";
 
 describe("mergeChains", () => {
   // OSM splits a road at every junction, so the raw data is thousands of 2-point stubs. This is the
@@ -68,9 +68,35 @@ describe("projectionFor", () => {
   });
 });
 
+describe("bakeLayer", () => {
+  // A deliberately lopsided box: 2 degrees of longitude over 1 of latitude, so x and y scales differ
+  // and a transposition cannot hide behind symmetry.
+  const P = projectionFor({ west: 0, east: 2, south: 0, north: 1 }, 200);
+
+  // THE test that earns this function its place in the tested module. Overpass hands back [lon, lat];
+  // `project` takes (lat, lon). Swapping them still produces plausible-looking road geometry — just
+  // somewhere other than London — and the only other check on it is a human recognising the skyline.
+  it("reads each point as [lon, lat], not [lat, lon]", () => {
+    expect(bakeLayer([[[1.5, 0.25], [1.8, 0.1]]], P, 1)).toBe("M150 75L180 90");
+  });
+  // Merging happens in lat/lon, BEFORE projecting: junction endpoints are bit-identical there, and
+  // projecting first would round them apart and leave two subpaths where the road is one.
+  it("joins ways sharing a lat/lon endpoint into a single subpath", () => {
+    const d = bakeLayer([[[0, 0], [1, 0.5]], [[1, 0.5], [2, 1]]], P, 1);
+    expect(d.match(/M/g)).toHaveLength(1);
+  });
+  // Tolerance is an argument, not a constant closed over from the bake script — which is what let this
+  // function move out of the untested half in the first place.
+  it("thins with the tolerance it is given", () => {
+    const kink = [[[0, 1], [1, 0.95], [2, 1]]];
+    expect(bakeLayer(kink, P, 1)).toBe("M0 0L100 5L200 0");
+    expect(bakeLayer(kink, P, 20)).toBe("M0 0L200 0");
+  });
+});
+
 describe("toPathD", () => {
-  // One <path> per class is what keeps the layer at ~7 nodes instead of the ~13,600 ways OSM returns:
-  // a single d string may hold many DISCONNECTED subpaths.
+  // One <path> per class is what keeps a whole road class at ONE DOM node instead of the ~13,600 ways
+  // OSM returns: a single d string may hold many DISCONNECTED subpaths.
   it("emits one subpath per line, in a single string", () => {
     expect(toPathD([[[0, 0], [1, 1]], [[5, 5], [6, 6]]])).toBe("M0 0L1 1M5 5L6 6");
   });
