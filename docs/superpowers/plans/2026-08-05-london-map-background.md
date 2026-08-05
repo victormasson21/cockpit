@@ -389,6 +389,10 @@ const TUBE_LINES = [
 const OVERPASS = "https://overpass-api.de/api/interpreter";
 const STRIPS = 3; // splitting the bbox keeps each query small enough to survive Overpass's timeout
 
+// Overpass's Apache front-end 406s Node's default (undici) User-Agent outright — an un-UA'd fetch never
+// reaches the Overpass backend at all, while curl and a UA'd fetch both do.
+const FETCH_HEADERS = { "User-Agent": "cockpit-london-map-bake/1.0 (github.com/victormasson21/cockpit)" };
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Overpass and TfL both throttle, and Overpass 504s under load even on valid queries, so every call
@@ -396,9 +400,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function getJson(url, init, attempts = 4) {
   for (let attempt = 1; ; attempt++) {
     try {
-      // A User-Agent is required, not politeness: Overpass's Apache front-end answers node's default
-      // fetch UA with a 406.
-      const res = await fetch(url, { ...init, headers: { "User-Agent": "cockpit-london-map-bake/1.0 (+https://github.com/victormasson21/cockpit)", ...init?.headers } });
+      const res = await fetch(url, init);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
     } catch (err) {
@@ -412,22 +414,23 @@ async function getJson(url, init, attempts = 4) {
 // Exact tag matches, never a regex. `way["highway"~"^(a|b)$"]` bypasses Overpass's tag index and scans
 // the whole bbox, which 504s reliably on both the public endpoint and the kumi mirror; a union of
 // exact matches uses the index and returns in seconds.
-async function fetchWays(tagFilters) {
-  // Keyed by OSM way id, because a bbox query returns each matching way's FULL, unclipped geometry as
-  // soon as ONE of its nodes falls inside — so every way crossing a strip boundary comes back complete
-  // from both adjacent queries. Without this, mergeChains joins the duplicate to itself and emits a
-  // chain that runs out to the far end and back over its own path. Measured on the trunk tier: 10 ways
-  // shared between two adjacent strips.
+async function fetchWays(tagFilters, label) {
+  // Overpass's bbox filter matches a way if ANY of its nodes fall inside the query bbox, then returns
+  // that way's FULL, unclipped geometry — so a way straddling a strip boundary comes back whole from
+  // BOTH adjacent strips. Without this, the duplicate reaches mergeChains as two identical entries,
+  // which joins the way to itself into one degenerate chain that runs out to its far end and back over
+  // itself. Deduping by OSM way id (not by geometry) catches this before mergeChains ever sees it.
   const byId = new Map();
+  let duplicates = 0;
   for (let strip = 0; strip < STRIPS; strip++) {
     const w = BBOX.west + ((BBOX.east - BBOX.west) * strip) / STRIPS;
     const e = BBOX.west + ((BBOX.east - BBOX.west) * (strip + 1)) / STRIPS;
     const union = tagFilters.map((f) => `way${f}(${BBOX.south},${w},${BBOX.north},${e});`).join("");
     const data = await getJson(OVERPASS, {
       method: "POST",
+      headers: FETCH_HEADERS,
       body: new URLSearchParams({ data: `[out:json][timeout:180];(${union});out geom;` }),
     });
-    let duplicates = 0;
     for (const way of data.elements) {
       if (!way.geometry) continue;
       if (byId.has(way.id)) {
@@ -436,9 +439,9 @@ async function fetchWays(tagFilters) {
       }
       byId.set(way.id, way.geometry.map((g) => [g.lon, g.lat]));
     }
-    console.log(`  strip ${strip}: ${data.elements.length} ways, ${duplicates} already seen`);
     await sleep(5000);
   }
+  console.log(`    ${label}: dropped ${duplicates} duplicate way(s) at strip boundaries`);
   return [...byId.values()];
 }
 
@@ -479,12 +482,12 @@ async function main() {
 
   const layers = {};
   for (const [tier, values] of Object.entries(ROAD_TIERS)) {
-    const lines = await fetchWays(values.map((v) => `["highway"="${v}"]`));
+    const lines = await fetchWays(values.map((v) => `["highway"="${v}"]`), tier);
     layers[tier] = bakeLayer(lines, projection);
     console.log(`${tier}: ${lines.length} ways -> ${(layers[tier].length / 1024).toFixed(0)} KB`);
   }
 
-  const thames = await fetchWays(['["waterway"="river"]["name"="River Thames"]']);
+  const thames = await fetchWays(['["waterway"="river"]["name"="River Thames"]'], "thames");
   layers.thames = bakeLayer(thames, projection);
   console.log(`thames: ${thames.length} ways -> ${(layers.thames.length / 1024).toFixed(1)} KB`);
 
