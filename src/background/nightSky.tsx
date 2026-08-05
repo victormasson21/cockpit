@@ -15,7 +15,7 @@ type Range = readonly [min: number, max: number];
 export const NIGHT_SKY = {
   fixed: {
     count: 70, // how many exist at once — a death immediately spawns a replacement
-    size: [1, 2.6] as Range, // px, the dot itself
+    size: [1, 1.5] as Range, // px, the dot itself — capped at 1.5 so the core stays a pinprick
     // px, overall WIDTH of the halo — its gradient reaches zero alpha exactly at this diameter, so
     // there is never an edge against the sky. This and glowAlpha together are "how much glow".
     glow: [8, 26] as Range,
@@ -29,7 +29,7 @@ export const NIGHT_SKY = {
     perMinute: 7,
     minGap: 0.9, // seconds; the floor that stops two streaks landing on top of each other
     maxConcurrent: 3, // hard ceiling on streaks in flight — the backstop against a burst
-    size: [1.4, 2.6] as Range,
+    size: [1.4, 1.5] as Range, // px, the dot itself — capped at 1.5, same as fixed stars
     glow: [12, 30] as Range, // px, halo width — a touch wider than fixed stars, they are the event
     glowAlpha: [0.6, 0.95] as Range,
     peak: [0.6, 1] as Range,
