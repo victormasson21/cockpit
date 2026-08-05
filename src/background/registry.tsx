@@ -26,9 +26,13 @@ export const BACKGROUNDS: BackgroundVariant[] = [
     id: "london-map",
     label: "London map",
     render: () => <LondonMap />,
+    // Verbatim the form TfL's Transport Data Service terms require — the years and the brackets round
+    // 2019 are theirs, not a typo, so don't tidy them. ODbL keeps its own American spelling for the
+    // same reason: it is the licence's proper name.
     attribution:
-      "Powered by TfL Open Data. Contains OS data © Crown copyright and database rights. "
-      + "Map data © OpenStreetMap contributors, available under the Open Database Licence.",
+      "Powered by TfL Open Data. Contains OS data © Crown copyright and database rights 2016 and "
+      + "Geomni UK Map data © and database rights [2019]. Map data © OpenStreetMap contributors, "
+      + "available under the Open Database License (ODbL).",
   },
 ];
 

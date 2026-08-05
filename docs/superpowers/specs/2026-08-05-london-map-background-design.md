@@ -22,7 +22,7 @@ competing with the app; an organic street network reads as texture.
 
 | Layer | Source | Notes |
 |-------|--------|-------|
-| Motorway / trunk / primary roads | OSM (Overpass) | includes `*_link` slip roads |
+| Motorway / trunk / primary roads | OSM (Overpass) | includes `*_link` slip roads. **As built, this is TWO tiers, not three:** the `motorway` tier returns zero ways inside the §3 bbox (the M4 and M1 both start outside it), so it bakes to an empty string and renders an empty `<path>`. It stays wired for a wider box; nothing visible depends on it. |
 | Secondary roads | OSM (Overpass) | the agreed floor — nothing smaller |
 | Tube lines | TfL Unified API | all lines, geographic; the bright layer |
 | The Thames | OSM | one shape, essential for legibility |
@@ -54,8 +54,19 @@ The variant paints **strokes only** — no ground of its own. `.app__bg` already
 
 **Glow is a two-layer stroke, never `box-shadow`.** The Night Sky iteration established why: a shadow's
 blur leaves the shape's own area fully opaque and only softens outwards, which reads as a hard core with
-a soft rim. For strokes the correct idiom is a duplicated wide stroke group under a static
-`filter: blur()`, with the crisp stroke painted on top. "Slight" then becomes one tunable.
+a soft rim. For strokes the correct idiom is a duplicated stroke group, **genuinely wider than the crisp
+one**, blurred, with the crisp stroke painted on top. "Slight" then becomes one tunable.
+
+Two as-built corrections to that sentence, both load-bearing:
+
+- **The extra width is not optional.** Blur conserves total alpha, so re-blurring a stroke at its own
+  width just dims it — spreading 1px over ~6px costs roughly a factor of 6 in peak alpha, which on this
+  dark ground is the difference between a halo and nothing. The glow group therefore sets its own
+  `stroke-width`, and the group opacity is balanced against that width, not against the crisp widths.
+- **The blur is an SVG `<filter>`, not CSS `filter: blur()`.** A CSS filter derives its region from the
+  *object bounding box*, and the glow group's bbox is ~7× the frame because the full tube network is
+  baked (§7) — enough surface for WebKit to clamp or drop the filter outright. See §7 for why clipping
+  does not help. The `<filter>` pins an explicit `userSpaceOnUse` region to the frame instead.
 
 The glow layer covers **major classes only** — tube, motorway, trunk/primary. Glowing every secondary
 road is both mush to look at and the expensive half of rasterisation.
@@ -66,7 +77,7 @@ Starting values, to tune by eye on first render:
 |-------|-------|---------|------|
 | Secondary | 0.6px | 0.10 | no |
 | Primary / trunk | 1.0px | 0.18 | faint |
-| Motorway | 1.4px | 0.26 | yes |
+| Motorway | 1.4px | 0.26 | yes — but paints nothing (§2) |
 | Tube | 1.2px | 0.45 | yes |
 | Thames | 3.0px | 0.14 | no |
 
@@ -111,8 +122,8 @@ Three gotchas learned while scoping, recorded so the script isn't rediscovered t
 ### 5.2 Runtime — the variant
 
 - `src/background/londonMap.tsx` — component with a static import of the baked data. One `<svg>`
-  containing **~6–8 `<path>` elements**: one per road class, one for tube, one for the Thames, one
-  blurred duplicate for the glow.
+  containing **8 `<path>` elements**: one per road class, one for tube, one for the Thames, plus a
+  blurred duplicate of each of the three glowing classes (§4).
 - `src/background/londonMap.css` — the strokes.
 - One entry in `registry.tsx`. No consumer changes anywhere — that's the seam's promise.
 
@@ -143,9 +154,17 @@ runtime transform to keep in agreement, which is a stronger guarantee than the o
 
 ### 5.4 Testable surface
 
-The repo's suite is pure-logic only, so: `project` and the framing maths get unit tests. Merge and
-simplification live in the one-off script and are verified by eye — their output is committed, diffable
-and reviewable, which is the appropriate check for a build artefact.
+The repo's suite is pure-logic only, so: `project`, the framing maths, and the composition that drives
+them (`bakeLayer` — merge → project → simplify → emit) get unit tests. Merge and simplification
+*tolerances* are still judged by eye.
+
+**Honest limit on "verified by eye".** The output is committed, so it is *revertable* and its size is
+checkable — but it is not meaningfully diffable: it emits as a single ~97 KB line, and because OSM
+changes upstream, a re-bake's diff can't be compared against the previous one anyway. The real check on
+the geometry is therefore the tests over the pure functions plus a human looking at the rendered map, not
+review of the artefact. That is why `bakeLayer` belongs on the tested side: it carries the
+`[lon, lat]` → `(lat, lon)` swap, whose failure mode is a plausible-looking road network somewhere other
+than London — exactly the error an unreviewable artefact hides.
 
 ## 6. Failure modes
 
@@ -165,12 +184,25 @@ Decisions made now, purely so step 2 needs no rework:
 
 - **Bake the full tube network; clip at render time.** Trains bound for Heathrow or Cockfosters sail
   off-frame naturally, and widening the box later is a CSS change rather than a re-bake and re-tune.
+  **Caveat: the viewport clip constrains what is *painted*, not what is *processed*.** A filter's region
+  derives from the unclipped object bounding box, and clipping happens *after* filtering, so `clip-path`
+  cannot shrink it either — the tube layer alone spans ~5700 × 3200 user units against a 2000 × 1246
+  frame. Any filter applied to a group containing tube geometry must pin its own region (§4), or WebKit
+  may clamp it or drop it. The same applies to anything the vehicles step filters.
 - **Station sequences stay ordered and keyed by NaptanId** (`940GZZLUWWL`-style, confirmed present in the
   API response), **with their pixel coordinates baked alongside**. Arrival predictions reference exactly
   that id, so step 2 needs neither name matching nor a coordinate transform (§5.3).
 - **The tube layer gets its own `<g>`**, so trains become siblings above it with no restructuring.
 - **Station-to-station segments are the data's native fidelity** (§5.1), so interpolating a train along a
   straight chord between two stations isn't an approximation — it's exactly as precise as the geometry.
+
+**One debt the vehicles step inherits, and it bites exactly here.** The bake dedupes whole station
+*sequences*, not shared track, so a line's branches each redraw the trunk they share: 452 station
+placements over 272 distinct stations, about 10 deep on the Northern line's core. This is invisible today
+for one reason only — the whole network is a single `<path>`, so its opacity composites once. **Splitting
+the tube layer per line — which is the obvious first move for line colours, per-line hover, or per-line
+train layers — makes every trunk section jump to roughly 10× brightness.** Dedupe overlapping segments in
+the bake before splitting, not after noticing the glare.
 
 ## 8. Sizes — measured
 
@@ -182,6 +214,10 @@ merge + simplify + pixel rounding, as emitted into an SVG `d` string:
 | Motorway / trunk / primary | 13,667 | 54,892 | 1,084 | 5,269 | 1,050 | **42 KB** |
 | Secondary | 2,350 | 12,058 | 269 | 1,205 | 263 | **9 KB** |
 | **Roads total** | | | | | | **51 KB in 2 `<path>` elements** |
+
+All 13,667 ways in the first row are trunk/primary: the `motorway` tier contributes **zero** inside this
+bbox (§2). So that row measures two OSM tag groups baked into one `<path>`, and the third road `<path>`
+the variant renders is empty — costing nothing in bytes and showing nothing on screen.
 
 The tube network adds tens of KB at most (one line's inbound sequence is 51 KB of raw JSON but extracts
 to 16 coordinates), and the Thames is a single shape. **The whole map lands comfortably under 100 KB.**

@@ -174,8 +174,10 @@ async function main() {
 // script instead. Geometry is pre-projected into the pixel space described by \`projection\`, so
 // nothing here needs transforming at runtime.
 //
-// Powered by TfL Open Data. Contains OS data (c) Crown copyright and database rights.
-// Map data (c) OpenStreetMap contributors, available under the Open Database Licence.
+// Powered by TfL Open Data. Contains OS data © Crown copyright and database rights 2016 and Geomni UK
+// Map data © and database rights [2019]. That is verbatim the form TfL's Transport Data Service terms
+// require, years and brackets included — do not tidy it.
+// Map data © OpenStreetMap contributors, available under the Open Database License (ODbL).
 export const LONDON_MAP = ${JSON.stringify(data)} as const;
 `,
   );

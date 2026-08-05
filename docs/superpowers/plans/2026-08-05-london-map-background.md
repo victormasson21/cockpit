@@ -4,7 +4,7 @@
 
 **Goal:** Add a second background variant — a minimal, lines-only geographic map of London (roads, the Underground, the Thames) in white strokes with a slight glow — built from open data baked to SVG paths at build time.
 
-**Architecture:** A one-off Node script fetches OSM roads (via Overpass) and TfL tube geometry, merges/simplifies/projects them, and writes a committed TypeScript data file. The runtime variant is a static import rendered as ~7 `<path>` elements in one `<svg>`, with a single CSS transform for slow drift. No runtime network, no API key, no Rust.
+**Architecture:** A one-off Node script fetches OSM roads (via Overpass) and TfL tube geometry, merges/simplifies/projects them, and writes a committed TypeScript data file. The runtime variant is a static import rendered as 8 `<path>` elements in one `<svg>`, with a single CSS transform for slow drift. No runtime network, no API key, no Rust.
 
 **Tech Stack:** Node 18+ ESM (bake script, zero new dependencies), React 19 + TypeScript (variant), Vitest (pure-logic tests), SVG + CSS.
 
@@ -634,6 +634,8 @@ Expected: FAIL — three failures: no `london-map` entry, and `attribution` not 
 
 Create `src/background/londonMap.tsx`:
 
+> **The snippet below is the plan as written, and the shipped file differs in three ways** — all three found by the whole-branch review, all three now in the code and in the spec. Read the file, not this, if you are looking for what exists: (1) the tube layer is inside its own `<g>`, which §7 promised and this snippet forgot; (2) the blur is an SVG `<filter>` with a `userSpaceOnUse` region pinned to the frame, because a CSS `filter: blur()` would take its region from a bounding box ~7× the frame; (3) the glow group sets its own wider `stroke-width` in the CSS, without which the halo is a dimmed copy rather than a halo.
+
 ```tsx
 // londonMap.tsx — the "London map" background variant: a lines-only geographic map of London (roads,
 // the Underground, the Thames), baked to SVG paths at build time.
@@ -826,7 +828,12 @@ Then Settings → Appearance → Background → **London map**, and switch to th
 
 - [ ] **Step 3: Tune the stroke table**
 
-Adjust the five `stroke-width`/`opacity` pairs and `.lm__glow`'s `blur`/`opacity` in `src/background/londonMap.css` until it looks right. Widths are in device pixels thanks to `vector-effect`, so the numbers mean what they say.
+Four knobs, and they are no longer all in one file:
+
+- The five `stroke-width`/`opacity` pairs in `src/background/londonMap.css`. Widths are in device pixels thanks to `vector-effect`, so these numbers mean what they say. `.lm__line--motorway` is **not** one of them in practice — that tier bakes empty in this bbox, so changing it does nothing visible (spec §2).
+- `.lm__glow .lm__line`'s `stroke-width` in the same file — the halo's own width. This is what makes a halo exist at all: blur conserves alpha, so a glow stroke at the crisp width just dims away.
+- `.lm__glow`'s `opacity` — the halo's single brightness knob, balanced against that width.
+- `GLOW_BLUR` in `src/background/londonMap.tsx`, not the CSS. The blur is an SVG `<filter>` there for a reason the comment beside it spells out; read it before moving it back to `filter: blur()`. Note the unit mismatch while tuning: `GLOW_BLUR` is in **user units** (scaled by the viewBox fit) while the stroke widths are in **device pixels** (pinned), so the ratio you settle on is only exact at the window size you tune at. Tune at a normal working window size, and re-check the glow once at a very different one.
 
 - [ ] **Step 4: Judge tertiary roads**
 

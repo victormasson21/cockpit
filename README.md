@@ -81,6 +81,27 @@ App config lives in `~/Library/Application Support/com.cockpit.app/`
 (`cockpit.json` user config + `layout.json` geometry); worktrees are created
 under `~/CockpitWorktrees/<repo>/<name>`.
 
+## Data and attribution
+
+The **London map** background (Settings → Appearance → Background) is drawn from two open-data
+sources, baked to SVG paths at build time — the app makes no network call to either at runtime.
+
+| Source | Used for | Licence |
+|--------|----------|---------|
+| [OpenStreetMap](https://www.openstreetmap.org/copyright) via [Overpass](https://overpass-api.de) | roads, the Thames | [Open Database License (ODbL)](https://opendatacommons.org/licenses/odbl/) |
+| [TfL Unified API](https://api.tfl.gov.uk) | Underground line and station geometry | [TfL Transport Data Service terms](https://tfl.gov.uk/corporate/terms-and-conditions/transport-data-service) |
+
+> Powered by TfL Open Data. Contains OS data © Crown copyright and database rights 2016 and Geomni UK
+> Map data © and database rights [2019]. Map data © OpenStreetMap contributors, available under the
+> Open Database License (ODbL).
+
+The credit also shows in Settings beside the background picker, and in the header of the generated
+data file. Provenance and regeneration both live in **`scripts/bake-london-map.mjs`** — it is the only
+thing that touches those endpoints, is run by hand (`node scripts/bake-london-map.mjs`, several minutes
+of deliberately-paced calls), and writes `src/background/londonMap.data.ts`, which is committed and
+never hand-edited. Because OSM changes upstream, a re-bake produces a diff that can't be reviewed
+against the previous one — so re-run it only when the geometry itself needs to change.
+
 ## Docs
 
 - Product spec — `docs/superpowers/specs/2026-06-16-cockpit-product-spec.md`
