@@ -42,4 +42,20 @@ describe("BACKGROUNDS", () => {
   it("never uses the off id for a real variant", () => {
     expect(BACKGROUNDS.map((b) => b.id)).not.toContain(NO_BACKGROUND);
   });
+  it("ships the London map variant", () => {
+    expect(BACKGROUNDS.some((b) => b.id === "london-map")).toBe(true);
+  });
+  // Both the TfL and OpenStreetMap licences require credit, and a background has nowhere to show it —
+  // so the variant carries the text and the picker displays it. An empty string would silently
+  // satisfy the type while breaching the licence.
+  it("has non-empty attribution wherever attribution is declared", () => {
+    for (const b of BACKGROUNDS) {
+      if (b.attribution !== undefined) expect(b.attribution.trim().length).toBeGreaterThan(0);
+    }
+  });
+  it("credits both open-data sources on the London map", () => {
+    const attribution = BACKGROUNDS.find((b) => b.id === "london-map")?.attribution ?? "";
+    expect(attribution).toMatch(/TfL/);
+    expect(attribution).toMatch(/OpenStreetMap/);
+  });
 });

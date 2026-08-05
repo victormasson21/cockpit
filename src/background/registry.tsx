@@ -2,6 +2,7 @@
 // no component and no consumer changes (the same promise ThemeProvider makes about themes).
 import type { ReactElement } from "react";
 import { NightSky } from "./nightSky";
+import { LondonMap } from "./londonMap";
 
 // The "off" id. Persisted like any other, so choosing off is a deliberate, durable choice rather
 // than an absent field that a future default could silently override.
@@ -11,6 +12,9 @@ export interface BackgroundVariant {
   id: string;
   label: string; // shown in the Settings picker
   render: () => ReactElement;
+  // Variants built from third-party open data whose licence requires credit carry it here. A
+  // background has nowhere to display it, so the Settings picker shows it instead.
+  attribution?: string;
 }
 
 // Each variant owns its own artwork: it renders whatever elements it needs inside the layer, and its
@@ -18,6 +22,14 @@ export interface BackgroundVariant {
 // like deepSlate.css and TERM_THEME — the app-wide token rule does not bind them).
 export const BACKGROUNDS: BackgroundVariant[] = [
   { id: "night-sky", label: "Night sky", render: () => <NightSky /> },
+  {
+    id: "london-map",
+    label: "London map",
+    render: () => <LondonMap />,
+    attribution:
+      "Powered by TfL Open Data. Contains OS data © Crown copyright and database rights. "
+      + "Map data © OpenStreetMap contributors, available under the Open Database Licence.",
+  },
 ];
 
 // What an install with no stored choice gets. Kept separate from "the first entry" so reordering the

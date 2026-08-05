@@ -1,0 +1,50 @@
+/* londonMap.css — the London-map variant's artwork. Colours are literal here by design: a background
+   IS colour (see the variant contract in background.css).
+
+   Only one transform animates, on the <svg> element itself, so the whole map lives on the compositor
+   and is never repainted. */
+
+.lm {
+  position: absolute;
+  /* Oversized and offset by half the overshoot, so the drift below can never pull an edge into view. */
+  left: -2%;
+  top: -2%;
+  width: 104%;
+  height: 104%;
+  fill: none;
+  stroke: #fff;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  animation: lm-drift 240s ease-in-out infinite alternate;
+}
+
+/* The drift is on the <svg>, not on an inner <g>: a CSS transform on an HTML-level element gets its own
+   composited layer, whereas SVG group transforms are not reliably promoted and would repaint the map. */
+@keyframes lm-drift {
+  from { transform: translate(-0.6%, -0.4%) scale(1); }
+  to { transform: translate(0.6%, 0.4%) scale(1.02); }
+}
+
+/* Strokes are in device pixels, not user units: the viewBox is scaled down to fit the window, so
+   without this every width would shrink by the fit factor and the numbers below would mean nothing
+   predictable while tuning. */
+.lm__line { vector-effect: non-scaling-stroke; }
+
+.lm__line--secondary { stroke-width: 0.6px; opacity: 0.1; }
+.lm__line--primary { stroke-width: 1px; opacity: 0.18; }
+.lm__line--motorway { stroke-width: 1.4px; opacity: 0.26; }
+.lm__line--thames { stroke-width: 3px; opacity: 0.14; }
+.lm__line--tube { stroke-width: 1.2px; opacity: 0.45; }
+
+/* The halo: the same strokes again, blurred, painted underneath. NOT box-shadow or drop-shadow — a
+   shadow leaves the stroke's own area fully opaque and only softens outwards, which reads as a hard
+   core with a soft rim. That was the lesson from the night sky's star glow. */
+.lm__glow {
+  filter: blur(2.5px);
+  opacity: 0.55;
+}
+
+/* Reduced motion: the map holds still. It is static anyway, so only the drift has to stop. */
+@media (prefers-reduced-motion: reduce) {
+  .lm { animation: none; }
+}
