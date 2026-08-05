@@ -95,8 +95,9 @@ sources, baked to SVG paths at build time — the app makes no network call to e
 > Map data © and database rights [2019]. Map data © OpenStreetMap contributors, available under the
 > Open Database License (ODbL).
 
-The credit also shows in Settings beside the background picker, and in the header of the generated
-data file. Provenance and regeneration both live in **`scripts/bake-london-map.mjs`** — it is the only
+The credit also shows in Settings beside the background picker, and is emitted into the header of the
+generated data file — whose committed copy predates this wording and will pick it up on the next
+re-bake. Provenance and regeneration both live in **`scripts/bake-london-map.mjs`** — it is the only
 thing that touches those endpoints, is run by hand (`node scripts/bake-london-map.mjs`, several minutes
 of deliberately-paced calls), and writes `src/background/londonMap.data.ts`, which is committed and
 never hand-edited. Because OSM changes upstream, a re-bake produces a diff that can't be reviewed
