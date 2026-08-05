@@ -56,8 +56,14 @@ async function getJson(url, init, attempts = 4) {
 // Exact tag matches, never a regex. `way["highway"~"^(a|b)$"]` bypasses Overpass's tag index and scans
 // the whole bbox, which 504s reliably on both the public endpoint and the kumi mirror; a union of
 // exact matches uses the index and returns in seconds.
-async function fetchWays(tagFilters) {
-  const lines = [];
+async function fetchWays(tagFilters, label) {
+  // Overpass's bbox filter matches a way if ANY of its nodes fall inside the query bbox, then returns
+  // that way's FULL, unclipped geometry — so a way straddling a strip boundary comes back whole from
+  // BOTH adjacent strips. Without this, the duplicate reaches mergeChains as two identical entries,
+  // which joins the way to itself into one degenerate chain that runs out to its far end and back over
+  // itself. Deduping by OSM way id (not by geometry) catches this before mergeChains ever sees it.
+  const byId = new Map();
+  let duplicates = 0;
   for (let strip = 0; strip < STRIPS; strip++) {
     const w = BBOX.west + ((BBOX.east - BBOX.west) * strip) / STRIPS;
     const e = BBOX.west + ((BBOX.east - BBOX.west) * (strip + 1)) / STRIPS;
@@ -68,11 +74,17 @@ async function fetchWays(tagFilters) {
       body: new URLSearchParams({ data: `[out:json][timeout:180];(${union});out geom;` }),
     });
     for (const way of data.elements) {
-      if (way.geometry) lines.push(way.geometry.map((g) => [g.lon, g.lat]));
+      if (!way.geometry) continue;
+      if (byId.has(way.id)) {
+        duplicates++;
+        continue;
+      }
+      byId.set(way.id, way.geometry.map((g) => [g.lon, g.lat]));
     }
     await sleep(5000);
   }
-  return lines;
+  console.log(`    ${label}: dropped ${duplicates} duplicate way(s) at strip boundaries`);
+  return [...byId.values()];
 }
 
 // Merge BEFORE projecting. Two ways meeting at a junction share an OSM node, so their endpoints are
@@ -112,12 +124,12 @@ async function main() {
 
   const layers = {};
   for (const [tier, values] of Object.entries(ROAD_TIERS)) {
-    const lines = await fetchWays(values.map((v) => `["highway"="${v}"]`));
+    const lines = await fetchWays(values.map((v) => `["highway"="${v}"]`), tier);
     layers[tier] = bakeLayer(lines, projection);
     console.log(`${tier}: ${lines.length} ways -> ${(layers[tier].length / 1024).toFixed(0)} KB`);
   }
 
-  const thames = await fetchWays(['["waterway"="river"]["name"="River Thames"]']);
+  const thames = await fetchWays(['["waterway"="river"]["name"="River Thames"]'], "thames");
   layers.thames = bakeLayer(thames, projection);
   console.log(`thames: ${thames.length} ways -> ${(layers.thames.length / 1024).toFixed(1)} KB`);
 
