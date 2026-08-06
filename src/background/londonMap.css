@@ -39,7 +39,17 @@
 /* Paints nothing today: there is no motorway-tagged way inside the §3 bbox at all (see the tier list
    in scripts/bake-london-map.mjs), so this rule is here for a wider box, not for tuning. */
 .lm__line--motorway { stroke-width: 1.4px; opacity: 0.26; }
-.lm__line--thames { stroke-width: 3px; opacity: 0.14; }
+/* The one stroke that is not white. A literal tint rather than `var(--accent)` — variant colours are
+   deliberately literal (see the contract in background.css) — but it is picked from the accent family
+   so the river sits in the app's own blues rather than beside them.
+
+   The opacity is higher than the white strokes on purpose: against the #122A3E ground a light blue has
+   less luminance contrast than white does, so 0.14 would have made the river quieter than it was, not
+   just bluer. 0.22 lands it at roughly the same presence.
+
+   Note this is the river's CENTRELINE at a made-up uniform width — OSM's `waterway=river` is a line,
+   not the bank polygon — so the Thames does not widen towards the estuary the way the real one does. */
+.lm__line--thames { stroke: #9FCBF0; stroke-width: 3px; opacity: 0.22; }
 .lm__line--tube { stroke-width: 1.2px; opacity: 0.45; }
 
 /* The halo: the same strokes again, WIDER, blurred, and painted underneath. Two things are
