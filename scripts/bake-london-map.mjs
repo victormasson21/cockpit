@@ -14,8 +14,8 @@ const TOLERANCE_PX = 1;
 const OUT = new URL("../src/background/londonMap.data.ts", import.meta.url);
 
 // The road tiers, grouped as they are STYLED (see the spec's stroke table) rather than as OSM tags
-// them. Measured: the three tiers below total ~51 KB of path data, so there is headroom — adding
-// `tertiary: ["tertiary", "tertiary_link"]` here is the whole change if the map wants more texture.
+// them. `tertiary` is in because the tiers above it alone left the map too sparse to read as a city;
+// it is the texture layer, and it is where the byte budget mostly goes.
 //
 // `motorway` yields ZERO ways inside the §3 bbox — there is genuinely no motorway-tagged road in it
 // (the M4 and the M1 both start outside), so the tier bakes to an empty string and the variant renders
@@ -26,6 +26,7 @@ const ROAD_TIERS = {
   motorway: ["motorway", "motorway_link"],
   primary: ["trunk", "trunk_link", "primary", "primary_link"],
   secondary: ["secondary", "secondary_link"],
+  tertiary: ["tertiary", "tertiary_link"],
 };
 
 const TUBE_LINES = [

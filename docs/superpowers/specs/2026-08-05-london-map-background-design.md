@@ -23,12 +23,13 @@ competing with the app; an organic street network reads as texture.
 | Layer | Source | Notes |
 |-------|--------|-------|
 | Motorway / trunk / primary roads | OSM (Overpass) | includes `*_link` slip roads. **As built, this is TWO tiers, not three:** the `motorway` tier returns zero ways inside the §3 bbox (the M4 and M1 both start outside it), so it bakes to an empty string and renders an empty `<path>`. It stays wired for a wider box; nothing visible depends on it. |
-| Secondary roads | OSM (Overpass) | the agreed floor — nothing smaller |
+| Secondary roads | OSM (Overpass) | |
+| Tertiary roads | OSM (Overpass) | the floor — nothing smaller. Added after seeing the map without it: the tiers above alone read as a sparse skeleton, not a city. This is the texture layer, and most of the byte budget. |
 | Tube lines | TfL Unified API | all lines, geographic; the bright layer |
 | The Thames | OSM | one shape, essential for legibility |
 
-**Not** drawn: trains, station markers, labels, parks, other water, buildings, tertiary/residential
-roads, DLR / Overground / Elizabeth line. Station *coordinates* are baked regardless (§7) but nothing
+**Not** drawn: trains, station markers, labels, parks, other water, buildings, residential roads,
+DLR / Overground / Elizabeth line. Station *coordinates* are baked regardless (§7) but nothing
 renders them in this scope — at this scale they'd read as noise, and the tube strokes already imply them.
 
 ## 3. Bounding box
@@ -75,6 +76,7 @@ Starting values, to tune by eye on first render:
 
 | Class | Width | Opacity | Glow |
 |-------|-------|---------|------|
+| Tertiary | 0.5px | 0.07 | no |
 | Secondary | 0.6px | 0.10 | no |
 | Primary / trunk | 1.0px | 0.18 | faint |
 | Motorway | 1.4px | 0.26 | yes — but paints nothing (§2) |
@@ -122,7 +124,7 @@ Three gotchas learned while scoping, recorded so the script isn't rediscovered t
 ### 5.2 Runtime — the variant
 
 - `src/background/londonMap.tsx` — component with a static import of the baked data. One `<svg>`
-  containing **8 `<path>` elements**: one per road class, one for tube, one for the Thames, plus a
+  containing **9 `<path>` elements**: one per road class, one for tube, one for the Thames, plus a
   blurred duplicate of each of the three glowing classes (§4).
 - `src/background/londonMap.css` — the strokes.
 - One entry in `registry.tsx`. No consumer changes anywhere — that's the seam's promise.
@@ -209,23 +211,24 @@ the bake before splitting, not after noticing the glare.
 All figures below are measured against the §3 bbox at a 2000px render target and 1px tolerance, after
 merge + simplify + pixel rounding, as emitted into an SVG `d` string:
 
-| Tier | Ways | Coords | Merged chains | Simplified | Subpaths | Path data |
-|------|------|--------|---------------|------------|----------|-----------|
-| Motorway / trunk / primary | 13,667 | 54,892 | 1,084 | 5,269 | 1,050 | **42 KB** |
-| Secondary | 2,350 | 12,058 | 269 | 1,205 | 263 | **9 KB** |
-| **Roads total** | | | | | | **51 KB in 2 `<path>` elements** |
+| Tier | Ways fetched | Path data |
+|------|--------------|-----------|
+| Motorway | 0 | **empty** (§2) |
+| Trunk / primary | 15,685 | **47.6 KB** |
+| Secondary | 2,624 | **10.6 KB** |
+| Tertiary | 4,843 | **21.8 KB** |
+| Thames | 29 | **1.3 KB** |
+| Tube | — | **14.8 KB** |
+| **Total** | | **96 KB across 6 layers** |
 
-All 13,667 ways in the first row are trunk/primary: the `motorway` tier contributes **zero** inside this
-bbox (§2). So that row measures two OSM tag groups baked into one `<path>`, and the third road `<path>`
-the variant renders is empty — costing nothing in bytes and showing nothing on screen.
+Merging is what makes those numbers small, and the effect is worth restating: the trunk/primary tier's
+15,685 ways carry ~55,000 coordinates, which merge into ~1,100 chains and simplify to ~5,300 points — a
+10× reduction, where simplifying the unmerged fragments alone manages 2×. Order matters more than
+tolerance (§5.1).
 
-The tube network adds tens of KB at most (one line's inbound sequence is 51 KB of raw JSON but extracts
-to 16 coordinates), and the Thames is a single shape. **The whole map lands comfortably under 100 KB.**
-
-This is roughly 4× smaller than first estimated, because that estimate simplified unmerged fragments.
-There is therefore headroom: tertiary roads are affordable if the map wants more texture, and the
-simplification tolerance could be tightened rather than loosened. Neither is planned — noted so the
-choice is known to be cheap rather than rediscovered.
+Tertiary was added after seeing the map without it and is the single largest tier after primary. Even
+so the whole map is 96 KB, well inside the budget — the remaining levers, in order, are raising the
+simplification tolerance and then dropping a tier, both one constant in the bake script.
 
 ## 9. Deferred
 

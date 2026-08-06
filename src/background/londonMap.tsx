@@ -4,7 +4,7 @@
 // The performance shape that matters: the geometry is a static import and NOTHING animates except one
 // CSS transform on the <svg> itself, so the map rasterises once into a single composited layer and the
 // main thread stays idle behind the live terminals. One <path> per class is what keeps the whole tree
-// at 14 elements — 8 <path>s, plus the <svg>, two groups and the three-node filter — rather than the
+// at 15 elements — 9 <path>s, plus the <svg>, two groups and the three-node filter — rather than the
 // ~13,600 ways OSM actually returns.
 import { LONDON_MAP } from "./londonMap.data";
 import "./londonMap.css";
@@ -13,7 +13,7 @@ const { width, height, layers } = LONDON_MAP;
 
 // Painted back to front: the dimmest substrate first, the tube last so it reads as the map's subject —
 // which it is, being the layer that will carry live trains.
-const ORDER = ["secondary", "primary", "motorway", "thames", "tube"] as const;
+const ORDER = ["tertiary", "secondary", "primary", "motorway", "thames", "tube"] as const;
 
 // Only the major classes get a halo. A glow under every secondary road is mush to look at, and the
 // blurred copy is the expensive half of rasterising the layer.
