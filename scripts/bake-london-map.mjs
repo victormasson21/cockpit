@@ -11,6 +11,10 @@ import { bakeArea, bakeLayer, projectionFor, project, splineD } from "./mapGeome
 const BBOX = { west: -0.2549, east: 0.0495, south: 51.448, north: 51.566 };
 const WIDTH = 2000;
 const TOLERANCE_PX = 1;
+// Water is simplified harder than the roads. The Thames carries a great many piers, jetties and dock
+// inlets that survive a 1px tolerance as teeth along the bank — at background scale that reads as
+// raggedness rather than as information, and the river is wanted here as a shape.
+const WATER_TOLERANCE_PX = 2;
 const OUT = new URL("../src/background/londonMap.data.ts", import.meta.url);
 
 // The road tiers, grouped as they are STYLED (see the spec's stroke table) rather than as OSM tags
@@ -169,7 +173,7 @@ async function main() {
   }
 
   const water = await fetchWater();
-  layers.water = bakeArea(water, projection, TOLERANCE_PX);
+  layers.water = bakeArea(water, projection, WATER_TOLERANCE_PX);
   console.log(`water: ${water.length} rings -> ${(layers.water.length / 1024).toFixed(1)} KB`);
 
   // Station pixel coordinates are baked alongside the strokes so the vehicles step can interpolate a

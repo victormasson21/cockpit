@@ -160,7 +160,11 @@ export function splineD(points) {
 export function toAreaD(rings) {
   return rings
     .map((ring) => {
-      const rounded = ring.map(([x, y]) => [Math.round(x), Math.round(y)]);
+      // Tenths, not the whole pixels toPathD uses. A filled boundary shows every quantisation step as
+      // a visible notch, and the viewBox is routinely upscaled — a 2000-unit frame on a 3000px retina
+      // window is a 1.5x enlargement, which magnifies each step. Strokes get away with whole pixels
+      // because their round joins hide the steps; a bank edge has nothing to hide behind.
+      const rounded = ring.map(([x, y]) => [Math.round(x * 10) / 10, Math.round(y * 10) / 10]);
       const deduped = rounded.filter((p, i) => i === 0 || p[0] !== rounded[i - 1][0] || p[1] !== rounded[i - 1][1]);
       // A closed ring repeats its first point last, and Z already draws that segment.
       const [fx, fy] = deduped[0] ?? [];

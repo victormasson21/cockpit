@@ -224,9 +224,9 @@ merge + simplify + pixel rounding, as emitted into an SVG `d` string:
 | Trunk / primary | 15,685 ways | **47.6 KB** |
 | Secondary | 2,624 ways | **10.6 KB** |
 | Tertiary | 4,843 ways | **21.8 KB** |
-| Water | 37 elements → 135 rings | **13.3 KB** |
+| Water | 37 elements → 34 rings | **11.2 KB** |
 | Tube | 11 lines → 50 sequences | **14.8 KB** |
-| **Total** | | **108 KB across 6 layers** |
+| **Total** | | **106 KB across 6 layers** |
 
 Merging is what makes those numbers small, and the effect is worth restating: the trunk/primary tier's
 15,685 ways carry ~55,000 coordinates, which merge into ~1,100 chains and simplify to ~5,300 points — a
@@ -234,10 +234,16 @@ Merging is what makes those numbers small, and the effect is worth restating: th
 tolerance (§5.1). The same stitching turns the water layer's 135 member ways into 43 closed rings.
 
 Two layers grew after the first cut, both deliberately: tertiary (§2) because the map read as a
-skeleton without it, and water because bank polygons cost ten times a centreline (13.3 KB against
-1.3 KB) and buy the river's actual shape. 108 KB is still small for a locally-bundled desktop app —
-the remaining levers, in order, are raising the simplification tolerance and then dropping a tier,
-both one constant in the bake script.
+skeleton without it, and water because bank polygons buy the river's actual shape where a centreline
+cannot. 106 KB is still small for a locally-bundled desktop app — the remaining levers, in order, are
+raising the simplification tolerance and then dropping a tier, both one constant in the bake script.
+
+**Water is baked to different settings from everything else**, and both differences fix visible
+raggedness on a filled edge that a stroke would have hidden. It simplifies at `WATER_TOLERANCE_PX = 2`
+rather than 1, because the Thames carries enough piers and dock inlets to fringe the bank with teeth;
+and `toAreaD` emits tenths of a pixel where `toPathD` emits whole ones, because the viewBox is
+routinely displayed larger than 2000 units and each rounding step then shows as a notch. Together they
+made the layer *smaller* as well as smoother — 914 points against 1,539.
 
 ## 9. Deferred
 

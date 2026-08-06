@@ -143,8 +143,13 @@ describe("toAreaD", () => {
   it("skips a ring with fewer than three distinct points, which encloses no area", () => {
     expect(toAreaD([[[0, 0], [5, 5], [0, 0]]])).toBe("");
   });
+  // Tenth-pixel precision, unlike toPathD's whole pixels: a filled edge shows every quantisation step,
+  // and the frame is routinely displayed larger than its 2000-unit viewBox.
+  it("keeps tenths rather than snapping to whole pixels", () => {
+    expect(toAreaD([[[0, 0], [10.25, 0], [10, 10.44], [0, 0]]])).toBe("M0 0L10.3 0L10 10.4Z");
+  });
   it("skips a ring that rounds away to nothing", () => {
-    expect(toAreaD([[[0, 0], [0.2, 0.1], [0.1, 0.2], [0, 0]]])).toBe("");
+    expect(toAreaD([[[0, 0], [0.02, 0.01], [0.01, 0.02], [0, 0]]])).toBe("");
   });
 });
 
