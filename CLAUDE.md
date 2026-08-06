@@ -841,6 +841,58 @@ both Important findings fixed (in-batch dedupe, history pagination).
   288). Deferred (the preserved unhandled-rejection on writes; `data-pty-id` still composed by
   `makePtyId`): `docs/superpowers/plans/2026-08-03-pane-session-module.md`.
 
+- **London map background (2026-08-06).** A second variant in the background seam (`src/background/`,
+  where `registry.tsx` catalogues variants and `BackgroundLayer` renders the chosen one into a fixed
+  `z-index:-1` layer): a lines-only **geographic** map of London — OSM roads, all Underground lines, and
+  the rivers — white strokes with a slight glow over the ground, plus a very slow drift. **All geometry
+  is baked offline and committed**, so at runtime there is no network call, no API key and no Rust: the
+  variant is a static import, which is why it has no error state at all — a background has nowhere to
+  show one.
+  - **Two scripts, split I/O from pure logic.** `scripts/mapGeometry.mjs` is pure and unit-tested
+    (`mergeChains`/`simplify`/`projectionFor`/`project`/`toPathD`/`bakeLayer`/`toAreaD`/`bakeArea`/
+    `splineD`); `scripts/bake-london-map.mjs` fetches and writes `src/background/londonMap.data.ts`.
+    Run it **by hand** (`node scripts/bake-london-map.mjs`, ~12 min of deliberately-paced calls) — it is
+    not a build step. Because OSM moves upstream, a re-bake's diff can't be reviewed against the previous
+    one, so re-run it only when the geometry must change.
+  - **ONE `<path>` per layer is load-bearing.** A single `d` string holds many *disconnected* subpaths,
+    so a whole road class is one element — without it the primary tier alone would be ~13,600 nodes.
+    It also makes the tube layer's overlapping trunk sections safe: the bake dedupes whole station
+    *sequences*, so branches redraw their shared trunk (~10 deep on the Northern line's core), and only
+    a single element's opacity compositing once hides that. **Split tube per line and every trunk jumps
+    to ~10× brightness** — the warning is beside that path in `londonMap.tsx`.
+  - **Four bake gotchas, each of which cost real time.** (1) Overpass needs **exact tag matches, never a
+    regex** — `way["highway"~"^(a|b)$"]` bypasses the tag index and 504s reliably. (2) A bbox query
+    returns each matching way's **full unclipped geometry**, so strip-splitting double-counts every
+    boundary-crossing way and `mergeChains` then folds it onto itself into a degenerate there-and-back
+    chain; dedupe by OSM way id first. (3) **Merge before projecting** — junction nodes are bit-identical
+    in lat/lon and stop matching once rounded, and merging first is worth 10× rather than 2×. (4) OSM's
+    **riverbank polygons are UNNAMED** — the name lives on the `waterway=river` centreline, so searching
+    `name="River Thames"` finds thirty streets and no river; filter on `water=river` (which is why the
+    layer is `water`, not `thames`, and picks up the Lea and the docks too).
+  - **The projection's cos(latitude) correction DIVIDES** (`scaleY = scaleX / cos(lat₀)`): pixels per
+    degree of *latitude* is the larger number. Multiplying squashes London vertically, it is easy to get
+    backwards, and a test pins the resulting ~1.6:1 aspect. Station coordinates are baked **in pixel
+    space** keyed by NaptanId, so a future live-trains step interpolates between them with no runtime
+    projection at all.
+  - **Glow is a duplicated, genuinely WIDER stroke group, blurred, painted underneath** — not
+    `box-shadow`/`drop-shadow` (which leave the core opaque and soften only outwards). Re-blurring a
+    stroke at its own width just dims it: blur conserves alpha, so ~6× spread costs ~6× peak. The blur is
+    an **SVG `<filter>` with a pinned `userSpaceOnUse` region**, deliberately not `filter: blur()`,
+    because a CSS filter derives its region from the *object bounding box* and the glow group's bbox is
+    ~7× the frame (the full tube network is baked and only clipped at render) — enough for WebKit to
+    clamp or drop it. `clip-path` does NOT help: clipping happens after filtering. It also carries
+    `color-interpolation-filters="sRGB"`, since SVG filters default to linearRGB and would otherwise
+    brighten every halo.
+  - **`layers.motorway` is legitimately empty** — zero motorway-tagged ways inside the bbox (the M4 and
+    M1 both start outside), so there are two road tiers on screen, not three. It stays wired for a wider
+    box; don't tune `.lm__line--motorway` expecting to see anything.
+  - Stroke widths are device pixels (`vector-effect: non-scaling-stroke`) but the blur radius is in user
+    units, so their ratio is only exact at the window size it was tuned at. Attribution is a licence
+    condition of both sources: it sits in `README.md`, in the generated file's header, and in Settings
+    via an optional `attribution` field on `BackgroundVariant`.
+  Spec: `docs/superpowers/specs/2026-08-05-london-map-background-design.md`; plan:
+  `docs/superpowers/plans/2026-08-05-london-map-background.md`.
+
 **Next / resuming work — read `docs/ROADMAP.md` first.** It is the single prioritized backlog, split into
 **main build sub-projects** (the big sequential arc — sub-project 5 onward: Linear tile, then GitHub/Calendar
 tiles, reusing the SP4 provider+panel + Keychain seam) and **smaller iterations** (scoped polish/enhancements). When
