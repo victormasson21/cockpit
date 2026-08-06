@@ -12,8 +12,9 @@ import "./londonMap.css";
 const { width, height, layers } = LONDON_MAP;
 
 // Painted back to front: the dimmest substrate first, the tube last so it reads as the map's subject —
-// which it is, being the layer that will carry live trains.
-const ORDER = ["tertiary", "secondary", "primary", "motorway", "thames", "tube"] as const;
+// which it is, being the layer that will carry live trains. `water` is the odd one out: it is FILLED
+// rather than stroked (see the stylesheet), because the rivers are bank polygons, not centrelines.
+const ORDER = ["tertiary", "secondary", "primary", "motorway", "water", "tube"] as const;
 
 // Only the major classes get a halo. A glow under every secondary road is mush to look at, and the
 // blurred copy is the expensive half of rasterising the layer.

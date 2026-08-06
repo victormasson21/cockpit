@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { bakeLayer, mergeChains, simplify, projectionFor, project, toPathD, splineD } from "./mapGeometry.mjs";
+import { bakeLayer, mergeChains, simplify, projectionFor, project, toPathD, splineD, toAreaD, bakeArea } from "./mapGeometry.mjs";
 
 describe("mergeChains", () => {
   // OSM splits a road at every junction, so the raw data is thousands of 2-point stubs. This is the
@@ -122,5 +122,46 @@ describe("splineD", () => {
   });
   it("falls back to a straight subpath when there is nothing to curve", () => {
     expect(splineD([[0, 0], [10, 10]])).toBe("M0 0L10 10");
+  });
+});
+
+describe("toAreaD", () => {
+  // Water is a filled shape, so every ring must come out CLOSED — an open subpath would fill to a
+  // straight chord across the river's mouth instead of following its bank.
+  it("closes each ring with Z", () => {
+    expect(toAreaD([[[0, 0], [10, 0], [10, 10], [0, 0]]])).toBe("M0 0L10 0L10 10Z");
+  });
+  // A closed ring repeats its first point last, and Z already draws that segment.
+  it("drops the repeated closing point", () => {
+    expect(toAreaD([[[0, 0], [10, 0], [10, 10], [0, 0]]])).not.toContain("L0 0Z");
+  });
+  it("emits several rings into one string, so islands can punch holes under evenodd", () => {
+    const outer = [[0, 0], [30, 0], [30, 30], [0, 0]];
+    const island = [[10, 10], [15, 10], [15, 15], [10, 10]];
+    expect(toAreaD([outer, island])).toBe("M0 0L30 0L30 30ZM10 10L15 10L15 15Z");
+  });
+  it("skips a ring with fewer than three distinct points, which encloses no area", () => {
+    expect(toAreaD([[[0, 0], [5, 5], [0, 0]]])).toBe("");
+  });
+  it("skips a ring that rounds away to nothing", () => {
+    expect(toAreaD([[[0, 0], [0.2, 0.1], [0.1, 0.2], [0, 0]]])).toBe("");
+  });
+});
+
+describe("bakeArea", () => {
+  const P = projectionFor({ west: 0, east: 1, south: 0, north: 1 }, 100);
+
+  // Same lat/lon-vs-x/y trap as bakeLayer: rings arrive as [lon, lat] but project takes (lat, lon).
+  it("reads rings as [lon, lat] and closes them", () => {
+    const ring = [[0.1, 0.9], [0.3, 0.9], [0.3, 0.7], [0.1, 0.9]];
+    const d = bakeArea([ring], P, 1);
+    expect(d.startsWith("M10 ")).toBe(true);
+    expect(d.endsWith("Z")).toBe(true);
+  });
+  // mergeChains is what stitches a multipolygon's split member ways back into whole rings.
+  it("stitches a ring split across two ways", () => {
+    const half1 = [[0.1, 0.9], [0.3, 0.9]];
+    const half2 = [[0.3, 0.9], [0.3, 0.7], [0.1, 0.9]];
+    expect(bakeArea([half1, half2], P, 1)).toBe(bakeArea([[[0.1, 0.9], [0.3, 0.9], [0.3, 0.7], [0.1, 0.9]]], P, 1));
   });
 });

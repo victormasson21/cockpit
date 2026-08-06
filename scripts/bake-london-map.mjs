@@ -6,7 +6,7 @@
 // Attribution is a licence condition of both sources and is emitted into the generated file's header;
 // the app shows it in Settings beside the background picker.
 import { writeFile } from "node:fs/promises";
-import { bakeLayer, projectionFor, project, splineD } from "./mapGeometry.mjs";
+import { bakeArea, bakeLayer, projectionFor, project, splineD } from "./mapGeometry.mjs";
 
 const BBOX = { west: -0.2549, east: 0.0495, south: 51.448, north: 51.566 };
 const WIDTH = 2000;
@@ -94,6 +94,42 @@ async function fetchWays(tagFilters, label) {
   return [...byId.values()];
 }
 
+// Water comes back as POLYGONS, and the Thames is a multipolygon relation whose rings are split across
+// dozens of member ways — so this reads member geometry as well as way geometry, into one flat bucket
+// that mergeChains stitches back into rings.
+//
+// The filter is `water=river` rather than a name, because the bank polygons are UNNAMED: in OSM the
+// name sits on the `waterway=river` centreline, not on the riverbank. Searching for "River Thames"
+// returns thirty street and railway features and not one piece of the river. That also means this
+// picks up the Lea, the Wandle and the docks alongside the Thames, which is why the layer is called
+// `water` and not `thames`.
+//
+// One query, not strips: this is ~11k points across ~37 elements, small enough that splitting it would
+// only add the boundary-duplicate problem back for no benefit. The id dedup stays anyway, because a
+// relation and a standalone way can legitimately reference the same way.
+async function fetchWater() {
+  const data = await getJson(OVERPASS, {
+    method: "POST",
+    headers: FETCH_HEADERS,
+    body: new URLSearchParams({
+      data: `[out:json][timeout:180];(`
+        + `way["natural"="water"]["water"="river"](${BBOX.south},${BBOX.west},${BBOX.north},${BBOX.east});`
+        + `relation["natural"="water"]["water"="river"](${BBOX.south},${BBOX.west},${BBOX.north},${BBOX.east});`
+        + `);out geom;`,
+    }),
+  });
+  const byId = new Map();
+  for (const el of data.elements) {
+    if (el.geometry) byId.set(`w${el.id}`, el.geometry);
+    for (const member of el.members ?? []) {
+      if (member.geometry) byId.set(`w${member.ref}`, member.geometry);
+    }
+  }
+  const rings = [...byId.values()].map((g) => g.map((p) => [p.lon, p.lat]));
+  console.log(`    water: ${data.elements.length} elements -> ${rings.length} rings`);
+  return rings;
+}
+
 // A tube line's branches arrive as separate stopPointSequences, and the two directions mostly repeat
 // each other, so sequences are deduped by their station-id signature in both orders.
 //
@@ -132,9 +168,9 @@ async function main() {
     console.log(`${tier}: ${lines.length} ways -> ${(layers[tier].length / 1024).toFixed(0)} KB`);
   }
 
-  const thames = await fetchWays(['["waterway"="river"]["name"="River Thames"]'], "thames");
-  layers.thames = bakeLayer(thames, projection, TOLERANCE_PX);
-  console.log(`thames: ${thames.length} ways -> ${(layers.thames.length / 1024).toFixed(1)} KB`);
+  const water = await fetchWater();
+  layers.water = bakeArea(water, projection, TOLERANCE_PX);
+  console.log(`water: ${water.length} rings -> ${(layers.water.length / 1024).toFixed(1)} KB`);
 
   // Station pixel coordinates are baked alongside the strokes so the vehicles step can interpolate a
   // train between two stations without converting a lat/lon at runtime at all.

@@ -39,17 +39,26 @@
 /* Paints nothing today: there is no motorway-tagged way inside the §3 bbox at all (see the tier list
    in scripts/bake-london-map.mjs), so this rule is here for a wider box, not for tuning. */
 .lm__line--motorway { stroke-width: 1.4px; opacity: 0.26; }
-/* The one stroke that is not white. A literal tint rather than `var(--accent)` — variant colours are
-   deliberately literal (see the contract in background.css) — but it is picked from the accent family
-   so the river sits in the app's own blues rather than beside them.
+/* Water is the one FILLED layer, and the one that is not white.
 
-   The opacity is higher than the white strokes on purpose: against the #122A3E ground a light blue has
-   less luminance contrast than white does, so 0.14 would have made the river quieter than it was, not
-   just bluer. 0.22 lands it at roughly the same presence.
+   It is the rivers' real bank polygons rather than a centreline, so the Thames widens towards the
+   estuary the way it actually does and the Isle of Dogs loop reads properly. `evenodd` is what makes
+   the islands and piers work: a multipolygon's inner rings simply fall inside an outer one, so they
+   punch holes without the bake having to track which ring is which.
 
-   Note this is the river's CENTRELINE at a made-up uniform width — OSM's `waterway=river` is a line,
-   not the bank polygon — so the Thames does not widen towards the estuary the way the real one does. */
-.lm__line--thames { stroke: #9FCBF0; stroke-width: 3px; opacity: 0.22; }
+   `fill` and `stroke` both have to be set here because `.lm` sets the opposite pair for every other
+   layer. The colour is a literal tint rather than `var(--accent)` — variant colours are deliberately
+   literal (see the contract in background.css) — but it is picked from the accent family so the water
+   sits in the app's own blues rather than beside them.
+
+   Opacity is higher than the white strokes on purpose: against the #122A3E ground a light blue has
+   less luminance contrast than white, so matching a white line's presence takes more of it. */
+.lm__line--water {
+  fill: #9FCBF0;
+  fill-rule: evenodd;
+  stroke: none;
+  opacity: 0.22;
+}
 .lm__line--tube { stroke-width: 1.2px; opacity: 0.45; }
 
 /* The halo: the same strokes again, WIDER, blurred, and painted underneath. Two things are

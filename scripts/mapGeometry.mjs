@@ -149,3 +149,32 @@ export function splineD(points) {
   }
   return d;
 }
+
+// Areas rather than lines: water is a filled shape, so every ring has to come out CLOSED. An open
+// subpath would fill to a straight chord across the river's mouth instead of following its bank.
+//
+// The rings themselves need no special handling: a multipolygon's outer and inner rings arrive as
+// separate member ways, and mergeChains stitches them back together exactly as it does for roads.
+// Nor do the roles — painted with `fill-rule: evenodd`, any ring falling inside another becomes a
+// hole on its own, so islands and piers work without tracking outer/inner at all.
+export function toAreaD(rings) {
+  return rings
+    .map((ring) => {
+      const rounded = ring.map(([x, y]) => [Math.round(x), Math.round(y)]);
+      const deduped = rounded.filter((p, i) => i === 0 || p[0] !== rounded[i - 1][0] || p[1] !== rounded[i - 1][1]);
+      // A closed ring repeats its first point last, and Z already draws that segment.
+      const [fx, fy] = deduped[0] ?? [];
+      const last = deduped[deduped.length - 1];
+      if (deduped.length > 1 && last[0] === fx && last[1] === fy) deduped.pop();
+      // Under three distinct points encloses no area, so it would paint nothing but cost bytes.
+      return deduped.length < 3 ? "" : `M${deduped.map(([x, y]) => `${x} ${y}`).join("L")}Z`;
+    })
+    .join("");
+}
+
+// bakeLayer's counterpart for filled geometry. Same ordering rule and the same [lon, lat] → (lat, lon)
+// inversion — see bakeLayer for why merging has to happen before projecting.
+export function bakeArea(lines, projection, tolerance) {
+  const merged = mergeChains(lines);
+  return toAreaD(merged.map((ring) => simplify(ring.map(([lon, lat]) => project(lat, lon, projection)), tolerance)));
+}

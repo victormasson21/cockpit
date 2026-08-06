@@ -26,7 +26,7 @@ competing with the app; an organic street network reads as texture.
 | Secondary roads | OSM (Overpass) | |
 | Tertiary roads | OSM (Overpass) | the floor — nothing smaller. Added after seeing the map without it: the tiers above alone read as a sparse skeleton, not a city. This is the texture layer, and most of the byte budget. |
 | Tube lines | TfL Unified API | all lines, geographic; the bright layer |
-| The Thames | OSM | one shape, essential for legibility |
+| Rivers and docks | OSM (Overpass) | the real **bank polygons**, filled — not a centreline. The Thames therefore widens towards the estuary and the Isle of Dogs loop reads properly, which is most of what makes the map legible as London. Picks up the Lea, the Wandle and the docks too, hence the layer is `water`, not `thames`. |
 
 **Not** drawn: trains, station markers, labels, parks, other water, buildings, residential roads,
 DLR / Overground / Elizabeth line. Station *coordinates* are baked regardless (§7) but nothing
@@ -50,8 +50,9 @@ the box near the window's own ratio so all four landmarks sit just inside the fr
 
 ## 4. Visual design
 
-The variant paints **strokes only** — no ground of its own. `.app__bg` already sits above body's
-`--bg-0`, so the existing dark blue shows through untouched.
+The variant paints **lines over nothing** — no ground of its own. `.app__bg` already sits above body's
+`--bg-0`, so the existing dark blue shows through untouched. Every layer is a stroke except `water`,
+which is filled (§2), and every layer is white except `water`, which is tinted from the accent family.
 
 **Glow is a two-layer stroke, never `box-shadow`.** The Night Sky iteration established why: a shadow's
 blur leaves the shape's own area fully opaque and only softens outwards, which reads as a hard core with
@@ -81,7 +82,7 @@ Starting values, to tune by eye on first render:
 | Primary / trunk | 1.0px | 0.18 | faint |
 | Motorway | 1.4px | 0.26 | yes — but paints nothing (§2) |
 | Tube | 1.2px | 0.45 | yes |
-| Thames | 3.0px | 0.14 | no |
+| Water | *filled*, `evenodd` | 0.22 | no |
 
 The tube being the brightest layer is deliberate: it's the layer that will carry trains, so it should
 already read as the map's subject.
@@ -105,7 +106,7 @@ finished geometry, so it needs no network, no API key, and no Rust.
 4. **Project** into a fixed pixel space (§5.3).
 5. **Emit** `src/background/londonMap.data.ts` — one `d` string per class, plus tube station sequences.
 
-Three gotchas learned while scoping, recorded so the script isn't rediscovered the hard way:
+Four gotchas learned the hard way, recorded so the script doesn't have to relearn them:
 
 - **Overpass: use exact tag matches, never a regex.** `way["highway"~"^(a|b)$"]` bypasses the tag index
   and forces a full scan over the bbox — it 504s repeatedly on both the public endpoint and the kumi
@@ -116,6 +117,12 @@ Three gotchas learned while scoping, recorded so the script isn't rediscovered t
   "roads" are 2-point stubs with nothing to simplify. Simplifying them as-is only halves the data.
   Merging first collapses 13,667 ways into 1,084 chains, and Douglas–Peucker over those long polylines
   then gets to 5,269 points — a 10× reduction overall. Order matters more than tolerance here.
+- **OSM's riverbank polygons are UNNAMED — the name is on the centreline.** Searching
+  `natural=water` + `name="River Thames"` inside the bbox returns **nothing**; searching any feature
+  named "River Thames" returns thirty streets and railways and not one piece of river. The banks are
+  `natural=water` + `water=river` multipolygons carrying no name at all (relation 28934 is the main
+  one, 31 outer and 58 inner rings). So the water query filters on `water=river`, which is also why
+  the layer is `water` rather than `thames` — it takes every river and dock in the box.
 - **TfL `lineStrings` are station-to-station chords, not track geometry.** The Victoria line returns 16
   coordinates for 16 stations. So the tube layer is polygonal straight from the API — invisible in
   central London (station spacing is ~10–20px at this scale) but visible on long outer segments. Spline
@@ -211,24 +218,26 @@ the bake before splitting, not after noticing the glare.
 All figures below are measured against the §3 bbox at a 2000px render target and 1px tolerance, after
 merge + simplify + pixel rounding, as emitted into an SVG `d` string:
 
-| Tier | Ways fetched | Path data |
-|------|--------------|-----------|
-| Motorway | 0 | **empty** (§2) |
-| Trunk / primary | 15,685 | **47.6 KB** |
-| Secondary | 2,624 | **10.6 KB** |
-| Tertiary | 4,843 | **21.8 KB** |
-| Thames | 29 | **1.3 KB** |
-| Tube | — | **14.8 KB** |
-| **Total** | | **96 KB across 6 layers** |
+| Layer | Fetched | Path data |
+|-------|---------|-----------|
+| Motorway | 0 ways | **empty** (§2) |
+| Trunk / primary | 15,685 ways | **47.6 KB** |
+| Secondary | 2,624 ways | **10.6 KB** |
+| Tertiary | 4,843 ways | **21.8 KB** |
+| Water | 37 elements → 135 rings | **13.3 KB** |
+| Tube | 11 lines → 50 sequences | **14.8 KB** |
+| **Total** | | **108 KB across 6 layers** |
 
 Merging is what makes those numbers small, and the effect is worth restating: the trunk/primary tier's
 15,685 ways carry ~55,000 coordinates, which merge into ~1,100 chains and simplify to ~5,300 points — a
 10× reduction, where simplifying the unmerged fragments alone manages 2×. Order matters more than
-tolerance (§5.1).
+tolerance (§5.1). The same stitching turns the water layer's 135 member ways into 43 closed rings.
 
-Tertiary was added after seeing the map without it and is the single largest tier after primary. Even
-so the whole map is 96 KB, well inside the budget — the remaining levers, in order, are raising the
-simplification tolerance and then dropping a tier, both one constant in the bake script.
+Two layers grew after the first cut, both deliberately: tertiary (§2) because the map read as a
+skeleton without it, and water because bank polygons cost ten times a centreline (13.3 KB against
+1.3 KB) and buy the river's actual shape. 108 KB is still small for a locally-bundled desktop app —
+the remaining levers, in order, are raising the simplification tolerance and then dropping a tier,
+both one constant in the bake script.
 
 ## 9. Deferred
 
