@@ -59,3 +59,17 @@ describe("BACKGROUNDS", () => {
     expect(attribution).toMatch(/OpenStreetMap/);
   });
 });
+
+describe("the live London map", () => {
+  const live = BACKGROUNDS.find((b) => b.id === "london-map-live");
+
+  // A SEPARATE variant, not a setting on the static map (spec §8): picking a background must never
+  // silently start network activity you did not ask for, and the trains have to be deletable wholesale.
+  it("is its own entry alongside the static map", () => {
+    expect(live).toBeDefined();
+    expect(BACKGROUNDS.some((b) => b.id === "london-map")).toBe(true);
+  });
+  it("credits TfL, whose licence requires it for the live feed too", () => {
+    expect(live?.attribution).toContain("Powered by TfL Open Data");
+  });
+});

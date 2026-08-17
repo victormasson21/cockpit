@@ -4,7 +4,7 @@ import {
   parseArrivals, placementPosition, placementVisible, reflectBehind, resolvePlacement, resolvePrevious,
   segmentAnimation, segmentSeconds, trainStyle, TUBE, TUBE_LINE_IDS,
   type Placement, type Sighting, type Vehicle,
-} from "./londonTrains";
+} from "./londonTrainsModel";
 
 const st = (id: string, x: number, y: number) => ({ id, x, y });
 

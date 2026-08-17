@@ -4,7 +4,7 @@ import { splineD } from "./mapGeometry.mjs";
 // The RUNTIME's naming rule, imported across the .mjs/.ts boundary on purpose — see the contract test at
 // the bottom of this file. (Only possible in this direction: a test under src/ cannot reach node:fs,
 // because the app has no @types/node.)
-import { segmentAnimation } from "../src/background/londonTrains.ts";
+import { segmentAnimation } from "../src/background/londonTrainsModel.ts";
 import {
   segmentName, segmentBezier, bezierPoint, arcTable, pointAtFraction, sampleStops,
   polylineDeviation, stopsFor, keyframesFor, collectSegments, bakeSegmentCss,

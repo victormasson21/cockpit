@@ -6,6 +6,12 @@
 line-coloured train dots, gliding along the drawn (splined) track between stations from TfL's arrival
 predictions.
 
+> **As built — the pure module is `londonTrainsModel.ts`, not `londonTrains.ts`.** The spec names it
+> `londonTrains.ts`, which cannot work beside `londonTrains.tsx`: on macOS's case-insensitive filesystem
+> an extensionless `./londonTrains` resolves the **`.ts` before the `.tsx`**, so `registry.tsx` importing
+> `LondonTrains` finds the pure module and fails to compile. Same trap, same fix, as `dropdownModel.ts`
+> beside `Dropdown.tsx` (already recorded in CLAUDE.md). Caught by `tsc`, not by the tests.
+
 **Architecture:** Five new files plus two one-line edits to shipped code (spec §8). A hand-run bake
 script derives one `@keyframes` rule per station-to-station segment from the coordinates **already**
 committed in `londonMap.data.ts` — no network, no re-bake of the map. At runtime a pure module turns
@@ -501,8 +507,8 @@ for a segment. Also the test that pins the bake and the runtime to the **same** 
 by convention, not by a shared import, so the guarantee has to be tested (spec §9).
 
 **Files:**
-- Create: `src/background/londonTrains.ts`
-- Test: `src/background/londonTrains.test.ts`
+- Create: `src/background/londonTrainsModel.ts`
+- Test: `src/background/londonTrainsModel.test.ts`
 - Test: `scripts/trainSegments.test.mjs` (append the coverage contract — see the note below)
 
 > **As built — where the coverage test lives.** It was planned for the TS test, reading the generated CSS.
@@ -527,7 +533,7 @@ by convention, not by a shared import, so the guarantee has to be tested (spec �
 
 - [ ] **Step 1: Write the failing test**
 
-Create `src/background/londonTrains.test.ts`:
+Create `src/background/londonTrainsModel.test.ts`:
 
 ```ts
 import { readFileSync } from "node:fs";
@@ -610,12 +616,12 @@ describe("segmentAnimation", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run src/background/londonTrains.test.ts`
+Run: `npx vitest run src/background/londonTrainsModel.test.ts`
 Expected: FAIL — cannot resolve `./londonTrains`.
 
 - [ ] **Step 3: Write the implementation**
 
-Create `src/background/londonTrains.ts` (this file grows in Tasks 4–6; add only this section now):
+Create `src/background/londonTrainsModel.ts` (this file grows in Tasks 4–6; add only this section now):
 
 ```ts
 // londonTrains.ts — pure logic for the "London map · live" variant: TfL arrival predictions in, a
@@ -672,7 +678,7 @@ export function segmentAnimation(fromId: string, toId: string): { name: string; 
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run src/background/londonTrains.test.ts`
+Run: `npx vitest run src/background/londonTrainsModel.test.ts`
 Expected: PASS — in particular both coverage cases (every segment has a rule, no orphan rules).
 
 - [ ] **Step 5: Commit**
@@ -690,8 +696,8 @@ Reading TfL's payload into a per-vehicle feed, and the round-robin rota. Everyth
 `fetch` that supplies it arrives in Task 6.
 
 **Files:**
-- Modify: `src/background/londonTrains.ts` (append a section)
-- Test: `src/background/londonTrains.test.ts` (append)
+- Modify: `src/background/londonTrainsModel.ts` (append a section)
+- Test: `src/background/londonTrainsModel.test.ts` (append)
 
 **Interfaces:**
 - Consumes: nothing from Task 3 beyond the file it lives in.
@@ -707,7 +713,7 @@ Reading TfL's payload into a per-vehicle feed, and the round-robin rota. Everyth
 
 - [ ] **Step 1: Write the failing test**
 
-Append to `src/background/londonTrains.test.ts`:
+Append to `src/background/londonTrainsModel.test.ts`:
 
 ```ts
 import { arrivalsUrl, mergeLineFeed, nextLineIndex, parseArrivals, type Vehicle } from "./londonTrains";
@@ -777,12 +783,12 @@ describe("nextLineIndex", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run src/background/londonTrains.test.ts`
+Run: `npx vitest run src/background/londonTrainsModel.test.ts`
 Expected: FAIL — `parseArrivals` etc. are not exported.
 
 - [ ] **Step 3: Write the implementation**
 
-Append to `src/background/londonTrains.ts`:
+Append to `src/background/londonTrainsModel.ts`:
 
 ```ts
 // ── The feed ────────────────────────────────────────────────────────────────────────────────────────
@@ -843,7 +849,7 @@ export const nextLineIndex = (i: number, total: number): number => (i + 1) % tot
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run src/background/londonTrains.test.ts`
+Run: `npx vitest run src/background/londonTrainsModel.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -861,8 +867,8 @@ The heart of the feature (spec §5). Given a vehicle's predictions, work out whi
 how far along, and what to do when the branch cannot be resolved.
 
 **Files:**
-- Modify: `src/background/londonTrains.ts` (append a section)
-- Test: `src/background/londonTrains.test.ts` (append)
+- Modify: `src/background/londonTrainsModel.ts` (append a section)
+- Test: `src/background/londonTrainsModel.test.ts` (append)
 
 **Interfaces:**
 - Consumes: `TubeIndex`, `buildTubeIndex`, `segmentAnimation`, `Vehicle`, `STALE_SECONDS`, `Point`.
@@ -880,7 +886,7 @@ how far along, and what to do when the branch cannot be resolved.
 
 - [ ] **Step 1: Write the failing test**
 
-Append to `src/background/londonTrains.test.ts`:
+Append to `src/background/londonTrainsModel.test.ts`:
 
 ```ts
 import {
@@ -1059,12 +1065,12 @@ describe("derivePlacements", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run src/background/londonTrains.test.ts`
+Run: `npx vitest run src/background/londonTrainsModel.test.ts`
 Expected: FAIL — `resolvePrevious` and friends are not exported.
 
 - [ ] **Step 3: Write the implementation**
 
-Append to `src/background/londonTrains.ts`:
+Append to `src/background/londonTrainsModel.ts`:
 
 ```ts
 // ── Deriving a position (spec §5) ───────────────────────────────────────────────────────────────────
@@ -1222,7 +1228,7 @@ export function derivePlacements(
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run src/background/londonTrains.test.ts`
+Run: `npx vitest run src/background/londonTrainsModel.test.ts`
 Expected: PASS, all cases.
 
 - [ ] **Step 5: Commit**
@@ -1240,8 +1246,8 @@ The rendering half: one `<circle>` per visible train, its motion entirely a bake
 that stops when the window is hidden; the 11 line colours as literals in the variant stylesheet.
 
 **Files:**
-- Modify: `src/background/londonTrains.ts` (append `trainStyle`)
-- Test: `src/background/londonTrains.test.ts` (append `trainStyle` cases)
+- Modify: `src/background/londonTrainsModel.ts` (append `trainStyle`)
+- Test: `src/background/londonTrainsModel.test.ts` (append `trainStyle` cases)
 - Create: `src/background/londonTrains.css`
 - Create: `src/background/londonTrains.tsx`
 - Modify: `src/background/londonMap.tsx` (accept an optional child inside the tube `<g>`)
@@ -1253,7 +1259,7 @@ that stops when the window is hidden; the 11 line colours as literals in the var
 
 - [ ] **Step 1: Write the failing test**
 
-Append to `src/background/londonTrains.test.ts`:
+Append to `src/background/londonTrainsModel.test.ts`:
 
 ```ts
 import { trainStyle } from "./londonTrains";
@@ -1288,12 +1294,12 @@ describe("trainStyle", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run src/background/londonTrains.test.ts`
+Run: `npx vitest run src/background/londonTrainsModel.test.ts`
 Expected: FAIL — `trainStyle` is not exported.
 
 - [ ] **Step 3: Implement `trainStyle`**
 
-Add the type-only import at the top of `src/background/londonTrains.ts` (it belongs here, not earlier:
+Add the type-only import at the top of `src/background/londonTrainsModel.ts` (it belongs here, not earlier:
 `noUnusedLocals` is on, so an import added before its first use fails `npm run build`):
 
 ```ts
@@ -1331,7 +1337,7 @@ export function trainStyle(placement: Placement): CSSProperties {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run src/background/londonTrains.test.ts`
+Run: `npx vitest run src/background/londonTrainsModel.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Write the stylesheet**

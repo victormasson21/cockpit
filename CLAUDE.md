@@ -893,6 +893,58 @@ both Important findings fixed (in-batch dedupe, history pagination).
   Spec: `docs/superpowers/specs/2026-08-05-london-map-background-design.md`; plan:
   `docs/superpowers/plans/2026-08-05-london-map-background.md`.
 
+- **London map · live trains (2026-08-17).** A third variant: the same map with real Underground trains
+  on it, as line-coloured dots gliding between stations from TfL's arrival predictions. Five new files
+  (`londonTrainsModel.ts` pure + `londonTrains.tsx` layer + `londonTrains.css` + the generated
+  `londonTrainSegments.data.css` + `scripts/bake-train-segments.mjs`, with its pure half in
+  `scripts/trainSegments.mjs`); two touched (`registry.tsx` gains one entry, `londonMap.tsx` gains an
+  optional `children` rendered inside the tube `<g>`). **`londonMap.data.ts` is untouched and the map's
+  bake is NOT re-run** — deleting the trains is deleting those files plus one registry entry.
+  - **Trains follow the SPLINED line via pre-baked per-segment `@keyframes`**, not `offset-path` (not
+    compositor-accelerated in WebKit — ~280 elements would land on the main thread) and not linear
+    interpolation (measured up to 32px off the drawn curve). `bake-train-segments.mjs` reads the
+    **committed** map data — no network, no key — and emits one rule per station PAIR named
+    `lt-<loNaptan>-<hiNaptan>`, running lo → hi; the other direction is `animation-direction: reverse`.
+    Placement is `animation-name` + a **negative `animation-delay`** (nightSky's star-ageing idiom).
+    Stops are spaced evenly by **arc length**, not by the Bézier parameter t, or the train would speed up
+    and slow down within one segment. 314 rules, 1,597 stops, **78.6 KB** at a 0.8px chord tolerance
+    (0.4px costs 102 KB and is invisible: 0.8 user units ≈ 0.6 device px).
+  - **⚠️ The bake and the runtime build the animation name independently** — a .mjs script and a TS
+    module with no shared import. The only thing connecting them is the contract test at the foot of
+    `scripts/trainSegments.test.mjs`, which reads the real generated stylesheet and asserts the two sets
+    are equal both ways. It lives THERE, not in the TS test, for two reasons: the app has **no
+    `@types/node`** so `node:fs` doesn't type-check under `include: ["src"]`, and a **`?raw` import of a
+    `.css` yields an empty string** under Vite (the CSS plugin intercepts it), which would pass the
+    assertion vacuously. The .mjs → .ts import direction is the only one that works.
+  - **`londonTrainsModel.ts`, not `londonTrains.ts`** — same trap as `dropdownModel.ts` beside
+    `Dropdown.tsx`: on a case-insensitive FS an extensionless `./londonTrains` resolves the `.ts` before
+    the `.tsx`, so the component would never be found. Caught by `tsc`, not by the tests.
+  - **The API gives the line but not the branch**, and `destinationNaptanId` doesn't close the gap
+    (Northern *Edgware via Bank* and *via CX* share a destination). Resolved **structurally**:
+    `resolvePrevious` finds the branch sequence where next and station-**after**-next are adjacent, and
+    the previous station is next's neighbour on the opposite side. `towards` is deliberately not parsed
+    (free text: "via CX", "Check Front of Train", "Special"). Fallback ladder: ambiguous branch → glide
+    from the last sighting; no sighting → `reflectBehind` (step back from next, away from after-next, by
+    the fraction of the run still to go); unknown NaptanId → drop.
+  - **A vehicle arrives with its whole onward journey (~15 predictions)**, which is what makes slow
+    polling viable: the tick re-derives every placement from the STORED feed with elapsed time
+    subtracted, so a train advances station to station between fetches. Polling is **one line per ~11s**
+    (the full 11-line payload is 3.9 MB and a big main-thread parse) and runs **only while
+    `document.visibilityState === "visible"`** — a hidden window freezes CSS animations but not timers.
+  - **Reduced motion PAUSES the animations** (`animation-play-state: paused`) rather than repositioning:
+    a paused animation with a negative delay renders the exact point on the CURVE a train has reached,
+    which a static transform could only match by evaluating the spline at runtime. Polling stops after
+    one pass round the rota. (`placementPosition` deliberately measures a segment along its **chord** —
+    it only seeds an already-approximate fallback glide.)
+  - **The glow is a radial-gradient FILL, one `<circle>` per train**, not an SVG filter (280 filter
+    regions) and not `box-shadow` (opaque core, hard rim). Per-line colour comes from CSS —
+    `#lt-g-<line> stop { stop-color }` plus `.lt__train--<line> { fill: url(...) }` — because `.lm` sets
+    `fill: none` on the whole `<svg>` and **a CSS rule beats a `fill=` attribute**. Two of TfL's eleven
+    hexes are deliberately lifted: Northern's `#000000` and Piccadilly's `#003688` are invisible on the
+    dark ground, and an invisible line reads as a missing one.
+  Spec: `docs/superpowers/specs/2026-08-17-london-map-live-trains-design.md`; plan:
+  `docs/superpowers/plans/2026-08-17-london-map-live-trains.md`.
+
 **Next / resuming work — read `docs/ROADMAP.md` first.** It is the single prioritized backlog, split into
 **main build sub-projects** (the big sequential arc — sub-project 5 onward: Linear tile, then GitHub/Calendar
 tiles, reusing the SP4 provider+panel + Keychain seam) and **smaller iterations** (scoped polish/enhancements). When

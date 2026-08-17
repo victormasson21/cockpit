@@ -1,6 +1,10 @@
-// londonTrains.ts — pure logic for the "London map · live" variant: TfL arrival predictions in, a
+// londonTrainsModel.ts — pure logic for the "London map · live" variant: TfL arrival predictions in, a
 // placement per train out. No DOM and no fetch live here (those are in londonTrains.tsx), which is what
 // makes the whole derivation — including the branch disambiguation and its fallback ladder — testable.
+//
+// Named ...Model rather than londonTrains.ts, matching dropdownModel.ts beside Dropdown.tsx: on macOS's
+// case-insensitive filesystem an extensionless `./londonTrains` resolves the .ts BEFORE the .tsx, so a
+// pure module and a component cannot share a basename — the component would simply never be found.
 import type { CSSProperties } from "react";
 import { LONDON_MAP } from "./londonMap.data";
 
@@ -43,7 +47,7 @@ export const TUBE_LINE_IDS = TUBE.lineIds;
 
 // The @keyframes rule for a segment, plus whether the train runs against it. One rule per station PAIR
 // is baked (lo → hi), so the other direction is `animation-direction: reverse` rather than a second
-// rule. scripts/trainSegments.mjs builds this name the same way; londonTrains.test.ts pins the two
+// rule. scripts/trainSegments.mjs builds this name the same way; that script's test pins the two
 // together, because nothing but that test connects them.
 export function segmentAnimation(fromId: string, toId: string): { name: string; reverse: boolean } {
   const [lo, hi] = [fromId, toId].sort();

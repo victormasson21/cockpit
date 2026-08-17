@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   arrivalsUrl, derivePlacements, mergeLineFeed, nextLineIndex, parseArrivals, trainStyle,
   TUBE_LINE_IDS, type Feed, type Sighting, type Train,
-} from "./londonTrains";
+} from "./londonTrainsModel";
 import "./londonTrains.css";
 import "./londonTrainSegments.data.css";
 
