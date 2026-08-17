@@ -48,3 +48,58 @@ export function segmentAnimation(fromId: string, toId: string): { name: string; 
   const [lo, hi] = [fromId, toId].sort();
   return { name: `lt-${lo}-${hi}`, reverse: fromId !== lo };
 }
+
+// ── The feed ────────────────────────────────────────────────────────────────────────────────────────
+
+export interface Prediction { naptanId: string; timeToStation: number }
+
+// One train, with its whole onward journey: TfL returns ~15 predictions per vehicleId, not just the next
+// stop, which is what lets a single fetch keep a train moving for minutes (spec §3).
+export interface Vehicle {
+  vehicleId: string;
+  lineId: string;
+  predictions: Prediction[];
+  fetchedAt: number;
+}
+
+export type Feed = ReadonlyMap<string, Vehicle>;
+
+// Predictions older than this are not aged into a position at all — after a long spell hidden, or a run
+// of failed fetches, the honest render is nothing rather than a network of ghosts parked at termini.
+export const STALE_SECONDS = 300;
+
+export const arrivalsUrl = (lineId: string): string => `https://api.tfl.gov.uk/Line/${lineId}/Arrivals`;
+
+interface RawArrival { vehicleId?: unknown; lineId?: unknown; naptanId?: unknown; timeToStation?: unknown }
+
+// The payload is a flat list of predictions; this is the only place that trusts TfL's field names.
+// Everything downstream sees Vehicles with predictions ALREADY SORTED soonest-first, which §5's
+// "two soonest predictions" rule depends on.
+export function parseArrivals(payload: unknown, lineId: string, fetchedAt: number): Vehicle[] {
+  if (!Array.isArray(payload)) return [];
+  const byVehicle = new Map<string, Prediction[]>();
+  for (const row of payload as RawArrival[]) {
+    const vehicleId = typeof row?.vehicleId === "string" ? row.vehicleId : "";
+    const naptanId = typeof row?.naptanId === "string" ? row.naptanId : "";
+    const timeToStation = typeof row?.timeToStation === "number" ? row.timeToStation : NaN;
+    if (!vehicleId || !naptanId || !Number.isFinite(timeToStation) || row.lineId !== lineId) continue;
+    byVehicle.set(vehicleId, [...(byVehicle.get(vehicleId) ?? []), { naptanId, timeToStation }]);
+  }
+  return [...byVehicle].map(([vehicleId, predictions]) => ({
+    vehicleId,
+    lineId,
+    fetchedAt,
+    predictions: predictions.sort((a, b) => a.timeToStation - b.timeToStation),
+  }));
+}
+
+// A line's fetch is the complete truth about that line, so its previous entries go before the new ones
+// land — otherwise a terminated train would linger for as long as the app ran.
+export function mergeLineFeed(feed: Feed, lineId: string, vehicles: Vehicle[]): Map<string, Vehicle> {
+  const next = new Map(feed);
+  for (const [id, v] of next) if (v.lineId === lineId) next.delete(id);
+  for (const v of vehicles) next.set(v.vehicleId, v);
+  return next;
+}
+
+export const nextLineIndex = (i: number, total: number): number => (i + 1) % total;

@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { buildTubeIndex, lineIdOf, segmentAnimation, TUBE, TUBE_LINE_IDS } from "./londonTrains";
+import {
+  arrivalsUrl, buildTubeIndex, lineIdOf, mergeLineFeed, nextLineIndex, parseArrivals, segmentAnimation,
+  TUBE, TUBE_LINE_IDS, type Vehicle,
+} from "./londonTrains";
 
 const st = (id: string, x: number, y: number) => ({ id, x, y });
 
@@ -57,4 +60,66 @@ describe("segmentAnimation", () => {
   // That these names match the BAKED rules is pinned in scripts/trainSegments.test.mjs, which can read
   // the generated stylesheet off disk — a `?raw` import of a .css yields an empty string under Vite,
   // and this project has no @types/node for the fs route.
+});
+
+const arrival = (vehicleId: string, naptanId: string, timeToStation: number, lineId = "central") =>
+  ({ vehicleId, naptanId, timeToStation, lineId });
+
+describe("arrivalsUrl", () => {
+  it("asks for one line at a time", () => {
+    // One line per tick, not all 11: the full payload is 3.9 MB and a large main-thread JSON parse
+    // (spec §4). ~350 KB parses in ~5ms, and all 11 still refresh about every two minutes.
+    expect(arrivalsUrl("waterloo-city")).toBe("https://api.tfl.gov.uk/Line/waterloo-city/Arrivals");
+  });
+});
+
+describe("parseArrivals", () => {
+  it("groups predictions by vehicle, soonest first", () => {
+    const [v] = parseArrivals([arrival("101", "B", 200), arrival("101", "A", 30)], "central", 1000);
+    expect(v.predictions.map((p) => p.naptanId)).toEqual(["A", "B"]);
+    expect(v).toMatchObject({ vehicleId: "101", lineId: "central", fetchedAt: 1000 });
+  });
+  it("returns one entry per vehicle", () => {
+    expect(parseArrivals([arrival("101", "A", 30), arrival("102", "A", 60)], "central", 0)).toHaveLength(2);
+  });
+  it("drops rows missing the fields a placement needs", () => {
+    const rows = [arrival("", "A", 30), { vehicleId: "1", timeToStation: 5, lineId: "central" }, arrival("2", "A", NaN)];
+    expect(parseArrivals(rows, "central", 0)).toEqual([]);
+  });
+  it("ignores a row belonging to another line", () => {
+    expect(parseArrivals([arrival("101", "A", 30, "victoria")], "central", 0)).toEqual([]);
+  });
+  it("survives a payload that is not an array", () => {
+    expect(parseArrivals({ message: "rate limited" }, "central", 0)).toEqual([]);
+  });
+});
+
+describe("mergeLineFeed", () => {
+  const vehicle = (id: string, lineId: string): Vehicle =>
+    ({ vehicleId: id, lineId, predictions: [{ naptanId: "A", timeToStation: 30 }], fetchedAt: 0 });
+
+  it("leaves the other lines' trains untouched", () => {
+    const feed = mergeLineFeed(new Map([["1", vehicle("1", "victoria")]]), "central", [vehicle("2", "central")]);
+    expect([...feed.keys()].sort()).toEqual(["1", "2"]);
+  });
+  // A refresh is the whole truth about that line: a train that has finished its journey is simply
+  // absent from the new payload, and must therefore leave the map.
+  it("replaces the refreshed line wholesale, so a vanished train disappears", () => {
+    const feed = mergeLineFeed(new Map([["1", vehicle("1", "central")]]), "central", [vehicle("2", "central")]);
+    expect([...feed.keys()]).toEqual(["2"]);
+  });
+  it("does not mutate the feed it was given", () => {
+    const before = new Map([["1", vehicle("1", "central")]]);
+    mergeLineFeed(before, "central", []);
+    expect(before.size).toBe(1);
+  });
+});
+
+describe("nextLineIndex", () => {
+  it("advances round the rota", () => {
+    expect(nextLineIndex(0, 11)).toBe(1);
+  });
+  it("wraps at the end", () => {
+    expect(nextLineIndex(10, 11)).toBe(0);
+  });
 });
