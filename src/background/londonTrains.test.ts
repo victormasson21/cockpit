@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   arrivalsUrl, buildTubeIndex, derivePlacements, inFrame, lineIdOf, mergeLineFeed, nextLineIndex,
   parseArrivals, placementPosition, placementVisible, reflectBehind, resolvePlacement, resolvePrevious,
-  segmentAnimation, segmentSeconds, TUBE, TUBE_LINE_IDS,
+  segmentAnimation, segmentSeconds, trainStyle, TUBE, TUBE_LINE_IDS,
   type Placement, type Sighting, type Vehicle,
 } from "./londonTrains";
 
@@ -292,5 +292,32 @@ describe("derivePlacements", () => {
   it("forgets a train it can no longer place", () => {
     const gone = new Map([["v1", vehicle([["NOPE", 30]])]]);
     expect(derivePlacements(gone, 0, new Map(), index).sightings.size).toBe(0);
+  });
+});
+
+describe("trainStyle", () => {
+  // The negative delay is the whole trick: the animation is the segment's full run, and starting it
+  // part-way through is what puts the train where it actually is (the same idiom nightSky uses to age
+  // its stars). Reverse traversal plays the one baked rule backwards.
+  it("starts a segment part-way through, in the right direction", () => {
+    expect(trainStyle({ kind: "segment", name: "lt-A-B", reverse: true, seconds: 120, progress: 0.25, from: { x: 0, y: 0 }, to: { x: 10, y: 0 } }))
+      .toEqual({ animationName: "lt-A-B", animationDuration: "120s", animationDelay: "-30s", animationDirection: "reverse" });
+  });
+  it("runs a resolved segment forwards by default", () => {
+    expect(trainStyle({ kind: "segment", name: "lt-A-B", reverse: false, seconds: 60, progress: 0, from: { x: 0, y: 0 }, to: { x: 1, y: 1 } }))
+      .toMatchObject({ animationDirection: "normal", animationDelay: "-0s" });
+  });
+  // A glide has no baked rule to play, so its two ends arrive as custom properties that the one generic
+  // lt-glide keyframes substitutes — which keeps the fallback on the compositor too.
+  it("hands a glide its endpoints as custom properties", () => {
+    expect(trainStyle({ kind: "glide", from: { x: 1, y: 2 }, to: { x: 3, y: 4 }, seconds: 40, progress: 0 }))
+      .toEqual({
+        animationName: "lt-glide", animationDuration: "40s", animationDelay: "-0s",
+        "--lt-fx": "1px", "--lt-fy": "2px", "--lt-tx": "3px", "--lt-ty": "4px",
+      });
+  });
+  it("pins a still train in place with no animation at all", () => {
+    expect(trainStyle({ kind: "still", at: { x: 7, y: 8 } }))
+      .toEqual({ animationName: "none", transform: "translate(7px, 8px)" });
   });
 });

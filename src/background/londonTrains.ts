@@ -1,6 +1,7 @@
 // londonTrains.ts — pure logic for the "London map · live" variant: TfL arrival predictions in, a
 // placement per train out. No DOM and no fetch live here (those are in londonTrains.tsx), which is what
 // makes the whole derivation — including the branch disambiguation and its fallback ladder — testable.
+import type { CSSProperties } from "react";
 import { LONDON_MAP } from "./londonMap.data";
 
 export interface Point { x: number; y: number }
@@ -254,4 +255,29 @@ export function derivePlacements(
     if (placementVisible(placement)) trains.push({ vehicleId: v.vehicleId, lineId: v.lineId, placement });
   }
   return { trains, sightings };
+}
+
+// ── The handoff to CSS ──────────────────────────────────────────────────────────────────────────────
+
+// The model carries numbers; the stylesheet owns the look (the same split as nightSky's *Style helpers).
+// Note what is NOT here: reduced motion. A paused animation with a negative delay renders the exact
+// point on the CURVE that a train has reached and never moves from it, so holding still is one rule in
+// the stylesheet rather than a second code path with a chord-approximated position.
+export function trainStyle(placement: Placement): CSSProperties {
+  if (placement.kind === "still") {
+    return { animationName: "none", transform: `translate(${placement.at.x}px, ${placement.at.y}px)` };
+  }
+  const timing = {
+    animationDuration: `${placement.seconds}s`,
+    animationDelay: `-${placement.progress * placement.seconds}s`,
+  };
+  if (placement.kind === "segment") {
+    return { animationName: placement.name, ...timing, animationDirection: placement.reverse ? "reverse" : "normal" };
+  }
+  return {
+    animationName: "lt-glide",
+    ...timing,
+    "--lt-fx": `${placement.from.x}px`, "--lt-fy": `${placement.from.y}px`,
+    "--lt-tx": `${placement.to.x}px`, "--lt-ty": `${placement.to.y}px`,
+  } as CSSProperties;
 }

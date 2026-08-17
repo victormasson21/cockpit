@@ -1,0 +1,86 @@
+/* londonTrains.css — the live trains' artwork. The 11 official TfL line colours are literal here by
+   design: a background IS colour (see the variant contract in background.css).
+
+   Only `transform` animates, driven by the pre-baked per-segment @keyframes in
+   londonTrainSegments.data.css, so every dot lives on the compositor and the main thread stays idle
+   behind the live terminals — the same contract the map itself keeps. */
+
+.lt__train {
+  /* `.lm` sets `fill: none; stroke: #fff` on the whole <svg>, and a CSS rule beats a presentation
+     attribute, so both have to be set HERE — a fill="…" on the circle would silently lose. */
+  stroke: none;
+  animation-timing-function: linear;
+  animation-iteration-count: 1;
+  /* `both`, so a train that has arrived holds at its station instead of snapping back to the start —
+     which is also what a real train does while the next refresh is on its way. */
+  animation-fill-mode: both;
+}
+
+/* The one rule the baked file cannot provide: a straight run between two points known only at runtime
+   (the ambiguous-branch fallback). Custom properties are substituted per element, so a single rule
+   serves every glide, and the motion stays a compositor-driven animation like all the rest. */
+@keyframes lt-glide {
+  from { transform: translate(var(--lt-fx), var(--lt-fy)); }
+  to { transform: translate(var(--lt-tx), var(--lt-ty)); }
+}
+
+/* The glow. It is a radial-gradient FILL, not an SVG filter and not box-shadow, for three reasons:
+   a shadow leaves the core fully opaque and only softens outwards (a hard core with a soft rim — the
+   lesson from the night sky's stars); a filter would have to be applied per train, and ~280 filter
+   regions is a different order of cost from 280 gradient fills; and one gradient per line means the
+   halo and the core are a single element, so a train is one <circle> rather than three nodes.
+
+   The stops carry the SHAPE (shared) and the per-line blocks below carry the COLOUR, which is what
+   keeps every hex in this stylesheet. */
+.lt__stop--core { stop-opacity: 0.95; }
+.lt__stop--mid { stop-opacity: 0.5; }
+.lt__stop--edge { stop-opacity: 0; }
+
+/* Per line: the gradient's colour, and the fill that references it. The hexes are TfL's official 2016
+   palette, verbatim, with two documented exceptions — see northern and piccadilly. The map's own lines
+   stay white, so these dots carry the only colour on screen (spec §6). */
+#lt-g-bakerloo stop { stop-color: #b36305; }
+.lt__train--bakerloo { fill: url(#lt-g-bakerloo); }
+
+#lt-g-central stop { stop-color: #e32017; }
+.lt__train--central { fill: url(#lt-g-central); }
+
+#lt-g-circle stop { stop-color: #ffd300; }
+.lt__train--circle { fill: url(#lt-g-circle); }
+
+#lt-g-district stop { stop-color: #00782a; }
+.lt__train--district { fill: url(#lt-g-district); }
+
+#lt-g-hammersmith-city stop { stop-color: #f3a9bb; }
+.lt__train--hammersmith-city { fill: url(#lt-g-hammersmith-city); }
+
+#lt-g-jubilee stop { stop-color: #a0a5a9; }
+.lt__train--jubilee { fill: url(#lt-g-jubilee); }
+
+#lt-g-metropolitan stop { stop-color: #9b0056; }
+.lt__train--metropolitan { fill: url(#lt-g-metropolitan); }
+
+/* NOT TfL's #000000: a black dot on the app's near-black ground is not a dim train, it is an absent
+   line. Lifted to a light grey — deliberately lighter than the Jubilee's #a0a5a9 so the two greys stay
+   tellable apart. */
+#lt-g-northern stop { stop-color: #d0d0d0; }
+.lt__train--northern { fill: url(#lt-g-northern); }
+
+/* NOT TfL's #003688 for the same reason: a dark navy dot vanishes against the #122a3e ground. Lifted
+   just far enough to read, keeping the line's blue identity. */
+#lt-g-piccadilly stop { stop-color: #3060c8; }
+.lt__train--piccadilly { fill: url(#lt-g-piccadilly); }
+
+#lt-g-victoria stop { stop-color: #0098d4; }
+.lt__train--victoria { fill: url(#lt-g-victoria); }
+
+#lt-g-waterloo-city stop { stop-color: #95cdba; }
+.lt__train--waterloo-city { fill: url(#lt-g-waterloo-city); }
+
+/* Reduced motion: the trains hold still. Pausing rather than removing the animation is what keeps them
+   in the RIGHT places — a paused animation with a negative delay renders the exact point on the curve
+   the train has reached, which no static transform could reproduce without evaluating the spline at
+   runtime. Polling also stops after one pass; see londonTrains.tsx. */
+@media (prefers-reduced-motion: reduce) {
+  .lt__train { animation-play-state: paused; }
+}
