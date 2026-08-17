@@ -503,6 +503,16 @@ by convention, not by a shared import, so the guarantee has to be tested (spec �
 **Files:**
 - Create: `src/background/londonTrains.ts`
 - Test: `src/background/londonTrains.test.ts`
+- Test: `scripts/trainSegments.test.mjs` (append the coverage contract — see the note below)
+
+> **As built — where the coverage test lives.** It was planned for the TS test, reading the generated CSS.
+> It cannot go there: this project has **no `@types/node`**, so `node:fs` does not type-check under
+> `include: ["src"]`, and a `?raw` import of a `.css` yields an **empty string** (Vite's CSS plugin
+> intercepts it) — which passes the assertion vacuously, the worst possible outcome for a contract test.
+> It lives in `scripts/trainSegments.test.mjs` instead, which is outside `include` so `node:fs` is fine,
+> and which imports the runtime's `segmentAnimation` from `../src/background/londonTrains.ts` — vitest
+> transforms it, and the direction .mjs → .ts is the only one that works. Verified non-vacuous by
+> mutating the name prefix and watching both cases fail.
 
 **Interfaces:**
 - Consumes: `LONDON_MAP` from `./londonMap.data`; the generated CSS from Task 2 (read as a file, in the test only).

@@ -1,5 +1,10 @@
+import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
 import { splineD } from "./mapGeometry.mjs";
+// The RUNTIME's naming rule, imported across the .mjs/.ts boundary on purpose — see the contract test at
+// the bottom of this file. (Only possible in this direction: a test under src/ cannot reach node:fs,
+// because the app has no @types/node.)
+import { segmentAnimation } from "../src/background/londonTrains.ts";
 import {
   segmentName, segmentBezier, bezierPoint, arcTable, pointAtFraction, sampleStops,
   polylineDeviation, stopsFor, keyframesFor, collectSegments, bakeSegmentCss,
@@ -134,5 +139,40 @@ describe("bakeSegmentCss", () => {
     const rules = bakeSegmentCss([{ id: "x", stations: [st("A", 0, 0), st("B", 10, 0), st("C", 20, 0)] }]);
     expect(rules).toHaveLength(2);
     expect(rules.every((r) => r.startsWith("@keyframes lt-"))).toBe(true);
+  });
+});
+
+// THE contract test, over the REAL committed data and the REAL generated stylesheet. The bake (this
+// .mjs) and the runtime (TS) each build the animation name themselves — there is no shared module across
+// that boundary — so a divergence would leave every train with an animation-name nothing defines, and
+// they would all pile into one corner of the map. Nothing but this connects the two.
+describe("the generated stylesheet", () => {
+  const url = (p) => new URL(p, import.meta.url);
+  const data = readFileSync(url("../src/background/londonMap.data.ts"), "utf8");
+  const map = JSON.parse(data.slice(data.indexOf("{"), data.lastIndexOf("} as const;") + 1));
+  const css = readFileSync(url("../src/background/londonTrainSegments.data.css"), "utf8");
+  const baked = new Set([...css.matchAll(/@keyframes\s+(lt-[\w-]+)/g)].map((m) => m[1]));
+
+  // Every segment a train can actually be placed on: each adjacent pair of every baked branch sequence,
+  // named the way the RUNTIME will name it.
+  const placeable = new Set();
+  for (const seq of map.tubeLines) {
+    for (let i = 0; i < seq.stations.length - 1; i++) {
+      const [a, b] = [seq.stations[i], seq.stations[i + 1]];
+      if (a.id !== b.id) placeable.add(segmentAnimation(a.id, b.id).name);
+    }
+  }
+
+  it("has a rule for every segment a train can be placed on", () => {
+    expect([...placeable].filter((name) => !baked.has(name))).toEqual([]);
+  });
+  it("has no rule that no segment references", () => {
+    expect([...baked].filter((name) => !placeable.has(name))).toEqual([]);
+  });
+  it("declares each rule exactly once", () => {
+    expect(baked.size).toBe((css.match(/@keyframes/g) ?? []).length);
+  });
+  it("agrees with what the bake would emit right now", () => {
+    expect(baked.size).toBe(collectSegments(map.tubeLines).size);
   });
 });
