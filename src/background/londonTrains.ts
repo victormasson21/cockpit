@@ -103,3 +103,155 @@ export function mergeLineFeed(feed: Feed, lineId: string, vehicles: Vehicle[]): 
 }
 
 export const nextLineIndex = (i: number, total: number): number => (i + 1) % total;
+
+// ── Deriving a position (spec §5) ───────────────────────────────────────────────────────────────────
+
+export const DEFAULT_SEGMENT_SECONDS = 100; // when the two predictions give no usable gap
+export const MIN_SEGMENT_SECONDS = 20;
+export const MAX_SEGMENT_SECONDS = 300;
+
+export type Placement =
+  // On a drawn segment, playing that segment's baked @keyframes. The from/to points are carried for the
+  // frame test and for the fallback ladder's "last known position"; the CURVE itself is the CSS rule's.
+  | { kind: "segment"; name: string; reverse: boolean; seconds: number; progress: number; from: Point; to: Point }
+  // A straight run to the next station, for when the branch could not be resolved.
+  | { kind: "glide"; from: Point; to: Point; seconds: number; progress: number }
+  | { kind: "still"; at: Point };
+
+export interface Sighting { placement: Placement; atMs: number }
+export interface Train { vehicleId: string; lineId: string; placement: Placement }
+
+const clamp01 = (n: number): number => Math.min(1, Math.max(0, n));
+
+// Which station a train on this line must have come from, given where it is going next and the station
+// after that. The pair (next, after-next) is what distinguishes via-Bank from via-CX: no string
+// matching, no cross-poll state. More than one answer means the branches genuinely disagree.
+export function resolvePrevious(lineId: string, nextId: string, afterId: string, index = TUBE): string[] {
+  const found = new Set<string>();
+  for (const seq of index.sequencesByLine.get(lineId) ?? []) {
+    for (let i = 0; i < seq.length; i++) {
+      if (seq[i].id !== nextId) continue;
+      // The previous station is the neighbour on the OPPOSITE side from the station-after-next.
+      if (seq[i + 1]?.id === afterId && seq[i - 1]) found.add(seq[i - 1].id);
+      if (seq[i - 1]?.id === afterId && seq[i + 1]) found.add(seq[i + 1].id);
+    }
+  }
+  return [...found];
+}
+
+// How long this segment takes: the gap between the two soonest predictions. Predictions at the tails of
+// a journey can be equal, or out of order, so an unusable gap falls back rather than producing a
+// negative duration (spec §10.3).
+export function segmentSeconds(nextEta: number, afterEta: number): number {
+  const gap = afterEta - nextEta;
+  if (!Number.isFinite(gap) || gap <= 0) return DEFAULT_SEGMENT_SECONDS;
+  return Math.min(MAX_SEGMENT_SECONDS, Math.max(MIN_SEGMENT_SECONDS, gap));
+}
+
+// Where a train probably is when its branch is unknown and it has never been seen: behind `next`, on the
+// far side from where it is heading. The station-after-next is the only other point that can be trusted,
+// and the vector between them carries roughly a segment's length, so stepping back by the fraction of
+// the run still to go lands somewhere plausible on the right side of the station.
+export function reflectBehind(next: Point, after: Point, fraction: number): Point {
+  return { x: next.x + (next.x - after.x) * fraction, y: next.y + (next.y - after.y) * fraction };
+}
+
+// Where a placement has reached, `elapsedSeconds` after it was derived. Used only to give the fallback
+// ladder something to glide FROM, so a segment is measured along its CHORD rather than its curve: the
+// error is the same few px §6.1 measures, and it is the starting point of an already-approximate glide.
+export function placementPosition(placement: Placement, elapsedSeconds: number): Point {
+  if (placement.kind === "still") return placement.at;
+  const { from, to, seconds, progress } = placement;
+  const f = clamp01(progress + (seconds > 0 ? elapsedSeconds / seconds : 1));
+  return { x: from.x + (to.x - from.x) * f, y: from.y + (to.y - from.y) * f };
+}
+
+export function resolvePlacement(
+  v: Vehicle,
+  nowMs: number,
+  previous: Sighting | undefined,
+  index = TUBE,
+): Placement | null {
+  const age = (nowMs - v.fetchedAt) / 1000;
+  if (age > STALE_SECONDS) return null;
+  const point = (id: string): Point | null => index.stations.get(id) ?? null;
+  // A vehicle carries its whole onward journey, so ageing the predictions advances it through several
+  // stations between fetches — which is what makes a ~2 minute refresh cycle enough (spec §3).
+  const aged = v.predictions.map((p) => ({ id: p.naptanId, eta: p.timeToStation - age }));
+  const upcoming = aged.filter((p) => p.eta > 0);
+
+  // Its known journey has run out: it has arrived at the last station we were told about.
+  if (!upcoming.length) {
+    const end = point(aged[aged.length - 1]?.id ?? "");
+    return end ? { kind: "still", at: end } : null;
+  }
+
+  const next = upcoming[0];
+  const nextAt = point(next.id);
+  if (!nextAt) return null; // a station outside the baked set → drop the train (spec §5)
+
+  // Not merely upcoming[1]: a looping line (the Circle) can predict the same station twice, and a
+  // repeat says nothing about which way the train is facing.
+  const after = upcoming.find((p) => p.id !== next.id);
+  const afterAt = after ? point(after.id) : null;
+
+  const glideTo = (to: Point, seconds: number, seen: Sighting): Placement => ({
+    kind: "glide",
+    from: placementPosition(seen.placement, (nowMs - seen.atMs) / 1000),
+    to,
+    seconds: Math.max(1, seconds),
+    progress: 0,
+  });
+
+  if (after && afterAt) {
+    const seconds = segmentSeconds(next.eta, after.eta);
+    const progress = clamp01(1 - next.eta / seconds);
+    const previousIds = resolvePrevious(v.lineId, next.id, after.id, index);
+    const fromAt = previousIds.length === 1 ? point(previousIds[0]) : null;
+    if (fromAt) {
+      const { name, reverse } = segmentAnimation(previousIds[0], next.id);
+      return { kind: "segment", name, reverse, seconds, progress, from: fromAt, to: nextAt };
+    }
+    if (previous) return glideTo(nextAt, next.eta, previous);
+    return { kind: "still", at: reflectBehind(nextAt, afterAt, 1 - progress) };
+  }
+
+  // One prediction left, so there is no second point to reflect through either.
+  if (previous) return glideTo(nextAt, next.eta, previous);
+  return { kind: "still", at: nextAt };
+}
+
+// ── Which trains get an element ─────────────────────────────────────────────────────────────────────
+
+// A little beyond the frame, so a train slides in rather than appearing at the edge. Off-frame trains
+// are still tracked — they just cost no DOM (spec §6).
+export const FRAME_MARGIN = 80;
+
+export function inFrame(p: Point, margin = FRAME_MARGIN): boolean {
+  return p.x >= -margin && p.x <= LONDON_MAP.width + margin && p.y >= -margin && p.y <= LONDON_MAP.height + margin;
+}
+
+export function placementVisible(placement: Placement, margin = FRAME_MARGIN): boolean {
+  return placement.kind === "still"
+    ? inFrame(placement.at, margin)
+    : inFrame(placement.from, margin) || inFrame(placement.to, margin);
+}
+
+// One pass over the feed: every vehicle that can be placed yields a sighting (the ladder's memory), and
+// the ones near the frame also yield an element.
+export function derivePlacements(
+  feed: Feed,
+  nowMs: number,
+  previous: ReadonlyMap<string, Sighting>,
+  index = TUBE,
+): { trains: Train[]; sightings: Map<string, Sighting> } {
+  const trains: Train[] = [];
+  const sightings = new Map<string, Sighting>();
+  for (const v of feed.values()) {
+    const placement = resolvePlacement(v, nowMs, previous.get(v.vehicleId), index);
+    if (!placement) continue;
+    sightings.set(v.vehicleId, { placement, atMs: nowMs });
+    if (placementVisible(placement)) trains.push({ vehicleId: v.vehicleId, lineId: v.lineId, placement });
+  }
+  return { trains, sightings };
+}
