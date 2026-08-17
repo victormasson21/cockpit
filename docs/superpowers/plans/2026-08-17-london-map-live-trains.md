@@ -479,8 +479,11 @@ grep -c "@keyframes" src/background/londonTrainSegments.data.css
 du -h src/background/londonTrainSegments.data.css
 ```
 Expected: the header comment, then `314` rules. **If the file exceeds ~120 KB, raise `TOLERANCE_PX`**
-(0.6 then 0.8) and re-run — a dot is several px across, so sub-pixel accuracy is not worth tens of KB.
-Record the final size in the commit message.
+— a dot is several px across, so sub-pixel accuracy is not worth tens of KB.
+
+**As built:** `TOLERANCE_PX = 0.8` → 314 segments, 1,597 stops, **78.6 KB**. Measured alternatives:
+0.4px = 102 KB, 0.6px = 87 KB, 1.2px = 67 KB. Stop counts run 2 (57 straight segments) to 17, so nothing
+reaches the `MAX_STOPS = 24` ceiling and the adaptive sampling is doing its job.
 
 - [ ] **Step 4: Commit**
 
