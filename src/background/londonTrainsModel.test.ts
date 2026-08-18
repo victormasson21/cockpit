@@ -6,6 +6,8 @@ import {
   correctionFor, project, vehicleKey, CORRECTION_LIMIT, CORRECTION_MIN,
   type Placement, type Sighting, type Vehicle,
 } from "./londonTrainsModel";
+import { LONDON_MAP } from "./londonMap.data";
+import { SEGMENT_ARC_LENGTHS } from "./londonTrainSegments.lengths";
 
 const st = (id: string, x: number, y: number) => ({ id, x, y });
 
@@ -201,6 +203,26 @@ describe("resolvePrevious", () => {
   it("has no answer at a terminus, where there is no previous station", () => {
     expect(resolvePrevious("northern", "KNG", "EUS", index)).toEqual([]);
   });
+
+  // Skip-stop services (Metropolitan fast/semi-fast trains) predict only their CALLING points, so the
+  // station-after-next can be several stations along the branch — requiring strict adjacency parked
+  // those trains at `next` for minutes. Search a few stations along instead.
+  it("resolves a skip-stop pair, where the station-after-next is further along the branch", () => {
+    expect(resolvePrevious("northern", "EUS", "LDB", index)).toEqual(["KNG"]);
+  });
+  it("resolves a skip-stop pair running the other way", () => {
+    expect(resolvePrevious("northern", "BNK", "KNG", index)).toEqual(["LDB"]);
+  });
+  it("gives up beyond the search window", () => {
+    const long = buildTubeIndex([{
+      id: "x",
+      stations: ["A", "B", "C", "D", "E", "F", "G", "H"].map((id, i) => ({ id, x: i * 10, y: 0 })),
+    }]);
+    expect(resolvePrevious("x", "B", "H", long)).toEqual([]); // H is 6 beyond B: past the window
+    // G is 5 beyond: the window's edge — the Met's longest real non-stopping run (Harrow-on-the-Hill to
+    // Moor Park skips four stations), confirmed live: a train sat unresolved at exactly this depth.
+    expect(resolvePrevious("x", "B", "G", long)).toEqual(["A"]);
+  });
 });
 
 describe("segmentSeconds", () => {
@@ -222,6 +244,11 @@ describe("segmentSeconds", () => {
   });
   it("caps a very long one", () => {
     expect(segmentSeconds({ x: 0, y: 0 }, { x: 5000, y: 0 })).toBe(300);
+  });
+  // The animation runs along the SPLINE, so where the bake measured that curve the chord undercuts it —
+  // the dot would take the curve at chord speed and run late everywhere along it.
+  it("prefers a baked arc length over the chord", () => {
+    expect(segmentSeconds({ x: 0, y: 0 }, { x: 82, y: 0 }, 164)).toBeCloseTo(200, 5);
   });
 });
 
@@ -312,6 +339,39 @@ describe("resolvePlacement", () => {
     expect(resolvePlacement(vehicle([["BNK", 30], ["BNK", 60], ["LDB", 150]]), 0, undefined, index))
       .toMatchObject({ kind: "segment", name: "lt-BNK-EUS" });
   });
+
+  // Over the REAL network and the REAL baked lengths: the wiring test that the duration comes from the
+  // spline's measured arc, not from the chord resolvePlacement could compute itself. The hand-built
+  // NORTHERN fixture cannot cover this — its made-up ids miss the lookup and fall back to the chord.
+  it("derives the duration from the segment's splined arc length, not its chord", () => {
+    const table = SEGMENT_ARC_LENGTHS as Record<string, number>;
+    // Find a real interior trio whose segment genuinely bows (arc > chord + 2), clamps on neither
+    // source, and resolves its branch uniquely — so the placement is deterministic with no sighting.
+    let found: { lineId: string; nextId: string; afterId: string } | null = null;
+    outer: for (const seq of LONDON_MAP.tubeLines) {
+      const lineId = lineIdOf(seq.id);
+      for (let i = 0; i + 2 < seq.stations.length; i++) {
+        const [a, b, c] = [seq.stations[i], seq.stations[i + 1], seq.stations[i + 2]];
+        const arc = table[segmentAnimation(a.id, b.id).name];
+        const chord = Math.hypot(b.x - a.x, b.y - a.y);
+        if (!arc || arc - chord <= 2 || chord / 0.82 <= 25 || arc / 0.82 >= 300) continue;
+        if (resolvePrevious(lineId, b.id, c.id).length !== 1) continue;
+        found = { lineId, nextId: b.id, afterId: c.id };
+        break outer;
+      }
+    }
+    expect(found).not.toBeNull();
+    const { lineId, nextId, afterId } = found!;
+    const v: Vehicle = {
+      key: vehicleKey(lineId, "t"), vehicleId: "t", lineId, fetchedAt: 0,
+      predictions: [{ naptanId: nextId, timeToStation: 30 }, { naptanId: afterId, timeToStation: 150 }],
+    };
+    const p = resolvePlacement(v, 0, undefined) as Extract<Placement, { kind: "segment" }>;
+    expect(p.kind).toBe("segment");
+    const chord = Math.hypot(p.to.x - p.from.x, p.to.y - p.from.y);
+    expect(table[p.name] - chord).toBeGreaterThan(2); // the two sources genuinely disagree here
+    expect(p.seconds).toBeCloseTo(table[p.name] / 0.82, 5);
+  });
 });
 
 describe("keepRunning", () => {
@@ -344,6 +404,24 @@ describe("keepRunning", () => {
     const fresh = seg(0.3);
     expect(keepRunning(undefined, fresh, 0)).toBe(fresh);
     expect(keepRunning({ placement: { kind: "still", at: { x: 0, y: 0 } }, atMs: 0 }, fresh, 0)).toBe(fresh);
+  });
+
+  // The last prediction of a journey resolves no `after`, so the fresh placement demotes to "still at
+  // the destination" — but eta > 0 says the train demonstrably is NOT there yet. Snapping it forward is
+  // wrong by up to a whole segment; the running animation is on real track and still has ground to cover.
+  it("keeps a segment running toward a still at its own destination", () => {
+    const previous: Sighting = { placement: seg(0.2), atMs: 0 };
+    expect(keepRunning(previous, { kind: "still", at: { x: 100, y: 0 } }, 10_000)).toBe(previous.placement);
+  });
+  it("parks at the destination once the running segment has completed", () => {
+    const previous: Sighting = { placement: seg(0.2), atMs: 0 };
+    const fresh: Placement = { kind: "still", at: { x: 100, y: 0 } };
+    expect(keepRunning(previous, fresh, 90_000)).toBe(fresh); // implied 0.2 + 90/100 ≥ 1: it HAS arrived
+  });
+  it("snaps to a still at a different station", () => {
+    const previous: Sighting = { placement: seg(0.2), atMs: 0 };
+    const fresh: Placement = { kind: "still", at: { x: 300, y: 300 } };
+    expect(keepRunning(previous, fresh, 10_000)).toBe(fresh);
   });
 });
 

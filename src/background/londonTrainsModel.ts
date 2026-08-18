@@ -7,6 +7,7 @@
 // pure module and a component cannot share a basename — the component would simply never be found.
 import type { CSSProperties } from "react";
 import { LONDON_MAP } from "./londonMap.data";
+import { SEGMENT_ARC_LENGTHS } from "./londonTrainSegments.lengths";
 
 export interface Point { x: number; y: number }
 export interface Station extends Point { id: string }
@@ -182,10 +183,16 @@ export const MAX_SEGMENT_SECONDS = 300;
 // prediction gap of 105s.
 export const NOMINAL_PX_PER_SECOND = 0.82;
 
-export function segmentSeconds(from: Point, to: Point): number {
-  const px = Math.hypot(to.x - from.x, to.y - from.y);
+// The bake measured each segment's arc ALONG THE SPLINE the animation actually runs on; the chord is
+// only the fallback for a pair the table does not know (which in production means a bug — the contract
+// test in scripts/trainSegments.test.mjs pins the table to the baked rules — but in the unit tests means
+// a hand-built fixture, which is exactly when the chord is the right answer).
+export function segmentSeconds(from: Point, to: Point, arcLength?: number): number {
+  const px = arcLength ?? Math.hypot(to.x - from.x, to.y - from.y);
   return Math.min(MAX_SEGMENT_SECONDS, Math.max(MIN_SEGMENT_SECONDS, px / NOMINAL_PX_PER_SECOND));
 }
+
+const ARC_LENGTHS: Record<string, number> = SEGMENT_ARC_LENGTHS;
 
 export type Placement =
   // On a drawn segment, playing that segment's baked @keyframes. from/to are carried for the frame test
@@ -210,6 +217,14 @@ export interface Train {
 
 const clamp01 = (n: number): number => Math.min(1, Math.max(0, n));
 
+// How far along a branch the station-after-next may sit. Skip-stop services (the Metropolitan's
+// fast/semi-fast trains) predict only their CALLING points, so requiring strict adjacency resolved
+// nothing for them and parked the dot at `next` for minutes. 5 covers the Met's longest real
+// non-stopping run (Harrow-on-the-Hill to Moor Park skips four stations — confirmed live, a train sat
+// unresolved at exactly that depth); small enough that a pair matching only across half a line still
+// reads as noise.
+export const RESOLVE_WINDOW = 5;
+
 // Which station a train on this line must have come from, given where it is going next and the station
 // after that. The pair (next, after-next) is what distinguishes via-Bank from via-CX: no string
 // matching, no cross-poll state. More than one answer means the branches genuinely disagree.
@@ -218,9 +233,13 @@ export function resolvePrevious(lineId: string, nextId: string, afterId: string,
   for (const seq of index.sequencesByLine.get(lineId) ?? []) {
     for (let i = 0; i < seq.length; i++) {
       if (seq[i].id !== nextId) continue;
-      // The previous station is the neighbour on the OPPOSITE side from the station-after-next.
-      if (seq[i + 1]?.id === afterId && seq[i - 1]) found.add(seq[i - 1].id);
-      if (seq[i - 1]?.id === afterId && seq[i + 1]) found.add(seq[i + 1].id);
+      // The previous station is the IMMEDIATE neighbour on the OPPOSITE side from the station-after-next
+      // — the after-next may be several stations along (skip-stop), but the track approaching `next` is
+      // the same segment either way, which is the one the dot is drawn on.
+      for (let j = 1; j <= RESOLVE_WINDOW; j++) {
+        if (seq[i + j]?.id === afterId && seq[i - 1]) found.add(seq[i - 1].id);
+        if (seq[i - j]?.id === afterId && seq[i + 1]) found.add(seq[i + 1].id);
+      }
     }
   }
   return [...found];
@@ -297,8 +316,8 @@ export function resolvePlacement(
   // line. Hold at the station: it is the one place we KNOW is on the network.
   if (!fromId || !fromAt) return { kind: "still", at: nextAt };
 
-  const seconds = segmentSeconds(fromAt, nextAt);
   const { name, reverse } = segmentAnimation(fromId, next.id);
+  const seconds = segmentSeconds(fromAt, nextAt, ARC_LENGTHS[name]);
   // eta longer than the segment takes means the train has not started it yet — it is dwelling back at
   // `from`, which is where clamping to 0 correctly parks it.
   return { kind: "segment", name, reverse, seconds, progress: clamp01(1 - next.eta / seconds), from: fromAt, to: nextAt };
@@ -332,9 +351,16 @@ export const PROGRESS_TOLERANCE = 0.08;
 // implied position would drift by one tick every tick.
 export function keepRunning(previous: Sighting | undefined, next: Placement, nowMs: number): Placement {
   const p = previous?.placement;
-  if (!p || p.kind !== "segment" || next.kind !== "segment") return next;
-  if (p.name !== next.name || p.reverse !== next.reverse || p.seconds !== next.seconds) return next;
+  if (!p || p.kind !== "segment") return next;
   const impliedNow = p.progress + (nowMs - previous.atMs) / 1000 / p.seconds;
+  if (next.kind === "still") {
+    // A journey's LAST prediction resolves no station-after-next, so the fresh placement demotes to
+    // "still at the destination" — but its eta > 0 says the train has demonstrably not arrived. While
+    // the running segment still has ground to cover, keep it: snapping the dot forward to a station it
+    // has not reached is wrong by up to a whole segment, and this is every train's end-of-journey state.
+    return next.at.x === p.to.x && next.at.y === p.to.y && impliedNow < 1 ? p : next;
+  }
+  if (p.name !== next.name || p.reverse !== next.reverse || p.seconds !== next.seconds) return next;
   return Math.abs(impliedNow - next.progress) > PROGRESS_TOLERANCE ? next : p;
 }
 

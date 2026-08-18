@@ -1059,6 +1059,30 @@ both Important findings fixed (in-batch dedupe, history pagination).
   mount per tick, which is what ruled out "re-placed dots are remounting" and pointed at ordering.
   491 JS tests (was 479); tsc + Vite clean; no Rust changes.
 
+- **London map · placement precision (2026-08-18).** Three derivation fixes, each MEASURED against the
+  live feed before merging (434 trains: 314 on segment, 120 still, 0 dropped). **(1) A journey's LAST
+  prediction no longer snaps the dot forward.** With one prediction left `resolvePlacement` demotes to
+  "still at the destination" — but eta > 0 says the train is not there. `keepRunning` now keeps the
+  running segment while its implied progress < 1 and the still sits at that segment's own `to`; it parks
+  only once the animation has arrived. 65 of 431 live trains (15%) were in this state. **(2) Skip-stop
+  services resolve.** `resolvePrevious` required (next, after-next) to be IMMEDIATELY adjacent, so the
+  Metropolitan's fast/semi-fast trains — which predict only their calling points — resolved nothing and
+  parked at `next` for minutes. It now searches `RESOLVE_WINDOW = 5` stations along each branch
+  (5 covers the Met's longest real non-stopping run, Harrow-on-the-Hill→Moor Park skipping four
+  stations — a live train sat unresolved at exactly that depth when 4 was tried); the drawn segment is
+  still from the IMMEDIATE neighbour, which is the same approach track either way. Of 58 live
+  unresolved pairs, the window fixes the fixable ones — 50 of the rest have an after-next that is on no
+  baked branch of the line at any distance (termini, feed quirks) and correctly hold still. **(3) Segment
+  durations use the spline's ARC LENGTH, not the chord.** The animation runs along the curve, so the
+  chord undercut every bowed segment (live: p50 0.7s, p90 3.6s, max 12.4s per segment).
+  `bake-train-segments.mjs` now also emits **`londonTrainSegments.lengths.ts`** (`SEGMENT_ARC_LENGTHS`,
+  keyed by animation name, ~12 KB) from the arc tables it already built; `segmentSeconds` takes an
+  optional arc length and `resolvePlacement` looks it up by name — a miss falls back to the chord, which
+  is what keeps the hand-built test fixtures honest, so the contract test in `trainSegments.test.mjs`
+  gained "every baked rule has a length, and no more" (the only thing that would notice the two
+  generated files drifting). The re-run bake left the CSS byte-identical. 503 JS tests (was 491); tsc +
+  Vite clean; no Rust changes.
+
 **Next / resuming work — read `docs/ROADMAP.md` first.** It is the single prioritized backlog, split into
 **main build sub-projects** (the big sequential arc — sub-project 5 onward: Linear tile, then GitHub/Calendar
 tiles, reusing the SP4 provider+panel + Keychain seam) and **smaller iterations** (scoped polish/enhancements). When

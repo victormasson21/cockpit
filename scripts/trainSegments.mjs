@@ -148,3 +148,15 @@ export function bakeSegmentCss(tubeLines, tolerance = TOLERANCE_PX, maxStops = M
     keyframesFor(seg.name, stopsFor(arcTable(segmentBezier(...seg.points)), tolerance, maxStops)),
   );
 }
+
+// Each segment's SPLINE arc length, keyed by the same name as its @keyframes rule. The runtime derives a
+// segment's duration from its length, and the animation runs along the spline — so the chord it could
+// compute itself underestimates every curved segment, and the dot runs late all the way along it.
+// Rounded to 0.1px like the keyframes: far below anything visible, and it shortens the file.
+export function bakeSegmentLengths(tubeLines) {
+  const out = {};
+  for (const seg of collectSegments(tubeLines).values()) {
+    out[seg.name] = Math.round(arcTable(segmentBezier(...seg.points)).total * 10) / 10;
+  }
+  return out;
+}

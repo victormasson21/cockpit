@@ -7,7 +7,7 @@ import { splineD } from "./mapGeometry.mjs";
 import { segmentAnimation } from "../src/background/londonTrainsModel.ts";
 import {
   segmentName, segmentBezier, bezierPoint, arcTable, pointAtFraction, sampleStops,
-  polylineDeviation, stopsFor, keyframesFor, collectSegments, bakeSegmentCss,
+  polylineDeviation, stopsFor, keyframesFor, collectSegments, bakeSegmentCss, bakeSegmentLengths,
 } from "./trainSegments.mjs";
 
 const st = (id, x, y) => ({ id, x, y });
@@ -134,6 +134,27 @@ describe("collectSegments", () => {
   });
 });
 
+// The runtime derives a segment's DURATION from its length, and the animation runs along the spline —
+// so the length must be the spline's arc length, not the chord the runtime could compute itself. On a
+// curvy segment the chord underestimates and the dot arrives late everywhere along it.
+describe("bakeSegmentLengths", () => {
+  it("measures a straight segment as its chord", () => {
+    const lengths = bakeSegmentLengths([{ id: "x", stations: [st("A", 0, 0), st("B", 100, 0)] }]);
+    expect(lengths["lt-A-B"]).toBeCloseTo(100, 1);
+  });
+  it("measures a curved segment as longer than its chord", () => {
+    const lengths = bakeSegmentLengths([
+      { id: "x", stations: [st("Z", 0, 100), st("A", 0, 0), st("B", 100, 0), st("Y", 100, 100)] },
+    ]);
+    expect(lengths["lt-A-B"]).toBeGreaterThan(100);
+  });
+  it("names segments exactly as the css bake does", () => {
+    const lines = [{ id: "x", stations: [st("A", 0, 0), st("B", 10, 0), st("C", 20, 0)] }];
+    const names = bakeSegmentCss(lines).map((r) => r.match(/@keyframes ([\w-]+)\{/)[1]);
+    expect(Object.keys(bakeSegmentLengths(lines)).sort()).toEqual(names.sort());
+  });
+});
+
 describe("bakeSegmentCss", () => {
   it("emits exactly one keyframes rule per segment", () => {
     const rules = bakeSegmentCss([{ id: "x", stations: [st("A", 0, 0), st("B", 10, 0), st("C", 20, 0)] }]);
@@ -174,5 +195,16 @@ describe("the generated stylesheet", () => {
   });
   it("agrees with what the bake would emit right now", () => {
     expect(baked.size).toBe(collectSegments(map.tubeLines).size);
+  });
+
+  // The lengths file is the SECOND thing the bake generates, and the runtime looks a segment's length up
+  // by its animation name — a missing key silently falls back to the chord, so nothing but this test
+  // would notice the two files drifting apart.
+  it("has an arc length for every baked rule, and no rule without one", () => {
+    const src = readFileSync(url("../src/background/londonTrainSegments.lengths.ts"), "utf8");
+    const lengths = JSON.parse(src.slice(src.indexOf("{"), src.lastIndexOf("} as const;") + 1));
+    expect(Object.keys(lengths).sort()).toEqual([...baked].sort());
+    // An arc length can never undercut its chord; a zero or negative one is a corrupt bake.
+    expect(Object.values(lengths).every((n) => Number.isFinite(n) && n > 0)).toBe(true);
   });
 });
