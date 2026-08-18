@@ -35,8 +35,12 @@
    first 40% of the radius, so the outer two thirds is a very soft wash rather than an even fill. */
 .lt__stop--core { stop-opacity: 1; }
 .lt__stop--solid { stop-opacity: 1; }
-.lt__stop--halo { stop-opacity: 0.3; }
-.lt__stop--halo-mid { stop-opacity: 0.07; }
+/* The INNER halo is where the colour has to win. A train paints over the map's white tube halo, whose
+   brightest zone is within ~2-3px of the line — the same band this ramp covers — so at 0.3 the white was
+   showing through 70% of it and the dot read as a white blob with a tint. Raised enough that the colour
+   dominates next to the core, while the outer two thirds still fades away to nothing. */
+.lt__stop--halo { stop-opacity: 0.55; }
+.lt__stop--halo-mid { stop-opacity: 0.18; }
 .lt__stop--edge { stop-opacity: 0; }
 
 /* Per line: the gradient's colour, and the fill that references it. The hexes are TfL's official 2016
@@ -87,3 +91,13 @@
 @media (prefers-reduced-motion: reduce) {
   .lt__train { animation-play-state: paused; }
 }
+
+/* And the other half of the same problem: dim the map's white tube halo, but ONLY where trains are riding
+   on it. `:has()` scopes this to the live variant without touching londonMap.css, so the static map is
+   unchanged and this whole file still deletes cleanly. If a webview ever lacks `:has()` the rule is simply
+   ignored, which degrades to the previous look rather than breaking.
+
+   Only the TUBE's halo is dimmed, not the roads': the spec's intent is that the map stays white and the
+   trains carry the only colour on screen, and a white haze sitting directly under every dot is what
+   stopped that working. */
+.lm:has(.lt__train) .lm__glow .lm__line--tube { opacity: 0.22; }

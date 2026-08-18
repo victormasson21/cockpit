@@ -35,7 +35,9 @@ export const BACKGROUNDS: BackgroundVariant[] = [
   { id: "london-map", label: "London map", render: () => <LondonMap />, attribution: TFL_ATTRIBUTION },
   {
     id: "london-map-live",
-    label: "London map · live",
+    // The id stays `london-map-live` deliberately: it is what cockpit.json persists, so renaming it would
+    // silently reset anyone's chosen background to the default.
+    label: "London Underground",
     // The same map with real Underground trains on it. A separate entry rather than a setting on the
     // static one, so choosing a background never silently starts polling, and so the trains can be
     // deleted wholesale (spec §8). Offline it degrades to precisely the static variant.
