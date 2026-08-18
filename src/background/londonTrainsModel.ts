@@ -96,7 +96,9 @@ export function parseArrivals(payload: unknown, lineId: string, fetchedAt: numbe
     const naptanId = typeof row?.naptanId === "string" ? row.naptanId : "";
     const timeToStation = typeof row?.timeToStation === "number" ? row.timeToStation : NaN;
     if (!vehicleId || !naptanId || !Number.isFinite(timeToStation) || row.lineId !== lineId) continue;
-    byVehicle.set(vehicleId, [...(byVehicle.get(vehicleId) ?? []), { naptanId, timeToStation }]);
+    const held = byVehicle.get(vehicleId);
+    if (held) held.push({ naptanId, timeToStation });
+    else byVehicle.set(vehicleId, [{ naptanId, timeToStation }]);
   }
   return [...byVehicle].map(([vehicleId, predictions]) => ({
     key: vehicleKey(lineId, vehicleId),
@@ -221,8 +223,9 @@ export function resolvePlacement(
   const point = (id: string): Point | null => index.stations.get(id) ?? null;
   // A vehicle carries its whole onward journey, so ageing the predictions advances it through several
   // stations between fetches — which is what makes a ~2 minute refresh cycle enough (spec §3).
-  const aged = v.predictions.map((p) => ({ id: p.naptanId, eta: p.timeToStation - age }));
-  const upcoming = aged.filter((p) => p.eta > 0);
+  const upcoming = v.predictions
+    .map((p) => ({ id: p.naptanId, eta: p.timeToStation - age }))
+    .filter((p) => p.eta > 0);
 
   // Its known journey has run out: every prediction we hold has expired, so we do NOT know where it is —
   // it may have terminated, or it may be running on beyond what this payload told us. Parking it at its
@@ -288,6 +291,23 @@ export function keepRunning(previous: Sighting | undefined, next: Placement, now
   if (p.name !== next.name || p.reverse !== next.reverse || p.seconds !== next.seconds) return next;
   const impliedNow = p.progress + (nowMs - previous.atMs) / 1000 / p.seconds;
   return Math.abs(impliedNow - next.progress) > PROGRESS_TOLERANCE ? next : p;
+}
+
+// The counterpart to keepRunning, for the one thing keepRunning cannot detect: a hidden window FREEZES
+// the CSS animations but not the clock the derivation runs on, so on return every running animation is
+// behind by however long we were away — and both sides of keepRunning's comparison are computed from
+// that same clock, so they still agree and it keeps the stale placement. Demoting each sighting to a
+// plain "still" at wherever it had got to states the truth (we know where the train was; nothing is
+// running any more), which makes keepRunning re-emit every placement — it only ever keeps a segment —
+// while choosePrevious keeps the position it needs to pick a branch. Harmless if a webview turns out
+// not to freeze after all: the re-emitted delay is then the position the animation already held.
+export function resyncSightings(previous: ReadonlyMap<string, Sighting>, nowMs: number): Map<string, Sighting> {
+  const out = new Map<string, Sighting>();
+  for (const [key, seen] of previous) {
+    const at = placementPosition(seen.placement, (nowMs - seen.atMs) / 1000);
+    out.set(key, { placement: { kind: "still", at }, atMs: nowMs });
+  }
+  return out;
 }
 
 // One pass over the feed: every vehicle that can be placed yields a sighting (which is what the next

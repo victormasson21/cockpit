@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   arrivalsUrl, buildTubeIndex, derivePlacements, inFrame, lineIdOf, mergeLineFeed, nextLineIndex,
   choosePrevious, keepRunning, parseArrivals, placementPosition, placementVisible, resolvePlacement,
-  resolvePrevious, segmentAnimation, segmentSeconds, trainStyle, TUBE, TUBE_LINE_IDS, vehicleKey,
+  resolvePrevious, resyncSightings, segmentAnimation, segmentSeconds, trainStyle, TUBE, TUBE_LINE_IDS,
+  vehicleKey,
   type Placement, type Sighting, type Vehicle,
 } from "./londonTrainsModel";
 
@@ -337,6 +338,35 @@ describe("inFrame", () => {
   });
   it("renders a segment with one end in view", () => {
     expect(placementVisible({ kind: "segment", name: "lt-A-B", reverse: false, seconds: 60, progress: 0, from: { x: -500, y: -500 }, to: { x: 100, y: 100 } })).toBe(true);
+  });
+});
+
+describe("resyncSightings", () => {
+  const seg = (progress: number) => ({
+    kind: "segment" as const, name: "lt-A-B", reverse: false, seconds: 100, progress,
+    from: { x: 0, y: 0 }, to: { x: 100, y: 0 },
+  });
+
+  it("holds each train where it had got to, as a still dot", () => {
+    const before = new Map([["northern:v1", { placement: seg(0.2), atMs: 0 }]]);
+    const after = resyncSightings(before, 30_000);
+    expect(after.get("northern:v1")).toEqual({
+      placement: { kind: "still", at: { x: 50, y: 0 } },
+      atMs: 30_000,
+    });
+  });
+
+  // The whole point: a frozen animation is behind, and only a re-emitted placement corrects it.
+  it("makes keepRunning re-emit, where it would otherwise have kept the frozen placement", () => {
+    const seen = { placement: seg(0.2), atMs: 0 };
+    expect(keepRunning(seen, seg(0.5), 30_000)).toBe(seen.placement);
+    const resynced = resyncSightings(new Map([["northern:v1", seen]]), 30_000).get("northern:v1")!;
+    const fresh = seg(0.5);
+    expect(keepRunning(resynced, fresh, 30_000)).toBe(fresh);
+  });
+
+  it("leaves an empty map empty, so a first mount costs nothing", () => {
+    expect(resyncSightings(new Map(), 0).size).toBe(0);
   });
 });
 

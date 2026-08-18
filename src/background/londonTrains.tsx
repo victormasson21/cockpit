@@ -5,12 +5,12 @@
 // placements. Every dot's motion is a pre-baked per-segment CSS animation, so the compositor owns all of
 // it and the main thread is idle in between — no per-frame work behind the live terminals.
 //
-// It renders a FRAGMENT, not an <svg>: the component is passed as londonMap's child and lands inside the
+// It renders a <g>, not an <svg>: the component is passed as londonMap's child and lands inside the
 // tube <g>, so it inherits the map's viewBox and drift for free and needs no projection of its own.
 import { memo, useEffect, useRef, useState } from "react";
 import {
-  arrivalsUrl, derivePlacements, mergeLineFeed, nextLineIndex, parseArrivals, trainStyle,
-  TUBE_LINE_IDS, type Feed, type Placement, type Sighting, type Train,
+  arrivalsUrl, derivePlacements, mergeLineFeed, nextLineIndex, parseArrivals, resyncSightings,
+  STALE_SECONDS, trainStyle, TUBE_LINE_IDS, type Feed, type Placement, type Sighting, type Train,
 } from "./londonTrainsModel";
 import "./londonTrains.css";
 import "./londonTrainSegments.data.css";
@@ -19,6 +19,12 @@ import "./londonTrainSegments.data.css";
 // vehicle arrives with its whole onward journey, so a fetch keeps a train moving for minutes (spec §4);
 // the tick doubles as the re-derive, which is what advances a train from one segment to the next.
 const TICK_MS = 11_000;
+
+// The cadence used until every line has been fetched once — a cold start, or coming back from a spell
+// away long enough that the stale predictions were dropped. It refills the whole map in ~15s rather than
+// the ~2min the idle rota takes, without ever fetching two lines at once (all 11 together is 3.9 MB and
+// one long parse on the main thread, which is why the rota exists at all).
+const CATCH_UP_MS = 1_500;
 
 // The HALO's radius, in user units — so a dot scales with the viewBox fit like the map's glow radius, and
 // unlike its strokes (which `vector-effect` pins to device pixels). At a typical ~0.79 fit that is ~6.7px
@@ -84,44 +90,79 @@ export function LondonTrains() {
   const feed = useRef<Feed>(new Map());
   const sightings = useRef<ReadonlyMap<string, Sighting>>(new Map());
   const rota = useRef(0);
+  // When each line last came back, which is NOT derivable from the feed: a line running no trains (late
+  // at night, or a suspension) has no vehicles to carry a fetchedAt, so it would read as never fetched
+  // and hold the catch-up cadence open for ever.
+  const lineFetchedAt = useRef(new Map<string, number>());
   const [trains, setTrains] = useState<Train[]>([]);
 
   useEffect(() => {
     if (!visible) return;
+    // Becoming visible ends a freeze, and a frozen animation is exactly what the derivation cannot see.
+    sightings.current = resyncSightings(sightings.current, Date.now());
     let cancelled = false;
     let passes = 0;
+    let hurries = 0;
     let timer = 0;
+    // Aborted on unmount, on hide, and when the variant is switched away — a line's payload is ~350 KB,
+    // and without this it keeps downloading for a layer that no longer exists.
+    const controller = new AbortController();
+    // Any line whose trains would already have been dropped as stale, plus any never fetched at all.
+    const missingLine = (now: number) =>
+      TUBE_LINE_IDS.some((id) => now - (lineFetchedAt.current.get(id) ?? 0) > STALE_SECONDS * 1000);
     const tick = async () => {
       const lineId = TUBE_LINE_IDS[rota.current];
       rota.current = nextLineIndex(rota.current, TUBE_LINE_IDS.length);
+      let fetched = false;
       try {
-        const response = await fetch(arrivalsUrl(lineId));
+        const response = await fetch(arrivalsUrl(lineId), { signal: controller.signal });
         if (!response.ok) throw new Error(`TfL ${response.status}`);
         const vehicles = parseArrivals(await response.json(), lineId, Date.now());
         if (cancelled) return;
         feed.current = mergeLineFeed(feed.current, lineId, vehicles);
+        lineFetchedAt.current.set(lineId, Date.now());
+        fetched = true;
       } catch {
         // A background has nowhere to show an error (spec §7): keep the last known positions and try
-        // again next tick. Never having succeeded at all is simply the static map.
+        // again next tick. Never having succeeded at all is simply the static map. An abort lands here
+        // too, and is caught by the `cancelled` guard below rather than by inspecting the error.
       }
       if (cancelled) return;
-      const derived = derivePlacements(feed.current, Date.now(), sightings.current);
+      const now = Date.now();
+      const derived = derivePlacements(feed.current, now, sightings.current);
       sightings.current = derived.sightings;
       setTrains(derived.trains);
       // Reduced motion: one pass over the rota places every train, and then ticking stops for good —
       // there is no animation to drive and nothing that may move, so there is nothing left to poll for.
-      if (still && ++passes >= TUBE_LINE_IDS.length) window.clearInterval(timer);
+      if (still && ++passes >= TUBE_LINE_IDS.length) return;
+      // Hurry only while the map is genuinely short of a line, and only off the back of a fetch that
+      // WORKED, and at most one pass per return-to-visible. All three bounds matter, because this is the
+      // one way a deliberately polite poller could become rude: without the second, an API that is down
+      // leaves every line missing for ever; without the third, so does a SINGLE line that persistently
+      // errors while the other ten succeed — `missingLine` would stay true and the fast cadence would
+      // never stand down. The cap makes the request rate provably bounded whatever TfL does: at most 11
+      // extra requests per return, then the idle cadence, which still refills the map.
+      const hurry = fetched && hurries < TUBE_LINE_IDS.length && missingLine(now);
+      if (hurry) hurries++;
+      timer = window.setTimeout(() => void tick(), hurry ? CATCH_UP_MS : TICK_MS);
     };
+    // Self-scheduling, NOT setInterval: each tick books the next only once it has finished, so a fetch
+    // slower than TICK_MS can never overlap the one behind it — two derives racing to place the same
+    // trains, off the same feed, in an order neither controls.
     void tick();
-    timer = window.setInterval(() => void tick(), TICK_MS);
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      controller.abort();
+      window.clearTimeout(timer);
     };
   }, [visible, still]);
 
   return (
-    <>
+    // A <g> rather than a fragment, purely so the layer has a class: londonTrains.css dims the map's
+    // white tube halo under `.lm:has(.lt)`, i.e. on this LAYER being mounted. Keying that on a train
+    // element instead would tie the map's brightness to the data — a visible pop when the first
+    // response lands, and no dimming at all offline, which is the one case the tube is on its own.
+    <g className="lt">
       {/* One gradient per line, colour-free: the stops take their colour from the stylesheet, which is
           what keeps the 11 hexes out of this file. The OFFSETS are the dot's shape — see SOLID_STOP. */}
       <defs>
@@ -141,6 +182,6 @@ export function LondonTrains() {
       {trains.map((train) => (
         <TrainDot key={train.key} lineId={train.lineId} placement={train.placement} />
       ))}
-    </>
+    </g>
   );
 }

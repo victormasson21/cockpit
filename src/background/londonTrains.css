@@ -14,6 +14,21 @@
   /* `both`, so a train that has arrived holds at its station instead of snapping back to the start —
      which is also what a real train does while the next refresh is on its way. */
   animation-fill-mode: both;
+  transition: opacity 600ms ease-out;
+}
+
+/* Trains arrive in clumps — a whole line at a time on the catch-up rota, and ~270 of them at once on a
+   cold start — so without this the map pops into existence line by line. `opacity` is a compositor
+   property like `transform`, so this costs about what the motion does: nothing per frame on the main
+   thread.
+
+   It is a TRANSITION out of @starting-style, NOT a second entry in the inline animation lists, and that
+   is the whole trick: a transition fires on a value CHANGING, and opacity never changes again after the
+   element mounts. Appending `lt-fade-in` to animation-name would instead replay the fade on every
+   re-emit — a blink each time a train changed segment, and the entire map twinkling after a resync.
+   Unsupported @starting-style degrades to no fade at all, which is exactly today's behaviour. */
+@starting-style {
+  .lt__train { opacity: 0; }
 }
 
 /* The glow. It is a radial-gradient FILL, not an SVG filter and not box-shadow, for three reasons:
@@ -89,15 +104,20 @@
    the train has reached, which no static transform could reproduce without evaluating the spline at
    runtime. Polling also stops after one pass; see londonTrains.tsx. */
 @media (prefers-reduced-motion: reduce) {
-  .lt__train { animation-play-state: paused; }
+  .lt__train { animation-play-state: paused; transition: none; }
 }
 
-/* And the other half of the same problem: dim the map's white tube halo, but ONLY where trains are riding
-   on it. `:has()` scopes this to the live variant without touching londonMap.css, so the static map is
-   unchanged and this whole file still deletes cleanly. If a webview ever lacks `:has()` the rule is simply
-   ignored, which degrades to the previous look rather than breaking.
+/* And the other half of the same problem: dim the map's white tube halo, but ONLY in the variant that has
+   trains riding on it. `:has()` scopes this to the live variant without touching londonMap.css, so the
+   static map is unchanged and this whole file still deletes cleanly. If a webview ever lacks `:has()` the
+   rule is simply ignored, which degrades to the previous look rather than breaking.
+
+   It matches the LAYER (`.lt`, which is always there once the variant is mounted), not a train element:
+   keying it on `.lt__train` tied the map's brightness to the data, so the tube visibly dimmed a second
+   after launch when the first response landed, and stayed undimmed offline — the one case where the tube
+   is on its own and there is nothing to dim it for.
 
    Only the TUBE's halo is dimmed, not the roads': the spec's intent is that the map stays white and the
    trains carry the only colour on screen, and a white haze sitting directly under every dot is what
    stopped that working. */
-.lm:has(.lt__train) .lm__glow .lm__line--tube { opacity: 0.22; }
+.lm:has(.lt) .lm__glow .lm__line--tube { opacity: 0.22; }
