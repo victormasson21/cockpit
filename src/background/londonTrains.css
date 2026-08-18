@@ -23,9 +23,15 @@
    halo and the core are a single element, so a train is one <circle> rather than three nodes.
 
    The stops carry the SHAPE (shared) and the per-line blocks below carry the COLOUR, which is what
-   keeps every hex in this stylesheet. */
-.lt__stop--core { stop-opacity: 0.95; }
-.lt__stop--mid { stop-opacity: 0.5; }
+   keeps every hex in this stylesheet.
+
+   The dot is a solid core plus a slight glow, not a soft blob: `core` and `solid` are both fully opaque,
+   so everything inside the solid stop's offset (see londonTrains.tsx) is a crisp ~2px disc, and only what
+   lies beyond it fades. The halo starts well under half strength — a train should read as a bright point
+   with a breath around it, not as a smudge. */
+.lt__stop--core { stop-opacity: 1; }
+.lt__stop--solid { stop-opacity: 1; }
+.lt__stop--halo { stop-opacity: 0.32; }
 .lt__stop--edge { stop-opacity: 0; }
 
 /* Per line: the gradient's colour, and the fill that references it. The hexes are TfL's official 2016

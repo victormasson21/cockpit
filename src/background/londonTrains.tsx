@@ -20,9 +20,11 @@ import "./londonTrainSegments.data.css";
 // the tick doubles as the re-derive, which is what advances a train from one segment to the next.
 const TICK_MS = 11_000;
 
-// User units, so a dot scales with the viewBox fit like the glow radius and unlike the strokes — about
-// 8 device px across the halo at a typical window, with a ~2px core inside it.
-const TRAIN_RADIUS = 6;
+// The HALO's radius, in user units — so a dot scales with the viewBox fit like the map's glow radius, and
+// unlike its strokes (which `vector-effect` pins to device pixels). At a typical ~0.7 fit that is ~3px
+// device radius, i.e. a ~6px halo around a ~2px solid core. The core's share is set by where the
+// gradient's solid stop sits, below.
+const TRAIN_RADIUS = 4.5;
 
 const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
 
@@ -100,13 +102,17 @@ export function LondonTrains() {
 
   return (
     <>
-      {/* One gradient per line, colour-free: the stops take both their shape and their colour from the
-          stylesheet, which is what keeps the 11 hexes out of this file. */}
+      {/* One gradient per line, colour-free: the stops take their colour from the stylesheet, which is
+          what keeps the 11 hexes out of this file. The OFFSETS are the dot's shape: fully opaque out to
+          `solid` gives a crisp ~2px core rather than a fuzzy blob, and everything beyond it is the glow.
+          Two stops at the same offset would be a hard rim, so the solid edge falls off over a short
+          ramp. */}
       <defs>
         {TUBE_LINE_IDS.map((lineId) => (
           <radialGradient key={lineId} id={`lt-g-${lineId}`}>
             <stop className="lt__stop--core" offset="0" />
-            <stop className="lt__stop--mid" offset="0.4" />
+            <stop className="lt__stop--solid" offset="0.34" />
+            <stop className="lt__stop--halo" offset="0.46" />
             <stop className="lt__stop--edge" offset="1" />
           </radialGradient>
         ))}
