@@ -983,6 +983,35 @@ both Important findings fixed (in-batch dedupe, history pagination).
     rendered a kept placement from the previous tick instead of from its own start time. An isolation
     experiment (aged vs fresh prediction for the same train at the same instant: median 23px, p90 52px)
     is what exposed the bad instrument.
+  - **Returning to a hidden window needs BOTH halves (code review, 2026-08-18).** Hiding freezes the CSS
+    animations but not the clock the derivation runs on, and `keepRunning` cannot see that: its implied
+    position and the fresh one come from that same clock, so they still agree and it keeps a placement
+    whose animation is behind by however long you were away. `resyncSightings` (called at the top of the
+    effect, i.e. on becoming visible) demotes every sighting to a **`still` at wherever it had got to** —
+    the literal truth after a freeze — which forces a re-emit, since `keepRunning` only ever keeps a
+    *segment*, while `choosePrevious` keeps the position it needs to pick a branch. The other half is the
+    map being nearly EMPTY on return: past `STALE_SECONDS` every prediction is dropped, and the one-line
+    rota then takes ~2min to refill. Fixed by a **catch-up cadence** (`CATCH_UP_MS` 1.5s while any line is
+    missing or stale, `TICK_MS` 11s once all 11 are fresh), which also fills the map ~8× faster on a cold
+    start. Deliberately NOT fixed by raising `STALE_SECONDS`: past ~5 minutes the aged predictions are
+    fiction, so the answer is to fetch real data fast, not to draw old data longer. Three guards are
+    load-bearing — the hurry is gated on the fetch having SUCCEEDED (a down API would otherwise be polled
+    every 1.5s for as long as the app is open); it is **capped at one pass per return-to-visible** (a
+    SINGLE persistently-erroring line would otherwise keep `missingLine` true for ever while the other ten
+    succeeded, sustaining ~25 req/min to no purpose); and `lineFetchedAt` is its own ref rather than
+    derived from the feed (a line running no trains has no vehicle to carry a `fetchedAt`, so it would
+    read as never fetched and hold the fast cadence open for ever). With the cap the request rate is
+    provably bounded: ~5.5/min idle, ≤16 in any minute containing a full catch-up, against TfL's free
+    unmetered API (spec §3: no key, no account, no cost). Same pass: the tick self-schedules with
+    `setTimeout` instead of `setInterval` (a fetch slower than the tick can no longer overlap the one
+    behind it) and carries an `AbortController`; and the map's white tube halo is dimmed under
+    `.lm:has(.lt)` — the LAYER — not `.lt__train`, which tied the map's brightness to the data (a visible
+    pop when the first response landed, and no dimming at all offline). Trains also **fade in over 600ms on
+    mount**, which the catch-up rota made worth having (a line at a time arriving, ~270 at once on a cold
+    start). It is a `transition` out of **`@starting-style`**, deliberately NOT a second entry in the
+    inline `animation-*` lists: a transition fires on a value changing and opacity never changes again,
+    whereas an appended `animation-name` would replay on every re-emit — a blink whenever a train changed
+    segment, and the whole map twinkling after a resync.
   Spec: `docs/superpowers/specs/2026-08-17-london-map-live-trains-design.md`; plan:
   `docs/superpowers/plans/2026-08-17-london-map-live-trains.md`.
 
