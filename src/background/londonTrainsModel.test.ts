@@ -3,7 +3,7 @@ import {
   arrivalsUrl, buildTubeIndex, derivePlacements, inFrame, lineIdOf, mergeLineFeed, nextLineIndex,
   choosePrevious, keepRunning, parseArrivals, placementPosition, placementVisible, resolvePlacement,
   resolvePrevious, resyncSightings, segmentAnimation, segmentSeconds, trainStyle, TUBE, TUBE_LINE_IDS,
-  vehicleKey,
+  correctionFor, project, vehicleKey, CORRECTION_LIMIT, CORRECTION_MIN,
   type Placement, type Sighting, type Vehicle,
 } from "./londonTrainsModel";
 
@@ -49,6 +49,23 @@ describe("the real baked data", () => {
   });
   it("indexes every station the sequences mention", () => {
     expect(TUBE.stations.size).toBeGreaterThan(200);
+  });
+});
+
+// The bake projected every station through this same arithmetic, so the check that matters is that a
+// station's real WGS84 coordinates come back as the pixel the data already holds. Nothing else connects
+// the runtime helper to scripts/mapGeometry.mjs.
+describe("project", () => {
+  it("reproduces a baked station from its real coordinates", () => {
+    const kingsCross = TUBE.stations.get("940GZZLUKSX")!;
+    const p = project(51.530663, -0.123194);
+    expect(p.x).toBeCloseTo(kingsCross.x, 1);
+    expect(p.y).toBeCloseTo(kingsCross.y, 1);
+  });
+  it("grows y downwards from the northern edge, as SVG does", () => {
+    const north = project(51.566, -0.2549);
+    expect(north).toEqual({ x: 0, y: 0 });
+    expect(project(51.5, -0.2549).y).toBeGreaterThan(0);
   });
 });
 
@@ -117,6 +134,22 @@ describe("mergeLineFeed", () => {
   it("replaces the refreshed line wholesale, so a vanished train disappears", () => {
     const feed = mergeLineFeed(new Map([["central:1", vehicle("1", "central")]]), "central", [vehicle("2", "central")]);
     expect([...feed.keys()]).toEqual(["central:2"]);
+  });
+  // ⚠️ The order of this map is the order of the rendered <g> elements. Re-inserting a DOM node re-runs
+  // @starting-style, so a refresh that reshuffled its line replayed the fade-in for every train on it.
+  it("keeps a surviving train in its original slot, so its element is never re-inserted", () => {
+    const feed = new Map([
+      ["central:1", vehicle("1", "central")],
+      ["victoria:9", vehicle("9", "victoria")],
+      ["central:2", vehicle("2", "central")],
+    ]);
+    const next = mergeLineFeed(feed, "central", [vehicle("2", "central"), vehicle("1", "central")]);
+    expect([...next.keys()]).toEqual(["central:1", "victoria:9", "central:2"]);
+  });
+  it("appends a train that is genuinely new, which is where a fade-in belongs", () => {
+    const feed = new Map([["central:1", vehicle("1", "central")], ["victoria:9", vehicle("9", "victoria")]]);
+    const next = mergeLineFeed(feed, "central", [vehicle("1", "central"), vehicle("3", "central")]);
+    expect([...next.keys()]).toEqual(["central:1", "victoria:9", "central:3"]);
   });
   it("does not mutate the feed it was given", () => {
     const before = new Map([["central:1", vehicle("1", "central")]]);
@@ -353,6 +386,9 @@ describe("resyncSightings", () => {
     expect(after.get("northern:v1")).toEqual({
       placement: { kind: "still", at: { x: 50, y: 0 } },
       atMs: 30_000,
+      // Marked, because this position was INFERRED from a frozen animation rather than observed — see
+      // correctionFor, which refuses to slide a train onto it.
+      resynced: true,
     });
   });
 
@@ -367,6 +403,45 @@ describe("resyncSightings", () => {
 
   it("leaves an empty map empty, so a first mount costs nothing", () => {
     expect(resyncSightings(new Map(), 0).size).toBe(0);
+  });
+});
+
+describe("correctionFor", () => {
+  const at = (x: number): Placement => ({ kind: "still", at: { x, y: 0 } });
+  const seen = (x: number, extra: Partial<Sighting> = {}): Sighting => ({ placement: at(x), atMs: 0, ...extra });
+
+  it("offsets from where the train is being drawn back onto where the new placement starts", () => {
+    expect(correctionFor(seen(30), at(40), 0)).toEqual({ dx: -10, dy: 0 });
+  });
+
+  // The bound is the whole design: a correction renders the dot on its real curve DISPLACED, so an
+  // unbounded one would drag it across open map — §5's deleted glide, in a shorter coat.
+  it("declines a correction beyond the limit, leaving the train to snap", () => {
+    expect(correctionFor(seen(0), at(CORRECTION_LIMIT + 1), 0)).toBeUndefined();
+    expect(correctionFor(seen(0), at(CORRECTION_LIMIT - 1), 0)).toBeDefined();
+  });
+
+  it("declines one too small to be worth scheduling", () => {
+    expect(correctionFor(seen(0), at(CORRECTION_MIN / 2), 0)).toBeUndefined();
+  });
+
+  // A train appearing for the first time has nowhere to slide FROM; it fades in instead.
+  it("declines when there is no previous sighting", () => {
+    expect(correctionFor(undefined, at(10), 0)).toBeUndefined();
+  });
+
+  // After a freeze we only THINK we know where the dot is (resyncSightings ages a stopped animation), and
+  // a correction started from a wrong position is a jump followed by a slide — worse than a plain snap.
+  it("declines on a resynced sighting, whose position was inferred rather than observed", () => {
+    expect(correctionFor(seen(30, { resynced: true }), at(40), 0)).toBeUndefined();
+  });
+
+  it("measures from where the train has got to by now, not from where the sighting was taken", () => {
+    const moving: Sighting = {
+      placement: { kind: "segment", name: "lt-A-B", reverse: false, seconds: 100, progress: 0, from: { x: 0, y: 0 }, to: { x: 100, y: 0 } },
+      atMs: 0,
+    };
+    expect(correctionFor(moving, at(30), 10_000)).toEqual({ dx: -20, dy: 0 });
   });
 });
 
@@ -405,6 +480,22 @@ describe("derivePlacements", () => {
     const first = derivePlacements(feed, 0, new Map(), index);
     const second = derivePlacements(feed, 11_000, first.sightings, index);
     expect(second.trains[0].placement).toBe(first.trains[0].placement);
+  });
+  // The two halves of the correction contract, on the path they actually travel.
+  it("carries no correction for a train whose animation it left alone", () => {
+    const first = derivePlacements(feed, 0, new Map(), index);
+    const second = derivePlacements(feed, 11_000, first.sightings, index);
+    expect(second.trains[0].correction).toBeUndefined();
+  });
+  it("carries a correction for a train it re-placed within the limit", () => {
+    const first = derivePlacements(feed, 0, new Map(), index);
+    // Same segment, a prediction 15s later than the running animation believes — past
+    // PROGRESS_TOLERANCE, so it re-places, and a short way back along EUS -> BNK.
+    const nudged = new Map([["northern:v1", vehicle([["BNK", 45], ["LDB", 165]])]]);
+    const { trains } = derivePlacements(nudged, 0, first.sightings, index);
+    expect(trains[0].placement).not.toBe(first.trains[0].placement);
+    expect(trains[0].correction!.dx).toBeCloseTo(8.7, 1);
+    expect(trains[0].correction!.dy).toBeCloseTo(8.7, 1);
   });
   it("re-stamps one it did interrupt", () => {
     const first = derivePlacements(feed, 0, new Map(), index);

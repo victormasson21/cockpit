@@ -5,16 +5,35 @@
    londonTrainSegments.data.css, so every dot lives on the compositor and the main thread stays idle
    behind the live terminals — the same contract the map itself keeps. */
 
-.lt__train {
-  /* `.lm` sets `fill: none; stroke: #fff` on the whole <svg>, and a CSS rule beats a presentation
-     attribute, so both have to be set HERE — a fill="…" on the circle would silently lose. */
-  stroke: none;
+/* The animated element is the GROUP, so the dot and its id label are carried by one animation and can
+   never drift apart — two siblings playing the same @keyframes would be a frame apart on mount and
+   would have to be kept in step for ever after. */
+.lt__vehicle {
   animation-timing-function: linear;
   animation-iteration-count: 1;
   /* `both`, so a train that has arrived holds at its station instead of snapping back to the start —
      which is also what a real train does while the next refresh is on its way. */
   animation-fill-mode: both;
   transition: opacity 600ms ease-out;
+}
+
+.lt__train {
+  /* `.lm` sets `fill: none; stroke: #fff` on the whole <svg>, and a CSS rule beats a presentation
+     attribute, so both have to be set HERE — a fill="…" on the circle would silently lose. */
+  stroke: none;
+}
+
+/* The vehicle id, sat bottom-right of its dot (offsets in londonTrains.tsx). `stroke: none` is not
+   optional: `.lm` strokes everything white, which would outline every glyph and make the text unreadable
+   at this size. Size is in USER units like TRAIN_RADIUS, so the label scales with the viewBox fit rather
+   than staying a fixed device size — at a typical ~0.79 fit, 10 reads as ~8 device px. */
+.lt__label {
+  stroke: none;
+  font-family: var(--mono, ui-monospace, "SF Mono", Menlo, monospace);
+  font-size: 10px;
+  /* Trains are the only colour on the map and there can be ~270 of them, so the ids are pulled back a
+     little from the dots' full strength: enough to read, not enough to become the subject. */
+  fill-opacity: 0.85;
 }
 
 /* Trains arrive in clumps — a whole line at a time on the catch-up rota, and ~270 of them at once on a
@@ -28,7 +47,7 @@
    re-emit — a blink each time a train changed segment, and the entire map twinkling after a resync.
    Unsupported @starting-style degrades to no fade at all, which is exactly today's behaviour. */
 @starting-style {
-  .lt__train { opacity: 0; }
+  .lt__vehicle { opacity: 0; }
 }
 
 /* The glow. It is a radial-gradient FILL, not an SVG filter and not box-shadow, for three reasons:
@@ -58,53 +77,89 @@
 .lt__stop--halo-mid { stop-opacity: 0.18; }
 .lt__stop--edge { stop-opacity: 0; }
 
-/* Per line: the gradient's colour, and the fill that references it. The hexes are TfL's official 2016
-   palette, verbatim, with two documented exceptions — see northern and piccadilly. The map's own lines
-   stay white, so these dots carry the only colour on screen (spec §6). */
-#lt-g-bakerloo stop { stop-color: #b36305; }
+/* The line palette. TfL's official 2016 hexes, verbatim, with two documented exceptions below. The map's
+   own lines stay white, so these dots carry the only colour on screen (spec §6).
+
+   Each hex is stated ONCE and consumed twice — by the dot's gradient and by its id label — which is what
+   makes "the label is the same colour as the dot" a fact about the stylesheet rather than a pair of
+   literals that can quietly drift apart. It has to live on `.lt` rather than on the train elements
+   because a gradient's stops sit in <defs>, where no train is an ancestor; custom properties inherit
+   down from the layer to the gradients, the labels and the rota indicator alike. */
+.lt {
+  --lt-bakerloo: #b36305;
+  --lt-central: #e32017;
+  --lt-circle: #ffd300;
+  --lt-district: #00782a;
+  --lt-hammersmith-city: #f3a9bb;
+  --lt-jubilee: #a0a5a9;
+  /* NOT TfL's #000000: a black dot on the app's near-black ground is not a dim train, it is an absent
+     line. Lifted to a light grey — deliberately lighter than the Jubilee's #a0a5a9 so the two greys stay
+     tellable apart. */
+  --lt-northern: #d0d0d0;
+  --lt-metropolitan: #9b0056;
+  /* NOT TfL's #003688 for the same reason: a dark navy dot vanishes against the #122a3e ground. Lifted
+     just far enough to read, keeping the line's blue identity. */
+  --lt-piccadilly: #3060c8;
+  --lt-victoria: #0098d4;
+  --lt-waterloo-city: #95cdba;
+}
+
+#lt-g-bakerloo stop { stop-color: var(--lt-bakerloo); }
 .lt__train--bakerloo { fill: url(#lt-g-bakerloo); }
+.lt__label--bakerloo { fill: var(--lt-bakerloo); }
 
-#lt-g-central stop { stop-color: #e32017; }
+#lt-g-central stop { stop-color: var(--lt-central); }
 .lt__train--central { fill: url(#lt-g-central); }
+.lt__label--central { fill: var(--lt-central); }
 
-#lt-g-circle stop { stop-color: #ffd300; }
+#lt-g-circle stop { stop-color: var(--lt-circle); }
 .lt__train--circle { fill: url(#lt-g-circle); }
+.lt__label--circle { fill: var(--lt-circle); }
 
-#lt-g-district stop { stop-color: #00782a; }
+#lt-g-district stop { stop-color: var(--lt-district); }
 .lt__train--district { fill: url(#lt-g-district); }
+.lt__label--district { fill: var(--lt-district); }
 
-#lt-g-hammersmith-city stop { stop-color: #f3a9bb; }
+#lt-g-hammersmith-city stop { stop-color: var(--lt-hammersmith-city); }
 .lt__train--hammersmith-city { fill: url(#lt-g-hammersmith-city); }
+.lt__label--hammersmith-city { fill: var(--lt-hammersmith-city); }
 
-#lt-g-jubilee stop { stop-color: #a0a5a9; }
+#lt-g-jubilee stop { stop-color: var(--lt-jubilee); }
 .lt__train--jubilee { fill: url(#lt-g-jubilee); }
+.lt__label--jubilee { fill: var(--lt-jubilee); }
 
-#lt-g-metropolitan stop { stop-color: #9b0056; }
+#lt-g-metropolitan stop { stop-color: var(--lt-metropolitan); }
 .lt__train--metropolitan { fill: url(#lt-g-metropolitan); }
+.lt__label--metropolitan { fill: var(--lt-metropolitan); }
 
-/* NOT TfL's #000000: a black dot on the app's near-black ground is not a dim train, it is an absent
-   line. Lifted to a light grey — deliberately lighter than the Jubilee's #a0a5a9 so the two greys stay
-   tellable apart. */
-#lt-g-northern stop { stop-color: #d0d0d0; }
+#lt-g-northern stop { stop-color: var(--lt-northern); }
 .lt__train--northern { fill: url(#lt-g-northern); }
+.lt__label--northern { fill: var(--lt-northern); }
 
-/* NOT TfL's #003688 for the same reason: a dark navy dot vanishes against the #122a3e ground. Lifted
-   just far enough to read, keeping the line's blue identity. */
-#lt-g-piccadilly stop { stop-color: #3060c8; }
+#lt-g-piccadilly stop { stop-color: var(--lt-piccadilly); }
 .lt__train--piccadilly { fill: url(#lt-g-piccadilly); }
+.lt__label--piccadilly { fill: var(--lt-piccadilly); }
 
-#lt-g-victoria stop { stop-color: #0098d4; }
+#lt-g-victoria stop { stop-color: var(--lt-victoria); }
 .lt__train--victoria { fill: url(#lt-g-victoria); }
+.lt__label--victoria { fill: var(--lt-victoria); }
 
-#lt-g-waterloo-city stop { stop-color: #95cdba; }
+#lt-g-waterloo-city stop { stop-color: var(--lt-waterloo-city); }
 .lt__train--waterloo-city { fill: url(#lt-g-waterloo-city); }
+.lt__label--waterloo-city { fill: var(--lt-waterloo-city); }
+
+/* Which line the rota refreshes next, drawn at a fixed geographic point (NEXT_LINE_AT in
+   londonTrains.tsx). `stroke: none` for the same reason the label needs it — `.lm` strokes everything
+   white — and the fill arrives inline, per line. Flat, with no halo: it is a marker, not a train, and
+   the glow is what says "this thing is moving". */
+.lt-next { stroke: none; }
 
 /* Reduced motion: the trains hold still. Pausing rather than removing the animation is what keeps them
    in the RIGHT places — a paused animation with a negative delay renders the exact point on the curve
    the train has reached, which no static transform could reproduce without evaluating the spline at
    runtime. Polling also stops after one pass; see londonTrains.tsx. */
 @media (prefers-reduced-motion: reduce) {
-  .lt__train { animation-play-state: paused; transition: none; }
+  .lt__vehicle { animation-play-state: paused; transition: none; }
 }
 
 /* And the other half of the same problem: dim the map's white tube halo, but ONLY in the variant that has
