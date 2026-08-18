@@ -7,17 +7,10 @@
 // deliberate (spec §8): the map and the trains stay separate units, so the trains can be deleted without
 // re-baking the map, and this script is safe to re-run at any time because its input is committed.
 import { readFile, writeFile } from "node:fs/promises";
-import { bakeSegmentCss, collectSegments } from "./trainSegments.mjs";
+import { bakeSegmentCss, MAX_STOPS, TOLERANCE_PX } from "./trainSegments.mjs";
 
 const IN = new URL("../src/background/londonMap.data.ts", import.meta.url);
 const OUT = new URL("../src/background/londonTrainSegments.data.css", import.meta.url);
-
-// How far the stop polyline may cut the corner off the curve, in USER units. The stops themselves sit
-// exactly on the curve, so this is only the chord error between them. Measured: 0.4px costs 102 KB and
-// 0.8px costs 78 KB, and 0.8 user units is ~0.6 device px at a typical window fit — well inside the dot's
-// own ~4px radius, so the extra 24 KB buys nothing anybody can see.
-const TOLERANCE_PX = 0.8;
-const MAX_STOPS = 24;
 
 // The data file is `export const LONDON_MAP = {...} as const;` — one JSON object with a TS wrapper. It is
 // read as text and JSON.parse'd rather than imported, because this is plain Node with no TS loader.
@@ -31,7 +24,8 @@ async function readMap() {
 
 async function main() {
   const map = await readMap();
-  const segments = collectSegments(map.tubeLines);
+  // One rule per segment, so the rule count IS the segment count — no second walk over the tube data
+  // just to report what the bake has already collected.
   const rules = bakeSegmentCss(map.tubeLines, TOLERANCE_PX, MAX_STOPS);
   const stops = rules.reduce((n, r) => n + (r.match(/%\{/g)?.length ?? 0), 0);
 
@@ -50,7 +44,7 @@ async function main() {
 ${rules.join("\n")}
 `;
   await writeFile(OUT, css);
-  console.log(`${segments.size} segments, ${stops} stops, ${(css.length / 1024).toFixed(1)} KB`);
+  console.log(`${rules.length} segments, ${stops} stops, ${(css.length / 1024).toFixed(1)} KB`);
   console.log(`wrote ${OUT.pathname}`);
 }
 

@@ -7,6 +7,16 @@
 // curve-following with zero per-frame main-thread work, which is the point: `offset-path` would also
 // follow the curve but is not compositor-accelerated in WebKit.
 
+// How far the stop polyline may cut the corner off the curve, in USER units, and the ceiling on stops per
+// segment. They live HERE, as the defaults of the functions that consume them, rather than in the bake
+// script: the committed stylesheet is only reproducible if every caller uses the same numbers, and a
+// default that differs from what the bake passes is a wrong answer waiting for someone to take it.
+// Measured: 0.4px costs 102 KB and 0.8px costs 78 KB, and 0.8 user units is ~0.6 device px at a typical
+// window fit — well inside the dot's own ~4px radius, so the extra 24 KB buys nothing anybody can see.
+// The ceiling bounds the pathological case rather than describing any real segment.
+export const TOLERANCE_PX = 0.8;
+export const MAX_STOPS = 24;
+
 // The two ids sorted, so ONE rule serves both directions — the runtime plays it backwards with
 // `animation-direction: reverse`. NaptanIds are alphanumeric, so they need no escaping as CSS idents,
 // and the `lt-` prefix keeps the name from starting with a digit.
@@ -90,9 +100,8 @@ export function polylineDeviation(table, stops) {
 }
 
 // Adaptive: the fewest stops that hold the tolerance. 22% of segments bow under 1px and get two stops,
-// so only genuinely curved ones cost bytes (spec §6.1). The ceiling bounds the pathological case
-// rather than describing any real segment.
-export function stopsFor(table, tolerance, max = 24) {
+// so only genuinely curved ones cost bytes (spec §6.1).
+export function stopsFor(table, tolerance = TOLERANCE_PX, max = MAX_STOPS) {
   for (let n = 2; n < max; n++) {
     const stops = sampleStops(table, n);
     if (polylineDeviation(table, stops) <= tolerance) return stops;
@@ -134,7 +143,7 @@ export function collectSegments(tubeLines) {
   return out;
 }
 
-export function bakeSegmentCss(tubeLines, tolerance = 0.4, maxStops = 24) {
+export function bakeSegmentCss(tubeLines, tolerance = TOLERANCE_PX, maxStops = MAX_STOPS) {
   return [...collectSegments(tubeLines).values()].map((seg) =>
     keyframesFor(seg.name, stopsFor(arcTable(segmentBezier(...seg.points)), tolerance, maxStops)),
   );
