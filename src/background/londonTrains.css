@@ -29,13 +29,14 @@
    everything inside SOLID_STOP (londonTrains.tsx) is a flat, crisp disc, and the drop to `halo` is a hard
    edge so that a core barely a pixel across still reads as solid. Only the glow beyond it fades.
 
-   The halo now covers most of the gradient, so its opacity is LOWER than when it started at 46% — the same
-   alpha over that much more area would read as a smudge rather than a point with a breath around it.
-   `halo-mid` is what keeps the falloff quick near the core instead of a wide even wash. */
+   The halo is WIDE and FAINT, and those two pull against each other: alpha has to come down every time the
+   radius goes up, or ~270 overlapping haloes wash the map out instead of reading as points with a breath
+   around them. `halo-mid` is what buys the width cheaply — it drops most of the brightness within the
+   first 40% of the radius, so the outer two thirds is a very soft wash rather than an even fill. */
 .lt__stop--core { stop-opacity: 1; }
 .lt__stop--solid { stop-opacity: 1; }
-.lt__stop--halo { stop-opacity: 0.42; }
-.lt__stop--halo-mid { stop-opacity: 0.14; }
+.lt__stop--halo { stop-opacity: 0.3; }
+.lt__stop--halo-mid { stop-opacity: 0.07; }
 .lt__stop--edge { stop-opacity: 0; }
 
 /* Per line: the gradient's colour, and the fill that references it. The hexes are TfL's official 2016

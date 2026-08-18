@@ -21,19 +21,20 @@ import "./londonTrainSegments.data.css";
 const TICK_MS = 11_000;
 
 // The HALO's radius, in user units — so a dot scales with the viewBox fit like the map's glow radius, and
-// unlike its strokes (which `vector-effect` pins to device pixels). At a typical ~0.79 fit that is ~5.3px
-// device radius: a ~10.5px glow around a ~2px solid core, the core's share being SOLID_STOP below.
-const TRAIN_RADIUS = 6.7;
+// unlike its strokes (which `vector-effect` pins to device pixels). At a typical ~0.79 fit that is ~6.7px
+// device radius: a ~13px glow around a ~2px solid core, the core's share being SOLID_STOP below.
+const TRAIN_RADIUS = 8.5;
 
-// Where the solid core ends, as a fraction of the radius — 19% of ~5.3px is a ~2px core. The halo picks up
+// Where the solid core ends, as a fraction of the radius — 15% of ~6.7px is a ~2px core. Note this
+// fraction has to SHRINK whenever the glow widens, or the core grows with it. The halo picks up
 // a hair later (HALO_STOP) rather than at the same offset, because two stops at an identical offset are
 // not reliably rendered; the gap is deliberately far too small to read as a ramp, which is the point. A
 // core this small CANNOT look crisp if the gradient fades from the centre outwards, so the drop from
 // solid to halo is a hard edge. That is not the "hard rim" the glow avoids — that rule is about the
 // halo's OUTER edge, which still fades to zero alpha.
-const SOLID_STOP = 0.19;
-const HALO_STOP = 0.195;
-const HALO_MID_STOP = 0.45;
+const SOLID_STOP = 0.15;
+const HALO_STOP = 0.155;
+const HALO_MID_STOP = 0.4;
 
 const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
 
