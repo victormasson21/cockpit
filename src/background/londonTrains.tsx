@@ -7,10 +7,11 @@
 //
 // It renders a <g>, not an <svg>: the component is passed as londonMap's child and lands inside the
 // tube <g>, so it inherits the map's viewBox and drift for free and needs no projection of its own.
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   arrivalsUrl, derivePlacements, mergeLineFeed, nextLineIndex, parseArrivals, resyncSightings,
-  STALE_SECONDS, trainStyle, TUBE_LINE_IDS, type Feed, type Placement, type Sighting, type Train,
+  project, STALE_SECONDS, trainStyle, TUBE_LINE_IDS,
+  type Correction, type Feed, type Placement, type Sighting, type Train,
 } from "./londonTrainsModel";
 import "./londonTrains.css";
 import "./londonTrainSegments.data.css";
@@ -41,6 +42,26 @@ const TRAIN_RADIUS = 8.5;
 const SOLID_STOP = 0.15;
 const HALO_STOP = 0.155;
 const HALO_MID_STOP = 0.4;
+
+// The vehicle id's offset from the dot's centre, in the same user units as TRAIN_RADIUS — so the label
+// sits bottom-right of the core, inside the faint outer third of the halo rather than beyond it. These
+// are the GEOMETRY half of the label; its size and colour are the stylesheet's (as with the gradient
+// stops above). y is a text BASELINE, so it clears the core by more than the number suggests.
+const LABEL_DX = 5;
+const LABEL_DY = 9;
+
+// How long a re-placed train takes to slide onto its corrected position. Short enough to read as a train
+// catching up — which is real behaviour, trains do speed up and slow down — rather than as a dot drifting.
+const CORRECTION_MS = 250;
+
+// Where the rota indicator sits — a real place on the map rather than a screen corner, projected through
+// the baked projection so it lands exactly where the map would have drawn it. Being inside the tube <g>
+// it inherits the map's drift, which is what a marker pinned to the ground should do.
+const NEXT_LINE_AT = project(51.5221942, -0.0411387);
+
+// User units like TRAIN_RADIUS, so the marker scales with the viewBox fit rather than staying a fixed
+// device size — at a typical ~0.79 fit, 3.2 reads as a ~5px dot.
+const NEXT_LINE_RADIUS = 3.2;
 
 const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
 
@@ -78,8 +99,46 @@ function useVisible(): boolean {
 // this, every dot on screen is reconciled every 11 seconds. It only works because that object identity is
 // deliberately preserved; if keepRunning ever starts returning fresh equal objects, this silently
 // degrades to reconciling everything again.
-const TrainDot = memo(function TrainDot({ lineId, placement }: { lineId: string; placement: Placement }) {
-  return <circle className={`lt__train lt__train--${lineId}`} r={TRAIN_RADIUS} style={trainStyle(placement)} />;
+const TrainDot = memo(function TrainDot(
+  { lineId, vehicleId, placement, correction, still }: {
+    lineId: string;
+    vehicleId: string;
+    placement: Placement;
+    correction?: Correction;
+    still: boolean;
+  },
+) {
+  const group = useRef<SVGGElement>(null);
+  // Absorb a re-place instead of jumping to it. The @keyframes drive `transform`, and a running animation
+  // outranks any transition on the same property — so the offset rides the SEPARATE `translate` property,
+  // which COMPOSES with transform rather than competing for it. The dot therefore follows the new
+  // segment's real splined curve throughout, merely displaced by a vanishing offset; it is never tweened
+  // along a straight line between two points, which is what would take it off its line.
+  //
+  // WAAPI rather than a CSS transition because a transition needs two RENDERED values, i.e. a second
+  // React render per corrected train on every tick. A webview without the `translate` property drops the
+  // keyframe and simply snaps, which is the behaviour this replaces.
+  //
+  // Layout effect, not effect: the offset has to be in place before the browser paints the new
+  // `transform`, or the dot is visible at its corrected position for one frame before sliding back.
+  useLayoutEffect(() => {
+    if (!correction || still || !group.current) return;
+    group.current.animate(
+      [{ translate: `${correction.dx}px ${correction.dy}px` }, { translate: "0px 0px" }],
+      { duration: CORRECTION_MS, easing: "ease-out" },
+    );
+  }, [correction, still]);
+  // The segment animation drives the <g>, NOT the circle: the dot and its label then move as one
+  // element, so they cannot drift apart the way two separately-animated siblings could. The label needs
+  // no transform of its own — a plain x/y in the same user space rides along with the group.
+  return (
+    <g ref={group} className="lt__vehicle" style={trainStyle(placement)}>
+      <circle className={`lt__train lt__train--${lineId}`} r={TRAIN_RADIUS} />
+      <text className={`lt__label lt__label--${lineId}`} x={LABEL_DX} y={LABEL_DY}>
+        {vehicleId}
+      </text>
+    </g>
+  );
 });
 
 export function LondonTrains() {
@@ -95,6 +154,9 @@ export function LondonTrains() {
   // and hold the catch-up cadence open for ever.
   const lineFetchedAt = useRef(new Map<string, number>());
   const [trains, setTrains] = useState<Train[]>([]);
+  // Which line the rota refreshes next, for the indicator below. State rather than a ref, because unlike
+  // the feed it is rendered; it lands in the same batch as setTrains, so it costs no extra render.
+  const [nextLine, setNextLine] = useState<string | null>(null);
 
   useEffect(() => {
     if (!visible) return;
@@ -113,6 +175,9 @@ export function LondonTrains() {
     const tick = async () => {
       const lineId = TUBE_LINE_IDS[rota.current];
       rota.current = nextLineIndex(rota.current, TUBE_LINE_IDS.length);
+      // Set as soon as the rota turns, not when the next tick fires, so the indicator names the line for
+      // the whole wait rather than for the instant it is fetched.
+      setNextLine(TUBE_LINE_IDS[rota.current]);
       let fetched = false;
       try {
         const response = await fetch(arrivalsUrl(lineId), { signal: controller.signal });
@@ -134,7 +199,12 @@ export function LondonTrains() {
       setTrains(derived.trains);
       // Reduced motion: one pass over the rota places every train, and then ticking stops for good —
       // there is no animation to drive and nothing that may move, so there is nothing left to poll for.
-      if (still && ++passes >= TUBE_LINE_IDS.length) return;
+      // Nulled so the indicator goes out with it: nothing will refresh again, and a dot naming a line
+      // that never updates is a small standing lie.
+      if (still && ++passes >= TUBE_LINE_IDS.length) {
+        setNextLine(null);
+        return;
+      }
       // Hurry only while the map is genuinely short of a line, and only off the back of a fetch that
       // WORKED, and at most one pass per return-to-visible. All three bounds matter, because this is the
       // one way a deliberately polite poller could become rude: without the second, an API that is down
@@ -179,9 +249,29 @@ export function LondonTrains() {
       {/* Keyed per train so React reuses an element across refreshes and its animation survives. The key
           is line-scoped: vehicleId alone collides across lines (see vehicleKey), which would make two
           different trains share one element. */}
+      {/* The rota indicator, at a fixed geographic point (NEXT_LINE_AT). Its colour is set inline as
+          var(--lt-<line>) rather than as a twelfth per-line rule: the palette states each hex once, and a
+          mechanical id-to-colour mapping would only repeat what the id already says. Drawn after the
+          trains so a dot passing through cannot hide it. */}
       {trains.map((train) => (
-        <TrainDot key={train.key} lineId={train.lineId} placement={train.placement} />
+        <TrainDot
+          key={train.key}
+          lineId={train.lineId}
+          vehicleId={train.vehicleId}
+          placement={train.placement}
+          correction={train.correction}
+          still={still}
+        />
       ))}
+      {nextLine && (
+        <circle
+          className="lt-next"
+          cx={NEXT_LINE_AT.x}
+          cy={NEXT_LINE_AT.y}
+          r={NEXT_LINE_RADIUS}
+          style={{ fill: `var(--lt-${nextLine})` }}
+        />
+      )}
     </g>
   );
 }

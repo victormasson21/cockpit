@@ -45,6 +45,16 @@ export const TUBE = buildTubeIndex(LONDON_MAP.tubeLines);
 // rota — there is no separate list to keep in step.
 export const TUBE_LINE_IDS = TUBE.lineIds;
 
+// lat/lon into the SAME pixel space the geometry was baked into, using the projection the bake recorded
+// — so a hand-placed point lands exactly where the map would have drawn it. Verified against the baked
+// stations: King's Cross and Oxford Circus both reproduce to within 0.05px. y grows downwards from the
+// bbox's northern edge, matching SVG. Mirrors `project` in scripts/mapGeometry.mjs, which is where the
+// same arithmetic ran at bake time; nothing but this comment connects the two, and nothing needs to —
+// the constants travel with the data.
+export function project(lat: number, lon: number, p = LONDON_MAP.projection): Point {
+  return { x: (lon - p.west) * p.scaleX, y: (p.north - lat) * p.scaleY };
+}
+
 // The @keyframes rule for a segment, plus whether the train runs against it. One rule per station PAIR
 // is baked (lo → hi), so the other direction is `animation-direction: reverse` rather than a second
 // rule. scripts/trainSegments.mjs builds this name the same way; that script's test pins the two
@@ -109,12 +119,35 @@ export function parseArrivals(payload: unknown, lineId: string, fetchedAt: numbe
   }));
 }
 
-// A line's fetch is the complete truth about that line, so its previous entries go before the new ones
-// land — otherwise a terminated train would linger for as long as the app ran.
+// A line's fetch is the complete truth about that line: a train absent from the new payload has finished
+// its journey and must leave the map.
+//
+// ⚠️ ORDER IS LOAD-BEARING, which is not obvious. This map's insertion order becomes the order of the
+// trains array, which becomes the order of the <g> elements React renders. The obvious implementation —
+// delete the line's entries, then set the new ones — moves EVERY surviving train on that line to the end
+// of the map, because Map.set appends a key it has just deleted. MEASURED: refreshing one line moved 71
+// of 255 keys, all 46 of that line's trains among them. React then reorders those DOM nodes, and a
+// re-inserted element re-runs @starting-style — so the whole line replayed its 600ms fade-in every time
+// it refreshed, which read as "the dots fade in whenever they update".
+//
+// So a surviving train is overwritten IN PLACE, which keeps its slot (Map.set on an existing key does not
+// move it), and only genuinely new trains are appended — where a new element belongs, and where fading
+// one in is exactly right.
 export function mergeLineFeed(feed: Feed, lineId: string, vehicles: Vehicle[]): Map<string, Vehicle> {
-  const next = new Map(feed);
-  for (const [key, v] of next) if (v.lineId === lineId) next.delete(key);
-  for (const v of vehicles) next.set(v.key, v);
+  const incoming = new Map(vehicles.map((v) => [v.key, v]));
+  const next = new Map<string, Vehicle>();
+  for (const [key, held] of feed) {
+    if (held.lineId !== lineId) {
+      next.set(key, held);
+      continue;
+    }
+    const fresh = incoming.get(key);
+    if (fresh) {
+      next.set(key, fresh);
+      incoming.delete(key);
+    }
+  }
+  for (const v of incoming.values()) next.set(v.key, v);
   return next;
 }
 
@@ -160,8 +193,20 @@ export type Placement =
   | { kind: "segment"; name: string; reverse: boolean; seconds: number; progress: number; from: Point; to: Point }
   | { kind: "still"; at: Point };
 
-export interface Sighting { placement: Placement; atMs: number }
-export interface Train { key: string; vehicleId: string; lineId: string; placement: Placement }
+// `resynced` marks a sighting whose position was INFERRED after a freeze rather than observed. See
+// resyncSightings: a hidden window stops the animations but not the clock, so ageing a frozen placement
+// invents a position the dot never actually reached. That is fine for choosing a branch (the two
+// candidates are stations apart) but not for a correction, which needs the true rendered position to
+// within a pixel — so corrections are skipped for one tick after a resync.
+export interface Sighting { placement: Placement; atMs: number; resynced?: true }
+export interface Correction { dx: number; dy: number }
+export interface Train {
+  key: string;
+  vehicleId: string;
+  lineId: string;
+  placement: Placement;
+  correction?: Correction;
+}
 
 const clamp01 = (n: number): number => Math.min(1, Math.max(0, n));
 
@@ -305,9 +350,41 @@ export function resyncSightings(previous: ReadonlyMap<string, Sighting>, nowMs: 
   const out = new Map<string, Sighting>();
   for (const [key, seen] of previous) {
     const at = placementPosition(seen.placement, (nowMs - seen.atMs) / 1000);
-    out.set(key, { placement: { kind: "still", at }, atMs: nowMs });
+    out.set(key, { placement: { kind: "still", at }, atMs: nowMs, resynced: true });
   }
   return out;
+}
+
+// ── Correcting without jumping ──────────────────────────────────────────────────────────────────────
+
+// How far a correction may reach before the train is snapped instead, in user units. It is bounded
+// because a correction is the ONE place a dot leaves its line: it renders on the new segment's real curve
+// displaced by a shrinking offset, so for the length of the slide it sits up to this far off the track.
+// MEASURED over a full 121s refresh of all 11 lines: same-segment corrections run p50 17 / p90 43 /
+// max 62, while the still<->segment re-places run p50 106 / max 367. 50 takes the first group and leaves
+// the second to snap, which is the point — sliding those is §5's deleted glide in a shorter coat.
+export const CORRECTION_LIMIT = 50;
+
+// Below this a slide is not worth scheduling: the dot is already where it is going.
+export const CORRECTION_MIN = 0.5;
+
+// The offset that puts a re-placed train back where it was ALREADY being drawn, for the layer to decay
+// to zero. Both ends are chord approximations (placementPosition), which is acceptable exactly where it
+// matters most: when the two placements share a segment, the chord-vs-spline error is the same curve
+// sampled at two nearby points, so it very largely cancels. Across different segments it does not cancel,
+// but CORRECTION_LIMIT bounds those and the residual is a few px that the decay removes anyway.
+export function correctionFor(
+  previous: Sighting | undefined,
+  placement: Placement,
+  nowMs: number,
+): Correction | undefined {
+  if (!previous || previous.resynced) return undefined;
+  const was = placementPosition(previous.placement, (nowMs - previous.atMs) / 1000);
+  const now = placementPosition(placement, 0);
+  const dx = was.x - now.x;
+  const dy = was.y - now.y;
+  const distance = Math.hypot(dx, dy);
+  return distance > CORRECTION_LIMIT || distance < CORRECTION_MIN ? undefined : { dx, dy };
 }
 
 // One pass over the feed: every vehicle that can be placed yields a sighting (which is what the next
@@ -325,10 +402,14 @@ export function derivePlacements(
     const fresh = resolvePlacement(v, nowMs, seen, index);
     if (!fresh) continue;
     const placement = keepRunning(seen, fresh, nowMs);
+    const kept = placement === seen?.placement;
     // A kept animation keeps its ORIGINAL start time, so its implied position stays truthful.
-    sightings.set(v.key, { placement, atMs: placement === seen?.placement ? seen.atMs : nowMs });
+    sightings.set(v.key, { placement, atMs: kept && seen ? seen.atMs : nowMs });
     if (placementVisible(placement)) {
-      trains.push({ key: v.key, vehicleId: v.vehicleId, lineId: v.lineId, placement });
+      // Only a re-placed train can jump, and `undefined` for the rest is what keeps TrainDot's memo
+      // bail-out intact: a kept train's props stay identical object-for-object.
+      const correction = kept ? undefined : correctionFor(seen, placement, nowMs);
+      trains.push({ key: v.key, vehicleId: v.vehicleId, lineId: v.lineId, placement, correction });
     }
   }
   return { trains, sightings };

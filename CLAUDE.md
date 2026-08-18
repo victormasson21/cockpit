@@ -1015,6 +1015,50 @@ both Important findings fixed (in-batch dedupe, history pagination).
   Spec: `docs/superpowers/specs/2026-08-17-london-map-live-trains-design.md`; plan:
   `docs/superpowers/plans/2026-08-17-london-map-live-trains.md`.
 
+- **London map · train ids, smooth re-places, rota marker (2026-08-18).** Four changes to the live
+  variant, no new files and no re-bake. **(1) Vehicle id beside each dot.** A train is now a `<g>`
+  (`.lt__vehicle`) holding the circle plus a `<text>`, and the segment animation moved from the circle to
+  the GROUP — the alternative, two siblings each playing the same `@keyframes`, is two animations to keep
+  in step for ever. All the animation rules (`timing-function`, `iteration-count`, `fill-mode`, the
+  opacity transition, `@starting-style`, the reduced-motion pause) moved with it. `stroke: none` on the
+  label is load-bearing: `.lm` strokes everything white and would outline every glyph. The 11 line hexes
+  became custom properties on `.lt`, each stated ONCE and consumed by the gradient stop and the label
+  fill, so "the label is the same colour as the dot" is a fact about the stylesheet rather than a pair of
+  literals that can drift. **(2) Bounded correction on a re-place.** A re-placed train slides onto its new
+  position instead of jumping. `transition: transform` is INERT here — a running animation outranks a
+  transition on the same property, and swapping `animation-name` changes the animation's output, not
+  `transform`'s declared value — so the offset rides the separate **`translate` property**, which
+  COMPOSES with `transform`. The dot therefore follows the new segment's real spline throughout, merely
+  displaced by a vanishing offset; it is never tweened along a straight line, which is what would take it
+  off its line. WAAPI (`el.animate`) not a CSS transition, because a transition needs two RENDERED values
+  — a second React render per corrected train per tick; `useLayoutEffect` so the offset lands before the
+  new `transform` paints. `correctionFor` is pure and gated: **`CORRECTION_LIMIT = 50` user units**, from
+  measuring a full 121s refresh of all 11 lines (same-segment corrections p50 17 / p90 43 / max 62;
+  still<->segment p50 106 / max 367 — sliding THOSE is §5's deleted glide in a shorter coat). Live
+  validation with the real model: 52% of re-places slide, max 46.7 of the 50 cap. It also declines on a
+  **`resynced`** sighting (new optional field on `Sighting`, set by `resyncSightings`): after a freeze the
+  position was INFERRED from a stopped animation, and a slide from a wrong start is a jump followed by a
+  slide — worse than a snap. `PROGRESS_TOLERANCE` deliberately left at 0.08; lowering it toward 0.02 is
+  the deferred payoff, now that corrections absorb the extra re-places. **(3) Rota marker.** A 5px dot
+  showing which line refreshes next, at a fixed geographic point — new pure **`project(lat, lon)`** in the
+  model, using the baked `LONDON_MAP.projection`, verified to reproduce King's Cross and Oxford Circus to
+  0.05px. First built as an HTML dot in the window corner, which forced a lifted-state wrapper component;
+  placing it geographically let ALL of that be deleted (it is a `<circle>` inside the trains' own `<g>`,
+  so `registry.tsx` is untouched and it inherits the map's drift, as a ground-pinned marker should).
+  Colour is inline `var(--lt-<line>)` rather than a twelfth per-line rule. **⚠️ Note a corner marker CANNOT
+  live in the SVG**: the viewBox is fitted with `slice`, so on any window wider than its own 1.605:1 the
+  frame's bottom corners are cropped off screen. **(4) ⚠️ THE FADE BUG — `mergeLineFeed` ORDER IS
+  LOAD-BEARING.** Its map's insertion order is the trains array's order is the `<g>` elements' order.
+  Delete-then-set moved every SURVIVING train on the refreshed line to the END (a Map appends a key it
+  just deleted), React reconciled that with `insertBefore`, and **a re-inserted element re-runs
+  `@starting-style`** — so the whole line replayed its 600ms fade-in every 11s. Survivors are now
+  overwritten IN PLACE (`Map.set` on an existing key does not move it) and only genuinely new trains are
+  appended. MEASURED on identical live data, counted as React counts it (nodes outside the longest
+  increasing subsequence, so a departing train is not miscounted as a move): **27 DOM moves per refresh ->
+  0**. Diagnosed by measuring element churn over 13 real ticks — at steady state only 3-5 dots of ~256
+  mount per tick, which is what ruled out "re-placed dots are remounting" and pointed at ordering.
+  491 JS tests (was 479); tsc + Vite clean; no Rust changes.
+
 **Next / resuming work — read `docs/ROADMAP.md` first.** It is the single prioritized backlog, split into
 **main build sub-projects** (the big sequential arc — sub-project 5 onward: Linear tile, then GitHub/Calendar
 tiles, reusing the SP4 provider+panel + Keychain seam) and **smaller iterations** (scoped polish/enhancements). When
