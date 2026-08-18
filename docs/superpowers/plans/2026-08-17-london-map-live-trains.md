@@ -1734,3 +1734,53 @@ git commit -m "feat(background): add the London map · live variant"
   bake — but that IS a map re-bake, so raise it with the user rather than taking it unilaterally.
 - The `lt-glide` fallback and `resolvePlacement`'s reflection are one-tick stopgaps: the next tick gives
   the train a sighting to glide from, and the tick after that usually resolves its branch.
+
+---
+
+## Post-smoke debugging (2026-08-18)
+
+GUI smoke reported dots "floating around randomly, sometimes very far away from their line", and the map
+"jumping every now and again with all the points moving at once" — worsening as more lines loaded. The
+user's instinct was overload. It was not: it was four bugs in the derivation, each found by simulating the
+real tick loop against the live feed and measuring, then fixed with a failing test first.
+
+### Measured, before → after (14 ticks, all 11 lines, live feed)
+
+| | before | after |
+|---|---|---|
+| trains drawn | 147–155 | **265–268** |
+| dots >30px off the drawn line | up to 11/tick | **0–1/tick** |
+| worst off-line distance | 208px | 32px (= polyline-vs-spline measurement noise) |
+| worst inter-tick jump | 1,663px | 466px |
+| jump p90 | up to 1,006px | 63–99px |
+| median jump per tick | 9–36px | 9–27px (a train truly moves ~9px/11s) |
+
+### The four bugs
+
+1. **`vehicleId` is not unique across lines** — the train-set number, live on up to four lines at once
+   (105 ids shared). Keying the feed on it destroyed **161 of 375 trains (43%)** and made survivors
+   inherit a stranger's route. Fixed by `vehicleKey(lineId, vehicleId)` everywhere, React key included.
+2. **The glide and reflect fallbacks left the network.** Deleted; ambiguity now chooses among real
+   candidate branches (`choosePrevious`).
+3. **Segment duration was the *next* segment's timing** (p10 27s), clamping 43% of trains to progress 0.
+   Now derived from segment length, which is also stable between ticks.
+4. **Every re-derive rewrote every animation**, re-setting ~170 in unison every 11s. `keepRunning` keeps
+   an agreeing animation untouched, preserving its original `atMs`.
+
+Plus: an exhausted-prediction vehicle is now dropped rather than parked at its last known station.
+
+### Lesson about the instrument
+
+The first "after" run still showed 1,000px jumps — a fault in the *harness*, which rendered a
+`keepRunning`-kept placement from the previous tick rather than from its own start time. An isolation
+experiment (same train, same instant, aged data vs freshly fetched: median 23px, p90 52px) proved the
+refetch correction was small and the instrument wrong. **Measure the measurement.**
+
+### Known residual
+
+Roughly 60 of 266 trains per tick still correct by >50px (p90 63–99px), essentially all at a segment
+handoff, and essentially all trains whose eta exceeded the nominal geometric duration for their segment —
+they park at the station they have not left, then step on when a prediction expires. Bounded by one
+segment. Fixing it properly needs a per-segment duration that is both accurate and stable between ticks,
+which the feed does not directly provide; the accurate-but-unstable option (duration = eta) reintroduces
+bug 4 for those trains.

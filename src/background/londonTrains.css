@@ -16,14 +16,6 @@
   animation-fill-mode: both;
 }
 
-/* The one rule the baked file cannot provide: a straight run between two points known only at runtime
-   (the ambiguous-branch fallback). Custom properties are substituted per element, so a single rule
-   serves every glide, and the motion stays a compositor-driven animation like all the rest. */
-@keyframes lt-glide {
-  from { transform: translate(var(--lt-fx), var(--lt-fy)); }
-  to { transform: translate(var(--lt-tx), var(--lt-ty)); }
-}
-
 /* The glow. It is a radial-gradient FILL, not an SVG filter and not box-shadow, for three reasons:
    a shadow leaves the core fully opaque and only softens outwards (a hard core with a soft rim — the
    lesson from the night sky's stars); a filter would have to be applied per train, and ~280 filter

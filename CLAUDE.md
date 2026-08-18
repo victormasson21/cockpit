@@ -942,6 +942,37 @@ both Important findings fixed (in-batch dedupe, history pagination).
     `fill: none` on the whole `<svg>` and **a CSS rule beats a `fill=` attribute**. Two of TfL's eleven
     hexes are deliberately lifted: Northern's `#000000` and Piccadilly's `#003688` are invisible on the
     dark ground, and an invisible line reads as a missing one.
+  - **⚠️ FOUR BUGS FOUND BY GUI SMOKE, all in the derivation, all fixed 2026-08-18** — trains floated far
+    off the lines and the whole map twitched every 11s. Each was diagnosed by simulating the real tick
+    loop against the live feed and MEASURING, not by reading the code; the numbers are in the plan.
+    1. **`vehicleId` IS NOT UNIQUE ACROSS LINES** — it is the train-set number ("065", "205"), and live,
+       105 of them were in use by two or more lines at once (one by four). Keying the feed on it alone
+       **destroyed 161 of 375 trains in service (43%)**, and survivors inherited a stranger's route and
+       teleported across London on refresh. Everything is now keyed by **`vehicleKey(lineId, vehicleId)`**
+       — the feed, the sightings, and the React key. This also explains the "232 vehicles" a first live
+       probe reported against the spec's measured 436: it was this bug, not evening service.
+    2. **The spec's glide/reflect fallbacks left the network** and are DELETED. A glide ran a straight
+       line to `next`, which can be most of London away (measured 34-208px off-track, up to 1,859px
+       between ticks); `reflectBehind` extrapolated a whole segment vector past `next`. The invariant is
+       now **a train is only ever drawn on a real segment or still at a real station** — where the branch
+       is ambiguous, `choosePrevious` picks the candidate nearest its last position, since both are real
+       track. Off-network dots went to zero.
+    3. **The segment duration used the wrong segment.** The gap between the two soonest predictions is the
+       duration of the segment AFTER this one (p10 27s), so **43% of trains had eta > it** and clamped to
+       progress 0: parked at a station, then racing. Duration now comes from the segment's own LENGTH
+       (`NOMINAL_PX_PER_SECOND`), which is both better calibrated and — crucially — **stable between
+       ticks**.
+    4. **Every re-derive rewrote every animation.** ~170 `animation-delay`/`-duration` values changed each
+       tick, re-setting all animations in unison — the visible "everything jumps at once". `keepRunning`
+       now returns the PREVIOUS placement object when the re-derive agrees within `PROGRESS_TOLERANCE`, so
+       the emitted style is byte-identical, React writes nothing, and the animation is never interrupted.
+       Its sighting MUST keep its original `atMs` or the implied position drifts a tick per tick.
+    Also: a vehicle whose aged predictions have all expired is now **dropped, not parked at its last known
+    station** — parking invented a position that the next refetch corrected with a visible teleport.
+    **Instrument warning:** the first "after" measurement showed fake 1,000px jumps because the harness
+    rendered a kept placement from the previous tick instead of from its own start time. An isolation
+    experiment (aged vs fresh prediction for the same train at the same instant: median 23px, p90 52px)
+    is what exposed the bad instrument.
   Spec: `docs/superpowers/specs/2026-08-17-london-map-live-trains-design.md`; plan:
   `docs/superpowers/plans/2026-08-17-london-map-live-trains.md`.
 

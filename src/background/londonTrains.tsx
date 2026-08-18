@@ -111,10 +111,12 @@ export function LondonTrains() {
           </radialGradient>
         ))}
       </defs>
-      {/* Keyed by vehicleId so React reuses an element across refreshes and its animation survives. */}
+      {/* Keyed per train so React reuses an element across refreshes and its animation survives. The key
+          is line-scoped: vehicleId alone collides across lines (see vehicleKey), which would make two
+          different trains share one element. */}
       {trains.map((train) => (
         <circle
-          key={train.vehicleId}
+          key={train.key}
           className={`lt__train lt__train--${train.lineId}`}
           r={TRAIN_RADIUS}
           style={trainStyle(train.placement)}
