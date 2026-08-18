@@ -40,10 +40,15 @@ const GLOW_BLUR = 4;
 // it costs ~24 user units of surface on each edge and guarantees no halo is clipped at the frame.
 const GLOW_MARGIN = 6 * GLOW_BLUR;
 
-// `children` is the vehicles seam (spec §8): a live-trains layer is passed in and rendered inside the
-// tube <g>, so it inherits the viewBox, the `slice` fit and the drift with no projection of its own.
-// With no child this renders exactly as it always did.
-export function LondonMap({ children }: { children?: ReactNode }) {
+// Two knobs, deliberately separate rather than one derived from the other:
+//   - `children` is the vehicles seam (spec §8): a live-trains layer is passed in and rendered inside the
+//     tube <g>, so it inherits the viewBox, the `slice` fit and the drift with no projection of its own.
+//   - `underground` draws the tube network itself. Off by default, because the plain "London map" variant
+//     is roads and the river — the Underground belongs to the variant whose subject it is, where the
+//     trains ride on it.
+// The tube <g> is rendered either way, so a caller can never pass children and have them silently
+// swallowed; only the strokes inside it are conditional.
+export function LondonMap({ children, underground = false }: { children?: ReactNode; underground?: boolean }) {
   return (
     // `slice` is `cover` with no CSS involved: the frame fills the window and the surplus is cropped.
     <svg className="lm" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid slice" aria-hidden>
@@ -63,7 +68,7 @@ export function LondonMap({ children }: { children?: ReactNode }) {
         </filter>
       </defs>
       <g className="lm__glow" filter={`url(#${GLOW_FILTER})`}>
-        {ORDER.filter((k) => GLOWING.has(k)).map((k) => (
+        {ORDER.filter((k) => GLOWING.has(k) && (underground || k !== "tube")).map((k) => (
           <path key={k} className={`lm__line lm__line--${k}`} d={layers[k]} />
         ))}
       </g>
@@ -79,7 +84,7 @@ export function LondonMap({ children }: { children?: ReactNode }) {
             one element's opacity once is what makes that invisible. SPLIT THIS PER LINE (for colours,
             hover, or per-line trains) AND EVERY TRUNK JUMPS TO ~10x BRIGHTNESS — dedupe overlapping
             trunk segments in the bake first. */}
-        <path className="lm__line lm__line--tube" d={layers.tube} />
+        {underground && <path className="lm__line lm__line--tube" d={layers.tube} />}
         {children}
       </g>
     </svg>

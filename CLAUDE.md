@@ -942,6 +942,16 @@ both Important findings fixed (in-batch dedupe, history pagination).
     `fill: none` on the whole `<svg>` and **a CSS rule beats a `fill=` attribute**. Two of TfL's eleven
     hexes are deliberately lifted: Northern's `#000000` and Piccadilly's `#003688` are invisible on the
     dark ground, and an invisible line reads as a missing one.
+  - **The tube network is drawn ONLY by the live variant** (`<LondonMap underground>`; 2026-08-18). Plain
+    "London map" is roads + river, so the two entries are meaningfully different and the Underground sits
+    with the trains that ride it. `underground` is a separate prop from `children` rather than derived from
+    it, and the tube `<g>` renders either way, so children can never be silently swallowed. The picker
+    label is **"London Underground"** while the persisted id stays `london-map-live` — renaming an id would
+    reset everyone's stored background. Trains also dim the map's white tube halo to 0.22 via
+    `.lm:has(.lt__train)` in **londonTrains.css**: the `:has()` guard is load-bearing, because Vite bundles
+    all CSS into one sheet, so an unguarded rule there would apply app-wide rather than only where trains
+    are. Line colours were being drowned by that white halo — the trains' inner halo was raised to 0.55 in
+    the same pass.
   - **⚠️ FOUR BUGS FOUND BY GUI SMOKE, all in the derivation, all fixed 2026-08-18** — trains floated far
     off the lines and the whole map twitched every 11s. Each was diagnosed by simulating the real tick
     loop against the live feed and MEASURING, not by reading the code; the numbers are in the plan.

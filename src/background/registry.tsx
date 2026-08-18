@@ -32,17 +32,21 @@ const TFL_ATTRIBUTION =
 // like deepSlate.css and TERM_THEME — the app-wide token rule does not bind them).
 export const BACKGROUNDS: BackgroundVariant[] = [
   { id: "night-sky", label: "Night sky", render: () => <NightSky /> },
+  // Roads and the river only. The Underground is the live variant's subject, so it is drawn there rather
+  // than here; the TfL credit stays on both because the baked data file ships either way.
   { id: "london-map", label: "London map", render: () => <LondonMap />, attribution: TFL_ATTRIBUTION },
   {
     id: "london-map-live",
     // The id stays `london-map-live` deliberately: it is what cockpit.json persists, so renaming it would
     // silently reset anyone's chosen background to the default.
     label: "London Underground",
-    // The same map with real Underground trains on it. A separate entry rather than a setting on the
+    // The map plus the tube network and real trains on it. A separate entry rather than a setting on the
     // static one, so choosing a background never silently starts polling, and so the trains can be
-    // deleted wholesale (spec §8). Offline it degrades to precisely the static variant.
+    // deleted wholesale (spec §8). Offline it degrades to the still network — lines, no trains. (The spec
+    // said "degrades to precisely the static variant", which stopped being true once the tube became this
+    // variant's alone.)
     render: () => (
-      <LondonMap>
+      <LondonMap underground>
         <LondonTrains />
       </LondonMap>
     ),
