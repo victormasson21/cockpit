@@ -25,13 +25,17 @@
    The stops carry the SHAPE (shared) and the per-line blocks below carry the COLOUR, which is what
    keeps every hex in this stylesheet.
 
-   The dot is a solid core plus a slight glow, not a soft blob: `core` and `solid` are both fully opaque,
-   so everything inside the solid stop's offset (see londonTrains.tsx) is a crisp ~2px disc, and only what
-   lies beyond it fades. The halo starts well under half strength — a train should read as a bright point
-   with a breath around it, not as a smudge. */
+   The dot is a ~1px solid core plus a glow, not a soft blob: `core` and `solid` are both fully opaque, so
+   everything inside SOLID_STOP (londonTrains.tsx) is a flat, crisp disc, and the drop to `halo` is a hard
+   edge so that a core barely a pixel across still reads as solid. Only the glow beyond it fades.
+
+   The halo now covers most of the gradient, so its opacity is LOWER than when it started at 46% — the same
+   alpha over that much more area would read as a smudge rather than a point with a breath around it.
+   `halo-mid` is what keeps the falloff quick near the core instead of a wide even wash. */
 .lt__stop--core { stop-opacity: 1; }
 .lt__stop--solid { stop-opacity: 1; }
-.lt__stop--halo { stop-opacity: 0.32; }
+.lt__stop--halo { stop-opacity: 0.42; }
+.lt__stop--halo-mid { stop-opacity: 0.14; }
 .lt__stop--edge { stop-opacity: 0; }
 
 /* Per line: the gradient's colour, and the fill that references it. The hexes are TfL's official 2016

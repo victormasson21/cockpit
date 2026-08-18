@@ -368,6 +368,14 @@ describe("derivePlacements", () => {
     const second = derivePlacements(feed, 11_000, first.sightings, index);
     expect(second.sightings.get("northern:v1")).toEqual({ placement: first.sightings.get("northern:v1")!.placement, atMs: 0 });
   });
+  // Load-bearing for londonTrains.tsx's memoised dot: it bails out on a shallow prop compare, so an
+  // uninterrupted animation must come back as the very SAME object, not an equal one. If this ever
+  // becomes toEqual-but-not-toBe, every dot on screen silently starts reconciling again every tick.
+  it("hands back the very same placement object, which is what lets the layer memoise a dot", () => {
+    const first = derivePlacements(feed, 0, new Map(), index);
+    const second = derivePlacements(feed, 11_000, first.sightings, index);
+    expect(second.trains[0].placement).toBe(first.trains[0].placement);
+  });
   it("re-stamps one it did interrupt", () => {
     const first = derivePlacements(feed, 0, new Map(), index);
     // Far enough on that the fresh prediction disagrees with the running animation.
