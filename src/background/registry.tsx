@@ -3,6 +3,7 @@
 import type { ReactElement } from "react";
 import { NightSky } from "./nightSky";
 import { LondonMap } from "./londonMap";
+import { LondonTrains } from "./londonTrains";
 
 // The "off" id. Persisted like any other, so choosing off is a deliberate, durable choice rather
 // than an absent field that a future default could silently override.
@@ -17,22 +18,39 @@ export interface BackgroundVariant {
   attribution?: string;
 }
 
+// Verbatim the form TfL's Transport Data Service terms require — the years and the brackets round 2019
+// are theirs, not a typo, so don't tidy them. ODbL keeps its own American spelling for the same reason:
+// it is the licence's proper name. Shared by both map variants; the live one adds TfL's Arrivals feed,
+// which the same credit covers.
+const TFL_ATTRIBUTION =
+  "Powered by TfL Open Data. Contains OS data © Crown copyright and database rights 2016 and "
+  + "Geomni UK Map data © and database rights [2019]. Map data © OpenStreetMap contributors, "
+  + "available under the Open Database License (ODbL).";
+
 // Each variant owns its own artwork: it renders whatever elements it needs inside the layer, and its
 // colours live in its own stylesheet (backgrounds ARE colour, so variant CSS is a literal-colour site
 // like deepSlate.css and TERM_THEME — the app-wide token rule does not bind them).
 export const BACKGROUNDS: BackgroundVariant[] = [
   { id: "night-sky", label: "Night sky", render: () => <NightSky /> },
+  // Roads and the river only. The Underground is the live variant's subject, so it is drawn there rather
+  // than here; the TfL credit stays on both because the baked data file ships either way.
+  { id: "london-map", label: "London map", render: () => <LondonMap />, attribution: TFL_ATTRIBUTION },
   {
-    id: "london-map",
-    label: "London map",
-    render: () => <LondonMap />,
-    // Verbatim the form TfL's Transport Data Service terms require — the years and the brackets round
-    // 2019 are theirs, not a typo, so don't tidy them. ODbL keeps its own American spelling for the
-    // same reason: it is the licence's proper name.
-    attribution:
-      "Powered by TfL Open Data. Contains OS data © Crown copyright and database rights 2016 and "
-      + "Geomni UK Map data © and database rights [2019]. Map data © OpenStreetMap contributors, "
-      + "available under the Open Database License (ODbL).",
+    id: "london-map-live",
+    // The id stays `london-map-live` deliberately: it is what cockpit.json persists, so renaming it would
+    // silently reset anyone's chosen background to the default.
+    label: "London Underground",
+    // The map plus the tube network and real trains on it. A separate entry rather than a setting on the
+    // static one, so choosing a background never silently starts polling, and so the trains can be
+    // deleted wholesale (spec §8). Offline it degrades to the still network — lines, no trains. (The spec
+    // said "degrades to precisely the static variant", which stopped being true once the tube became this
+    // variant's alone.)
+    render: () => (
+      <LondonMap underground>
+        <LondonTrains />
+      </LondonMap>
+    ),
+    attribution: TFL_ATTRIBUTION,
   },
 ];
 

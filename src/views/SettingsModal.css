@@ -1,5 +1,8 @@
 /* SettingsModal.css — two-column settings layout: left nav rail + active pane. */
-.settings { display: grid; grid-template-columns: 150px 1fr; gap: var(--space-4); align-items: start; }
+/* min-height so the modal keeps one size: the panes differ a lot in content (Appearance is a single
+   dropdown, Connections is a long form), and without a floor the whole dialog resized as you moved
+   between them. It sits on the grid rather than the pane so the nav rail's box grows with it too. */
+.settings { display: grid; grid-template-columns: 150px 1fr; gap: var(--space-4); align-items: start; min-height: 400px; }
 
 /* left rail: one item per pane, active gets the accent (mirrors the app segmented-control idiom). */
 .settings__nav { display: flex; flex-direction: column; gap: 2px; }

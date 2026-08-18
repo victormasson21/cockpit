@@ -893,6 +893,128 @@ both Important findings fixed (in-batch dedupe, history pagination).
   Spec: `docs/superpowers/specs/2026-08-05-london-map-background-design.md`; plan:
   `docs/superpowers/plans/2026-08-05-london-map-background.md`.
 
+- **London map · live trains (2026-08-17).** A third variant: the same map with real Underground trains
+  on it, as line-coloured dots gliding between stations from TfL's arrival predictions. Five new files
+  (`londonTrainsModel.ts` pure + `londonTrains.tsx` layer + `londonTrains.css` + the generated
+  `londonTrainSegments.data.css` + `scripts/bake-train-segments.mjs`, with its pure half in
+  `scripts/trainSegments.mjs`); two touched (`registry.tsx` gains one entry, `londonMap.tsx` gains an
+  optional `children` rendered inside the tube `<g>`). **`londonMap.data.ts` is untouched and the map's
+  bake is NOT re-run** — deleting the trains is deleting those files plus one registry entry.
+  - **Trains follow the SPLINED line via pre-baked per-segment `@keyframes`**, not `offset-path` (not
+    compositor-accelerated in WebKit — ~280 elements would land on the main thread) and not linear
+    interpolation (measured up to 32px off the drawn curve). `bake-train-segments.mjs` reads the
+    **committed** map data — no network, no key — and emits one rule per station PAIR named
+    `lt-<loNaptan>-<hiNaptan>`, running lo → hi; the other direction is `animation-direction: reverse`.
+    Placement is `animation-name` + a **negative `animation-delay`** (nightSky's star-ageing idiom).
+    Stops are spaced evenly by **arc length**, not by the Bézier parameter t, or the train would speed up
+    and slow down within one segment. 314 rules, 1,597 stops, **78.6 KB** at a 0.8px chord tolerance
+    (0.4px costs 102 KB and is invisible: 0.8 user units ≈ 0.6 device px).
+  - **⚠️ The bake and the runtime build the animation name independently** — a .mjs script and a TS
+    module with no shared import. The only thing connecting them is the contract test at the foot of
+    `scripts/trainSegments.test.mjs`, which reads the real generated stylesheet and asserts the two sets
+    are equal both ways. It lives THERE, not in the TS test, for two reasons: the app has **no
+    `@types/node`** so `node:fs` doesn't type-check under `include: ["src"]`, and a **`?raw` import of a
+    `.css` yields an empty string** under Vite (the CSS plugin intercepts it), which would pass the
+    assertion vacuously. The .mjs → .ts import direction is the only one that works.
+  - **`londonTrainsModel.ts`, not `londonTrains.ts`** — same trap as `dropdownModel.ts` beside
+    `Dropdown.tsx`: on a case-insensitive FS an extensionless `./londonTrains` resolves the `.ts` before
+    the `.tsx`, so the component would never be found. Caught by `tsc`, not by the tests.
+  - **The API gives the line but not the branch**, and `destinationNaptanId` doesn't close the gap
+    (Northern *Edgware via Bank* and *via CX* share a destination). Resolved **structurally**:
+    `resolvePrevious` finds the branch sequence where next and station-**after**-next are adjacent, and
+    the previous station is next's neighbour on the opposite side. `towards` is deliberately not parsed
+    (free text: "via CX", "Check Front of Train", "Special"). Fallback ladder: ambiguous branch → glide
+    from the last sighting; no sighting → `reflectBehind` (step back from next, away from after-next, by
+    the fraction of the run still to go); unknown NaptanId → drop.
+  - **A vehicle arrives with its whole onward journey (~15 predictions)**, which is what makes slow
+    polling viable: the tick re-derives every placement from the STORED feed with elapsed time
+    subtracted, so a train advances station to station between fetches. Polling is **one line per ~11s**
+    (the full 11-line payload is 3.9 MB and a big main-thread parse) and runs **only while
+    `document.visibilityState === "visible"`** — a hidden window freezes CSS animations but not timers.
+  - **Reduced motion PAUSES the animations** (`animation-play-state: paused`) rather than repositioning:
+    a paused animation with a negative delay renders the exact point on the CURVE a train has reached,
+    which a static transform could only match by evaluating the spline at runtime. Polling stops after
+    one pass round the rota. (`placementPosition` deliberately measures a segment along its **chord** —
+    it only seeds an already-approximate fallback glide.)
+  - **The glow is a radial-gradient FILL, one `<circle>` per train**, not an SVG filter (280 filter
+    regions) and not `box-shadow` (opaque core, hard rim). Per-line colour comes from CSS —
+    `#lt-g-<line> stop { stop-color }` plus `.lt__train--<line> { fill: url(...) }` — because `.lm` sets
+    `fill: none` on the whole `<svg>` and **a CSS rule beats a `fill=` attribute**. Two of TfL's eleven
+    hexes are deliberately lifted: Northern's `#000000` and Piccadilly's `#003688` are invisible on the
+    dark ground, and an invisible line reads as a missing one.
+  - **The tube network is drawn ONLY by the live variant** (`<LondonMap underground>`; 2026-08-18). Plain
+    "London map" is roads + river, so the two entries are meaningfully different and the Underground sits
+    with the trains that ride it. `underground` is a separate prop from `children` rather than derived from
+    it, and the tube `<g>` renders either way, so children can never be silently swallowed. The picker
+    label is **"London Underground"** while the persisted id stays `london-map-live` — renaming an id would
+    reset everyone's stored background. Trains also dim the map's white tube halo to 0.22 via
+    `.lm:has(.lt__train)` in **londonTrains.css**: the `:has()` guard is load-bearing, because Vite bundles
+    all CSS into one sheet, so an unguarded rule there would apply app-wide rather than only where trains
+    are. Line colours were being drowned by that white halo — the trains' inner halo was raised to 0.55 in
+    the same pass.
+  - **⚠️ FOUR BUGS FOUND BY GUI SMOKE, all in the derivation, all fixed 2026-08-18** — trains floated far
+    off the lines and the whole map twitched every 11s. Each was diagnosed by simulating the real tick
+    loop against the live feed and MEASURING, not by reading the code; the numbers are in the plan.
+    1. **`vehicleId` IS NOT UNIQUE ACROSS LINES** — it is the train-set number ("065", "205"), and live,
+       105 of them were in use by two or more lines at once (one by four). Keying the feed on it alone
+       **destroyed 161 of 375 trains in service (43%)**, and survivors inherited a stranger's route and
+       teleported across London on refresh. Everything is now keyed by **`vehicleKey(lineId, vehicleId)`**
+       — the feed, the sightings, and the React key. This also explains the "232 vehicles" a first live
+       probe reported against the spec's measured 436: it was this bug, not evening service.
+    2. **The spec's glide/reflect fallbacks left the network** and are DELETED. A glide ran a straight
+       line to `next`, which can be most of London away (measured 34-208px off-track, up to 1,859px
+       between ticks); `reflectBehind` extrapolated a whole segment vector past `next`. The invariant is
+       now **a train is only ever drawn on a real segment or still at a real station** — where the branch
+       is ambiguous, `choosePrevious` picks the candidate nearest its last position, since both are real
+       track. Off-network dots went to zero.
+    3. **The segment duration used the wrong segment.** The gap between the two soonest predictions is the
+       duration of the segment AFTER this one (p10 27s), so **43% of trains had eta > it** and clamped to
+       progress 0: parked at a station, then racing. Duration now comes from the segment's own LENGTH
+       (`NOMINAL_PX_PER_SECOND`), which is both better calibrated and — crucially — **stable between
+       ticks**.
+    4. **Every re-derive rewrote every animation.** ~170 `animation-delay`/`-duration` values changed each
+       tick, re-setting all animations in unison — the visible "everything jumps at once". `keepRunning`
+       now returns the PREVIOUS placement object when the re-derive agrees within `PROGRESS_TOLERANCE`, so
+       the emitted style is byte-identical, React writes nothing, and the animation is never interrupted.
+       Its sighting MUST keep its original `atMs` or the implied position drifts a tick per tick.
+    Also: a vehicle whose aged predictions have all expired is now **dropped, not parked at its last known
+    station** — parking invented a position that the next refetch corrected with a visible teleport.
+    **Instrument warning:** the first "after" measurement showed fake 1,000px jumps because the harness
+    rendered a kept placement from the previous tick instead of from its own start time. An isolation
+    experiment (aged vs fresh prediction for the same train at the same instant: median 23px, p90 52px)
+    is what exposed the bad instrument.
+  - **Returning to a hidden window needs BOTH halves (code review, 2026-08-18).** Hiding freezes the CSS
+    animations but not the clock the derivation runs on, and `keepRunning` cannot see that: its implied
+    position and the fresh one come from that same clock, so they still agree and it keeps a placement
+    whose animation is behind by however long you were away. `resyncSightings` (called at the top of the
+    effect, i.e. on becoming visible) demotes every sighting to a **`still` at wherever it had got to** —
+    the literal truth after a freeze — which forces a re-emit, since `keepRunning` only ever keeps a
+    *segment*, while `choosePrevious` keeps the position it needs to pick a branch. The other half is the
+    map being nearly EMPTY on return: past `STALE_SECONDS` every prediction is dropped, and the one-line
+    rota then takes ~2min to refill. Fixed by a **catch-up cadence** (`CATCH_UP_MS` 1.5s while any line is
+    missing or stale, `TICK_MS` 11s once all 11 are fresh), which also fills the map ~8× faster on a cold
+    start. Deliberately NOT fixed by raising `STALE_SECONDS`: past ~5 minutes the aged predictions are
+    fiction, so the answer is to fetch real data fast, not to draw old data longer. Three guards are
+    load-bearing — the hurry is gated on the fetch having SUCCEEDED (a down API would otherwise be polled
+    every 1.5s for as long as the app is open); it is **capped at one pass per return-to-visible** (a
+    SINGLE persistently-erroring line would otherwise keep `missingLine` true for ever while the other ten
+    succeeded, sustaining ~25 req/min to no purpose); and `lineFetchedAt` is its own ref rather than
+    derived from the feed (a line running no trains has no vehicle to carry a `fetchedAt`, so it would
+    read as never fetched and hold the fast cadence open for ever). With the cap the request rate is
+    provably bounded: ~5.5/min idle, ≤16 in any minute containing a full catch-up, against TfL's free
+    unmetered API (spec §3: no key, no account, no cost). Same pass: the tick self-schedules with
+    `setTimeout` instead of `setInterval` (a fetch slower than the tick can no longer overlap the one
+    behind it) and carries an `AbortController`; and the map's white tube halo is dimmed under
+    `.lm:has(.lt)` — the LAYER — not `.lt__train`, which tied the map's brightness to the data (a visible
+    pop when the first response landed, and no dimming at all offline). Trains also **fade in over 600ms on
+    mount**, which the catch-up rota made worth having (a line at a time arriving, ~270 at once on a cold
+    start). It is a `transition` out of **`@starting-style`**, deliberately NOT a second entry in the
+    inline `animation-*` lists: a transition fires on a value changing and opacity never changes again,
+    whereas an appended `animation-name` would replay on every re-emit — a blink whenever a train changed
+    segment, and the whole map twinkling after a resync.
+  Spec: `docs/superpowers/specs/2026-08-17-london-map-live-trains-design.md`; plan:
+  `docs/superpowers/plans/2026-08-17-london-map-live-trains.md`.
+
 **Next / resuming work — read `docs/ROADMAP.md` first.** It is the single prioritized backlog, split into
 **main build sub-projects** (the big sequential arc — sub-project 5 onward: Linear tile, then GitHub/Calendar
 tiles, reusing the SP4 provider+panel + Keychain seam) and **smaller iterations** (scoped polish/enhancements). When

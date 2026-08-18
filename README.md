@@ -84,7 +84,9 @@ under `~/CockpitWorktrees/<repo>/<name>`.
 ## Data and attribution
 
 The **London map** background (Settings → Appearance → Background) is drawn from two open-data
-sources, baked to SVG paths at build time — the app makes no network call to either at runtime.
+sources, baked to SVG paths at build time — the app makes no network call to either at runtime. It shows
+the roads and the river; the Underground belongs to **London Underground** below, the variant whose
+subject it is.
 
 | Source | Used for | Licence |
 |--------|----------|---------|
@@ -101,6 +103,15 @@ thing that touches those endpoints, is run by hand (`node scripts/bake-london-ma
 of deliberately-paced calls), and writes `src/background/londonMap.data.ts`, which is committed and
 never hand-edited. Because OSM changes upstream, a re-bake produces a diff that can't be reviewed
 against the previous one — so re-run it only when the geometry itself needs to change.
+
+**London Underground** is the same map plus the tube network and real trains running on it, and it is the one background
+that *does* use the network at runtime: it polls the [TfL Unified API](https://api.tfl.gov.uk)'s arrival
+predictions (`Line/{id}/Arrivals`) — no key, no account, one line every ~11s so all eleven refresh about
+every two minutes, and only while the window is visible. The same credit above covers it. Offline, or
+before the first response, it degrades to the still network — the tube lines with no trains on them, no
+error and no blank ground. It is a separate picker entry rather than a switch on the static map so that
+choosing a background never starts network activity you didn't ask for. Its train motion is baked by
+**`scripts/bake-train-segments.mjs`**, which reads the committed map data and needs no network at all.
 
 ## Docs
 
