@@ -39,6 +39,9 @@
   background: var(--surface); border: 1px solid var(--bdr); border-radius: var(--r);
   box-shadow: var(--menu-shadow); padding: var(--space-1);
 }
+/* heading variant (the slot picker) floats over the column, not inside a modal, so it can grow
+   to show every entity; the viewport-relative cap keeps a huge list scrollable, not clipped */
+.dd--heading .dd__pop { max-height: 75vh; }
 
 /* rows — roomy hover pills; one type-step larger than body */
 .dd button.dd__opt {
