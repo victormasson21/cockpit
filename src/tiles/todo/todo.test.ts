@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
-  nextState, groupByState, reorderWithinState,
-  resolveLists, activeListId, listIdOf, listNameOf, activeTodos, canDeleteList,
+  nextState, groupByState, reorderWithinState, reorderLists,
+  resolveLists, activeListId, listIdOf, listNameOf, todosInList, canDeleteList,
 } from "./todo";
 import type { TodoItem } from "../../settings/types";
 
@@ -116,7 +116,7 @@ describe("listNameOf", () => {
   });
 });
 
-describe("activeTodos", () => {
+describe("todosInList", () => {
   const lists = [L("l1", "Work"), L("l2", "Cockpit")];
   const items = [
     listed("a", "todo", "l1"),
@@ -124,15 +124,48 @@ describe("activeTodos", () => {
     listed("c", "in_progress", "l1"),
     listed("d", "done", "l1"),
     listed("e", "todo", "l1"),
+    listed("f", "done", "l2"),
   ];
   it("keeps only todo-state items from the active list, in input order", () => {
-    expect(activeTodos(items, lists, "l1").map((i) => i.id)).toEqual(["a", "e"]);
+    expect(todosInList(items, lists, "l1", "todo").map((i) => i.id)).toEqual(["a", "e"]);
   });
-  it("excludes in_progress and done even for the active list", () => {
-    expect(activeTodos(items, lists, "l1").map((i) => i.state)).toEqual(["todo", "todo"]);
+  it("excludes other states even for the active list", () => {
+    expect(todosInList(items, lists, "l1", "todo").map((i) => i.state)).toEqual(["todo", "todo"]);
   });
   it("includes legacy list-less items when the first list is active", () => {
-    expect(activeTodos([item("z", "todo")], lists, "l1").map((i) => i.id)).toEqual(["z"]);
+    expect(todosInList([item("z", "todo")], lists, "l1", "todo").map((i) => i.id)).toEqual(["z"]);
+  });
+  it("scopes done items to the given list", () => {
+    expect(todosInList(items, lists, "l1", "done").map((i) => i.id)).toEqual(["d"]);
+  });
+  it("scopes done items to the other list symmetrically", () => {
+    expect(todosInList(items, lists, "l2", "done").map((i) => i.id)).toEqual(["f"]);
+  });
+});
+
+describe("reorderLists", () => {
+  const lists = [L("l1", "Work"), L("l2", "Cockpit"), L("l3", "Home")];
+
+  it("moves a list right to the target's position", () => {
+    // drag l1 onto l3 → l1 lands at l3's slot
+    expect(reorderLists(lists, "l1", "l3").map((l) => l.id)).toEqual(["l2", "l3", "l1"]);
+  });
+
+  it("moves a list left to the target's position", () => {
+    // drag l3 onto l1 → l3 lands at l1's slot
+    expect(reorderLists(lists, "l3", "l1").map((l) => l.id)).toEqual(["l3", "l1", "l2"]);
+  });
+
+  it("is a no-op for an unknown target id", () => {
+    expect(reorderLists(lists, "l1", "zzz").map((l) => l.id)).toEqual(["l1", "l2", "l3"]);
+  });
+
+  it("is a no-op for an unknown dragged id", () => {
+    expect(reorderLists(lists, "zzz", "l1").map((l) => l.id)).toEqual(["l1", "l2", "l3"]);
+  });
+
+  it("is a no-op when dragging onto itself", () => {
+    expect(reorderLists(lists, "l2", "l2").map((l) => l.id)).toEqual(["l1", "l2", "l3"]);
   });
 });
 

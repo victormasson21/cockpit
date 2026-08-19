@@ -1,6 +1,6 @@
 // todos.ts — the To Do tile's backlog: items, their 3-state cycle, in-section reorder, and the named
 // list tabs. All persisted in cockpit.json; ids are random so they survive restarts without a counter.
-import { activeListId, canDeleteList, DEFAULT_LIST, nextState, reorderWithinState } from "../../tiles/todo/todo";
+import { activeListId, canDeleteList, DEFAULT_LIST, nextState, reorderLists, reorderWithinState } from "../../tiles/todo/todo";
 import type { SettingsSlice } from "../storeState";
 
 export interface TodosSlice {
@@ -12,6 +12,7 @@ export interface TodosSlice {
   addTodoList: (name: string) => string;
   renameTodoList: (id: string, name: string) => void;
   removeTodoList: (id: string) => void;
+  reorderTodoList: (draggedId: string, targetId: string) => void;
   setActiveTodoList: (id: string) => void;
 }
 
@@ -70,5 +71,8 @@ export const createTodosSlice: SettingsSlice<TodosSlice> = (_set, get) => ({
         activeTodoList: c.activeTodoList === id ? remaining[0]?.id : c.activeTodoList,
       };
     }),
+  // Tab order IS the todoLists array order, so a reorder is just a persisted array move.
+  reorderTodoList: (draggedId, targetId) =>
+    get().setCockpit((c) => ({ ...c, todoLists: reorderLists(c.todoLists, draggedId, targetId) })),
   setActiveTodoList: (id) => get().setCockpit((c) => ({ ...c, activeTodoList: id })),
 });

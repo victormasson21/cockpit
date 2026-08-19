@@ -117,6 +117,14 @@ describe("todo list (tab) actions", () => {
     expect(useSettings.getState().cockpit.todoLists.map((l) => l.name)).toEqual(["General", "Work"]);
   });
 
+  it("reorderTodoList persists the new tab order", () => {
+    useSettings.getState().addTodoList("Work");
+    const home = useSettings.getState().addTodoList("Home");
+    // lists are now General, Work, Home — drag General onto Home
+    useSettings.getState().reorderTodoList("default", home);
+    expect(useSettings.getState().cockpit.todoLists.map((l) => l.name)).toEqual(["Work", "Home", "General"]);
+  });
+
   it("setActiveTodoList switches tabs", () => {
     useSettings.getState().addTodoList("Work");
     useSettings.getState().setActiveTodoList("default");

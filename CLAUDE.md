@@ -443,6 +443,18 @@ Spec/plan: `docs/superpowers/{specs,plans}/2026-06-27-todo-and-timer-tiles*`.
   `#[serde(default)]`. 245 JS + 131 Rust tests green (30 new JS, 3 new Rust); tsc + Vite + cargo clean.
   Spec/plan: `docs/superpowers/{specs,plans}/2026-07-30-todo-list-tabs*`.
 
+- **To Do tile: reorderable tabs + per-tab DONE (2026-08-19).** Tabs drag-reorder with the rows'
+  pointer-event idiom, started from the tab itself behind a **5px movement threshold** so a plain click
+  still switches/renames; the pointer is captured only once the threshold is crossed, which also
+  retargets the gesture's eventual `click` to the wrapper span — that retargeting is what stops the tab
+  button's onClick from ALSO firing after a drag (capture on pointerdown would kill plain clicks
+  outright). Pure `reorderLists` (same insert semantics + no-op guards as `reorderWithinState`) + store
+  `reorderTodoList`; order IS the persisted `todoLists` array order, so no schema/Rust change. **DONE is
+  now per-tab like TODO** (the tabs rule is now: unstarted and finished are per-list, in-flight is
+  global) — `todosInList(items, lists, listId, state)` replaces `activeTodos` and feeds both sections;
+  DONE keeps its collapsed `▸ DONE (n)` toggle and drops the list-name prefix; IN PROGRESS is unchanged.
+  `canDeleteList` already counted every state, so no orphaning path opened.
+
 ✅ **Cockpit worktree column — complete & merged to `main`.** The Cockpit view's **right column** is now a worktree pane,
 reusing `SlotColumn` (its selection was refactored to be **prop-driven** — `value` + `onSelect` — so one component backs
 the Worktrees view's session slots, the Calm view, and the Cockpit view's **persisted** slot). New persisted
