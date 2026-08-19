@@ -68,9 +68,22 @@ export function listNameOf(item: TodoItem, lists: TodoList[]): string {
   return resolveLists(lists).find((l) => l.id === id)!.name;
 }
 
-// The active tab's backlog: todo-state items owned by that list, input order preserved.
-export function activeTodos(items: TodoItem[], lists: TodoList[], activeId: string): TodoItem[] {
-  return items.filter((i) => i.state === "todo" && listIdOf(i, lists) === activeId);
+// One list's items in one state, input order preserved (TODO and DONE are both per-tab).
+export function todosInList(items: TodoItem[], lists: TodoList[], listId: string, state: TodoState): TodoItem[] {
+  return items.filter((i) => i.state === state && listIdOf(i, lists) === listId);
+}
+
+// Move draggedId to targetId's slot in the tab bar; no-op unless both ids exist and differ.
+// Same insert semantics as reorderWithinState: insert-after on move-right, insert-at on move-left.
+export function reorderLists(lists: TodoList[], draggedId: string, targetId: string): TodoList[] {
+  const draggedIdx = lists.findIndex((l) => l.id === draggedId);
+  const targetIdx = lists.findIndex((l) => l.id === targetId);
+  if (draggedIdx < 0 || targetIdx < 0 || draggedIdx === targetIdx) return [...lists];
+  const without = lists.filter((l) => l.id !== draggedId);
+  const newTargetIdx = without.findIndex((l) => l.id === targetId);
+  const insertIdx = draggedIdx < targetIdx ? newTargetIdx + 1 : newTargetIdx;
+  without.splice(insertIdx, 0, lists[draggedIdx]);
+  return without;
 }
 
 // A list is deletable only when it holds nothing (in any state) and isn't the last one standing. This is

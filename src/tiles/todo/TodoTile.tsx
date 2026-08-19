@@ -1,15 +1,18 @@
-// TodoTile.tsx — tabbed to-do list: per-list TODO, plus global IN PROGRESS / DONE sections whose rows
-// name their owning list. Persisted via the store.
-import { useState } from "react";
+// TodoTile.tsx — tabbed to-do list: per-list TODO and DONE, plus a global IN PROGRESS section whose
+// rows name their owning list. Persisted via the store.
+import { useRef, useState } from "react";
 import { Tile } from "../Tile";
 import { useSettings } from "../../settings/store";
-import { groupByState, resolveLists, activeListId, activeTodos, listNameOf, canDeleteList } from "./todo";
+import { groupByState, resolveLists, activeListId, todosInList, listNameOf, canDeleteList } from "./todo";
 import { CreateWorktreeButton } from "../../views/CreateWorktreeButton";
 import type { TodoItem, TodoState } from "../../settings/types";
 import "./todo.css";
 
 // Status glyph per state; clicking it cycles to the next state.
 const GLYPH: Record<TodoState, string> = { todo: "○", in_progress: "◐", done: "●" };
+
+// Horizontal movement (px) before a tab press becomes a drag; under it, the press is a plain click.
+const TAB_DRAG_THRESHOLD = 5;
 
 export function TodoTile() {
   // One selector per field: a bare useSettings() would re-render this tile on every unrelated store write.
@@ -24,6 +27,7 @@ export function TodoTile() {
   const addTodoList = useSettings((s) => s.addTodoList);
   const renameTodoList = useSettings((s) => s.renameTodoList);
   const removeTodoList = useSettings((s) => s.removeTodoList);
+  const reorderTodoList = useSettings((s) => s.reorderTodoList);
   const setActiveTodoList = useSettings((s) => s.setActiveTodoList);
   const [draft, setDraft] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -34,11 +38,17 @@ export function TodoTile() {
   const [newList, setNewList] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState<string | null>(null);
   const [doneOpen, setDoneOpen] = useState(false); // session-only; DONE starts collapsed
+  const [tabDraggingId, setTabDraggingId] = useState<string | null>(null);
+  const [tabDragOverId, setTabDragOverId] = useState<string | null>(null);
+  // The pressed tab + start x, before the drag threshold is crossed. A ref, not state: it must be
+  // readable inside the same gesture's move events without re-rendering on every pointerdown.
+  const tabPress = useRef<{ id: string; x: number } | null>(null);
 
   const lists = resolveLists(todoLists);
   const activeId = activeListId(todoLists, activeTodoListId);
-  const backlog = activeTodos(todos, todoLists, activeId);
-  const groups = groupByState(todos); // global buckets for IN PROGRESS / DONE
+  const backlog = todosInList(todos, todoLists, activeId, "todo");
+  const done = todosInList(todos, todoLists, activeId, "done");
+  const groups = groupByState(todos); // global bucket for IN PROGRESS
 
   const add = () => { const t = draft.trim(); if (!t) return; addTodo(t); setDraft(""); };
   const startEdit = (id: string, text: string) => { setEditingId(id); setEditDraft(text); };
@@ -68,6 +78,36 @@ export function TodoTile() {
     if (draggingId && dragOverId) reorderTodo(draggingId, dragOverId);
     setDraggingId(null);
     setDragOverId(null);
+  };
+
+  // Tab drag: same pointer-event idiom as the rows, but started from the tab itself with a small
+  // movement threshold, so a plain click still switches/renames. Once the threshold is crossed we
+  // capture the pointer — capture also retargets the eventual click to the wrapper span, which is
+  // what stops the tab button's onClick from ALSO firing after a drag.
+  const onTabDown = (id: string) => (e: React.PointerEvent) => {
+    if (renameDraft !== null && id === activeId) return; // renaming in place — leave the input alone
+    tabPress.current = { id, x: e.clientX };
+  };
+  const onTabMove = (e: React.PointerEvent) => {
+    const press = tabPress.current;
+    if (!press) return;
+    // A press released off the tab bar (no capture yet) never reaches onTabUp; without this guard the
+    // stale press would turn a later buttonless hover across the bar into a drag that can't end.
+    if (e.buttons === 0) { tabPress.current = null; return; }
+    if (!tabDraggingId) {
+      if (Math.abs(e.clientX - press.x) < TAB_DRAG_THRESHOLD) return;
+      e.currentTarget.setPointerCapture(e.pointerId);
+      setTabDraggingId(press.id);
+    }
+    const tab = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-list-id]");
+    const id = tab?.getAttribute("data-list-id") ?? null;
+    setTabDragOverId(id === press.id ? null : id);
+  };
+  const onTabUp = () => {
+    if (tabDraggingId && tabDragOverId) reorderTodoList(tabDraggingId, tabDragOverId);
+    tabPress.current = null;
+    setTabDraggingId(null);
+    setTabDragOverId(null);
   };
 
   // One row shape for all three sections; `tag` names the owning list and is passed only by the
@@ -113,7 +153,14 @@ export function TodoTile() {
         {/* Tab bar: click a tab to switch, click the ACTIVE tab's name to rename it, ✕ deletes an emptied one. */}
         <nav className="todo__tabs">
           {lists.map((l) => (
-            <span key={l.id} className={`todo__tab${l.id === activeId ? " todo__tab--active" : ""}`}>
+            <span
+              key={l.id}
+              data-list-id={l.id}
+              className={`todo__tab${l.id === activeId ? " todo__tab--active" : ""}${tabDragOverId === l.id ? " todo__tab--drop-target" : ""}`}
+              onPointerDown={onTabDown(l.id)}
+              onPointerMove={onTabMove}
+              onPointerUp={onTabUp}
+            >
               {renameDraft !== null && l.id === activeId ? (
                 <input
                   className="todo__tab-edit"
@@ -174,13 +221,13 @@ export function TodoTile() {
           </div>
         )}
 
-        {/* Global, collapsed by default so finished work across lists never crowds the tile. */}
-        {groups.done.length > 0 && (
+        {/* Per-tab like TODO, collapsed by default so finished work never crowds the tile. */}
+        {done.length > 0 && (
           <div className="todo__section">
             <button className="todo__section-toggle" onClick={() => setDoneOpen(!doneOpen)}>
-              DONE ({groups.done.length}) {doneOpen ? "▾" : "▸"}
+              DONE ({done.length}) {doneOpen ? "▾" : "▸"}
             </button>
-            {doneOpen && groups.done.map((t) => row(t, listNameOf(t, todoLists)))}
+            {doneOpen && done.map((t) => row(t))}
           </div>
         )}
       </div>

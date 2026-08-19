@@ -26,8 +26,11 @@
 .todo__del { background: none; border: none; padding: var(--space-1) var(--space-2); cursor: pointer; color: var(--tx-3); opacity: 0; }
 .todo__row:hover .todo__del { opacity: 0.7; }
 /* Tab bar: one tab per list, `+` appends. Same underline-active idiom as the Home|Diff tabs, tile-scaled. */
-.todo__tabs { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); border-bottom: 1px solid var(--bdr); }
+/* user-select: none so a tab drag can't smear a text selection across the bar */
+.todo__tabs { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); border-bottom: 1px solid var(--bdr); user-select: none; }
 .todo__tab { display: flex; align-items: center; gap: var(--space-1); }
+/* Drop-target edge for tab drags — the tab bar's sibling of .todo__row--drop-target */
+.todo__tab--drop-target { box-shadow: inset 2px 0 0 var(--accent); }
 /* These drop the global `button` fill/border but keep a 1:2 vertical:horizontal padding pair
    (--space-1/--space-2), tighter than the baseline's 6px 12px so the tab row stays compact. */
 .todo__tab-name, .todo__tab-add, .todo__tab-del, .todo__section-toggle {
