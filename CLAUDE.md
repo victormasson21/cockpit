@@ -449,7 +449,10 @@ Spec/plan: `docs/superpowers/{specs,plans}/2026-06-27-todo-and-timer-tiles*`.
   retargets the gesture's eventual `click` to the wrapper span — that retargeting is what stops the tab
   button's onClick from ALSO firing after a drag (capture on pointerdown would kill plain clicks
   outright). Pure `reorderLists` (same insert semantics + no-op guards as `reorderWithinState`) + store
-  `reorderTodoList`; order IS the persisted `todoLists` array order, so no schema/Rust change. **DONE is
+  `reorderTodoList`; order IS the persisted `todoLists` array order, so no schema/Rust change. The drop
+  indicator is two-sided (pure `dropEdge`): a rightward drag inserts AFTER the target so it marks the
+  trailing edge, leftward the leading edge — one fixed edge reads off-by-one in one direction (the rows'
+  single top-border indicator still has that quirk). **DONE is
   now per-tab like TODO** (the tabs rule is now: unstarted and finished are per-list, in-flight is
   global) — `todosInList(items, lists, listId, state)` replaces `activeTodos` and feeds both sections;
   DONE keeps its collapsed `▸ DONE (n)` toggle and drops the list-name prefix; IN PROGRESS is unchanged.

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  nextState, groupByState, reorderWithinState, reorderLists,
+  nextState, groupByState, reorderWithinState, reorderLists, dropEdge,
   resolveLists, activeListId, listIdOf, listNameOf, todosInList, canDeleteList,
 } from "./todo";
 import type { TodoItem } from "../../settings/types";
@@ -166,6 +166,22 @@ describe("reorderLists", () => {
 
   it("is a no-op when dragging onto itself", () => {
     expect(reorderLists(lists, "l2", "l2").map((l) => l.id)).toEqual(["l1", "l2", "l3"]);
+  });
+});
+
+describe("dropEdge", () => {
+  const lists = [L("l1", "Work"), L("l2", "Cockpit"), L("l3", "Home")];
+
+  it("marks the target's trailing edge when dragging rightwards (insert-after)", () => {
+    expect(dropEdge(lists, "l1", "l3")).toBe("after");
+  });
+
+  it("marks the target's leading edge when dragging leftwards (insert-at)", () => {
+    expect(dropEdge(lists, "l3", "l1")).toBe("before");
+  });
+
+  it("marks adjacent rightward drags as after too", () => {
+    expect(dropEdge(lists, "l1", "l2")).toBe("after");
   });
 });
 

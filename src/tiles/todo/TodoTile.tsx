@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { Tile } from "../Tile";
 import { useSettings } from "../../settings/store";
-import { groupByState, resolveLists, activeListId, todosInList, listNameOf, canDeleteList } from "./todo";
+import { groupByState, resolveLists, activeListId, todosInList, listNameOf, canDeleteList, dropEdge } from "./todo";
 import { CreateWorktreeButton } from "../../views/CreateWorktreeButton";
 import type { TodoItem, TodoState } from "../../settings/types";
 import "./todo.css";
@@ -156,7 +156,7 @@ export function TodoTile() {
             <span
               key={l.id}
               data-list-id={l.id}
-              className={`todo__tab${l.id === activeId ? " todo__tab--active" : ""}${tabDragOverId === l.id ? " todo__tab--drop-target" : ""}`}
+              className={`todo__tab${l.id === activeId ? " todo__tab--active" : ""}${tabDraggingId && tabDragOverId === l.id ? ` todo__tab--drop-${dropEdge(lists, tabDraggingId, l.id)}` : ""}`}
               onPointerDown={onTabDown(l.id)}
               onPointerMove={onTabMove}
               onPointerUp={onTabUp}

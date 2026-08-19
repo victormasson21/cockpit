@@ -86,6 +86,14 @@ export function reorderLists(lists: TodoList[], draggedId: string, targetId: str
   return without;
 }
 
+// Which edge of the hovered tab the drag will land on, so the drop indicator matches reorderLists:
+// a rightward drag inserts AFTER the target (trailing edge), a leftward one AT it (leading edge).
+export function dropEdge(lists: TodoList[], draggedId: string, targetId: string): "before" | "after" {
+  const draggedIdx = lists.findIndex((l) => l.id === draggedId);
+  const targetIdx = lists.findIndex((l) => l.id === targetId);
+  return draggedIdx >= 0 && draggedIdx < targetIdx ? "after" : "before";
+}
+
 // A list is deletable only when it holds nothing (in any state) and isn't the last one standing. This is
 // the entire safety story for deletion: no confirm dialog, and no path that silently drops items.
 export function canDeleteList(lists: TodoList[], items: TodoItem[], id: string): boolean {
