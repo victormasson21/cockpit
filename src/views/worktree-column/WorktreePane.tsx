@@ -54,7 +54,7 @@ export function WorktreePane({ title, icon, lead, badge, action, open: openProp,
     <div className={`wt-pane ${open ? "wt-pane--open" : "wt-pane--closed"}${focused ? " wt-pane--focused" : ""}${needsAttention ? " wt-pane--attention" : ""}`}>
       <div className="wt-pane__header">
         {lead ?? (<>{icon}<span className="wt-pane__title">{title}</span></>)}
-        {needsAttention && <span className="wt-attention">Attention</span>}
+        {needsAttention && <span className="wt-attention">Check me out</span>}
         {badge}
         {action}
         <button className="icon-btn wt-pane__restart" title="restart" onClick={restart}><RestartIcon /></button>
