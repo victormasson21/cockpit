@@ -5,7 +5,7 @@ import { selectedLabel, selectedSuffix, sanitizeTitle, type DropdownGroup } from
 import { ChevronIcon, TickIcon } from "./icons";
 import "./Dropdown.css";
 
-export function Dropdown({ value, onChange, groups, placeholder, variant, onRename, editValue }: {
+export function Dropdown({ value, onChange, groups, placeholder, variant, onRename, editValue, onOpen }: {
   value: string | null;
   onChange: (value: string) => void;
   groups: DropdownGroup[];
@@ -13,9 +13,13 @@ export function Dropdown({ value, onChange, groups, placeholder, variant, onRena
   variant: "heading" | "form";
   onRename?: (value: string) => void; // present → the label is click-to-edit; the chevron alone opens the popover
   editValue?: string;                 // raw value to seed the edit input (the entity name/title, not the composed label)
+  onOpen?: () => void;                // fired as the popover opens — for row data that only has to be true while it's on screen
 }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
+  // Single toggle so every opener notifies the host; opening is when row data gets refreshed.
+  // The notify sits outside the updater — StrictMode invokes updaters twice, which would double-fire it.
+  const toggle = () => { if (!open) onOpen?.(); setOpen((o) => !o); };
   const rootRef = useRef<HTMLDivElement>(null);
 
   // Close on outside click — listener only lives while open.
@@ -68,12 +72,12 @@ export function Dropdown({ value, onChange, groups, placeholder, variant, onRena
           <button type="button" className="dd__trigger dd__trigger--editable" onClick={() => { setEditing(true); setOpen(false); }}>
             {label}
           </button>
-          <button type="button" className="dd__chevron-btn icon-btn" aria-label="switch worktree" onClick={() => setOpen((o) => !o)}>
+          <button type="button" className="dd__chevron-btn icon-btn" aria-label="switch worktree" onClick={toggle}>
             <ChevronIcon open />
           </button>
         </>
       ) : (
-        <button type="button" className="dd__trigger" onClick={() => setOpen((o) => !o)}>
+        <button type="button" className="dd__trigger" onClick={toggle}>
           {label}
           <span className="dd__chevron" aria-hidden><ChevronIcon open /></span>
         </button>
@@ -90,6 +94,7 @@ export function Dropdown({ value, onChange, groups, placeholder, variant, onRena
                   className={`dd__opt${o.value === value ? " dd__opt--selected" : ""}`}
                   onClick={() => { onChange(o.value); setOpen(false); }}
                 >
+                  {o.icon && <span className="dd__opt-icon" aria-hidden>{o.icon}</span>}
                   <span className="dd__opt-label">
                     {o.label}
                     {o.suffix && <span className="dd__suffix"> · {o.suffix}</span>}

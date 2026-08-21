@@ -17,6 +17,10 @@ const encoder = new TextEncoder();
 export const writePty = (ptyId: string, text: string): Promise<void> =>
   invoke("pty_write", { ptyId, bytes: Array.from(encoder.encode(text)) });
 
+// Registry-wide query, so it belongs beside the per-pane handle rather than on it: which PTYs are
+// actually running right now. Powers the slot picker's activity marker; see activity.ts.
+export const ptyLiveIds = (): Promise<string[]> => invoke<string[]>("pty_live_ids");
+
 export interface PtyPane {
   readonly id: string; // also the attention-map key and the pane body's data-pty-id
   ensure(opts: EnsureOpts): Promise<string>;

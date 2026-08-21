@@ -30,6 +30,7 @@ pub fn run() {
             pty::pty_write,
             pty::pty_resize,
             pty::pty_kill,
+            pty::pty_live_ids,
             worktree::create_worktree,
             worktree::list_branches,
             worktree::worktree_status,

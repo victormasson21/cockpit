@@ -160,6 +160,24 @@ pub fn pty_kill(manager: State<PtyManager>, pty_id: String) -> Result<(), String
     Ok(())
 }
 
+// Which PTYs are actually alive, as their registry ids. Powers the slot picker's activity marker
+// (displayed / running / paused). `try_wait` is the point: a key is only removed by pty_kill/kill_all,
+// so a shell the user `exit`ed leaves its entry behind and `table.keys()` alone would report it as
+// running. Read-only — dead entries are left in place, because removing them here would change
+// pty_ensure's "already alive -> reattach" early return. Memory-only, so it stays a sync command.
+fn live_ids(manager: &PtyManager) -> Vec<String> {
+    let mut table = manager.table.lock().unwrap();
+    table
+        .iter_mut()
+        .filter_map(|(id, pty)| matches!(pty.child.try_wait(), Ok(None)).then(|| id.clone()))
+        .collect()
+}
+
+#[tauri::command]
+pub fn pty_live_ids(manager: State<PtyManager>) -> Vec<String> {
+    live_ids(&manager)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -217,5 +235,45 @@ mod tests {
         assert_eq!(manager.kill_all(), 1);
         assert!(manager.table.lock().unwrap().is_empty());
         assert_eq!(rx.recv_timeout(Duration::from_secs(5)).unwrap(), 0, "child should be dead");
+    }
+
+    // Register a real spawned child under `id` so liveness can be probed as the command does.
+    fn insert_child(manager: &PtyManager, id: &str, program: &str, args: &[&str]) {
+        let pair = native_pty_system()
+            .openpty(PtySize { rows: 24, cols: 80, pixel_width: 0, pixel_height: 0 })
+            .unwrap();
+        let mut cmd = CommandBuilder::new(program);
+        for a in args {
+            cmd.arg(a);
+        }
+        let child = pair.slave.spawn_command(cmd).unwrap();
+        drop(pair.slave);
+        let writer = pair.master.take_writer().unwrap();
+        manager.table.lock().unwrap().insert(
+            id.to_string(),
+            LivePty { master: pair.master, child, writer, scrollback: Arc::new(Mutex::new(Vec::new())) },
+        );
+    }
+
+    // The picker's "running" marker must not be fooled by a registry key whose child already exited
+    // (only pty_kill/kill_all remove keys, so an exited shell leaves one behind).
+    #[test]
+    fn live_ids_lists_running_children_and_omits_exited_ones() {
+        let manager = PtyManager::default();
+        insert_child(&manager, &pty_id("wt-alive", "claude"), "sleep", &["60"]);
+        insert_child(&manager, &pty_id("wt-dead", "claude"), "true", &[]);
+
+        // Give the short-lived child time to exit and be reaped by try_wait.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        loop {
+            let ids = live_ids(&manager);
+            if !ids.contains(&pty_id("wt-dead", "claude")) {
+                assert_eq!(ids, vec![pty_id("wt-alive", "claude")]);
+                break;
+            }
+            assert!(std::time::Instant::now() < deadline, "exited child still reported live: {ids:?}");
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        manager.kill_all();
     }
 }

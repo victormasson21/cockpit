@@ -2,7 +2,10 @@
 // (Named dropdownModel, not dropdown: macOS's case-insensitive FS would collide `dropdown.ts` with `Dropdown.tsx` on import resolution.)
 // `suffix` is secondary identity shown after the label (the slot picker's repo name) — kept out of
 // `label` so it can be rendered at its own weight instead of blending into the title.
-export type DropdownOption = { value: string; label: string; suffix?: string; hint?: string; disabled?: boolean };
+import type { ReactNode } from "react";
+// `icon` is a generic leading slot: the caller decides what a row's glyph means (the slot picker uses
+// it for runtime activity), so this component never learns any domain vocabulary.
+export type DropdownOption = { value: string; label: string; suffix?: string; hint?: string; disabled?: boolean; icon?: ReactNode };
 export type DropdownGroup = { label?: string; options: DropdownOption[] };
 
 function findOption(groups: DropdownGroup[], value: string | null): DropdownOption | undefined {

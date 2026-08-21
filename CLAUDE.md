@@ -1098,6 +1098,44 @@ both Important findings fixed (in-batch dedupe, history pagination).
   generated files drifting). The re-run bake left the CSS byte-identical. 503 JS tests (was 491); tsc +
   Vite clean; no Rust changes.
 
+- **Picker activity markers (2026-08-20).** Each worktree/scratch row in the slot picker carries a
+  runtime marker: **play** = displayed, **play at 0.5 opacity** = running off screen, **pause at 0.5** =
+  nothing running. It answers "what's still burning CPU behind my back", which was invisible before —
+  because gear→**Close** unassigns the slot but leaves the PTYs alive (`claude`, the dev server), while
+  **Pause** kills them, and the two looked identical.
+  - **This is `activity`, NOT `status` — the naming is load-bearing.** A ticket-shaped worktree lifecycle
+    (in progress / on hold / PR'd / awaiting release) is a separate, deliberately deferred thread, and
+    the vestigial persisted `Worktree.status: "ongoing" | "completed"` is ITS seed — a field with no
+    writer since dockview went (its only readers are the picker's `ongoing` filter and `initSlots`). So
+    activity is a different word, wholly **derived**, session-only, and touches no persisted field: no
+    `Worktree` change, no Rust struct change, no `cockpit.json` change, no migration for thread 2 to undo.
+  - **Pure `activityOf(id, { displayedIds, livePtyIds })`** in `src/worktrees/activity.ts`: displayed if
+    the id is in `slots` or is `cockpitWorktreeId`; else running if a live pty id starts with `<id>:`
+    (the separator is required — `wt-1` must not match `wt-10:claude`); else paused. **displayed wins over
+    running** on purpose, and paused therefore also covers never-opened-this-session — both mean nothing
+    of yours is running.
+  - **⚠️ `pty_live_ids` must use `child.try_wait()`, not `table.keys()`.** A registry key is removed ONLY
+    by `pty_kill`/`kill_all`, so a shell the user `exit`ed leaves its entry behind (which is also why
+    `pty_ensure`'s "already alive → reattach" early return can't respawn it, and why `respawn` kills
+    first). Keys alone would report a dead shell as running. The command is read-only — it deliberately
+    does NOT prune dead entries, since that would change that early-return contract. Memory-only, so it
+    stays a **sync** command per the main-thread rule. Split as tested `live_ids(&PtyManager)` + a thin
+    `#[tauri::command]` wrapper, because `State<PtyManager>` isn't constructible in a unit test.
+  - **Queried on popover open, not polled.** `Dropdown` gained `onOpen?: () => void`; `SlotColumn` holds
+    the result in local state. The answer only has to be true while the list is on screen, so there's no
+    store slice, no poll thread, no event stream — and only the column you actually opened fires.
+    The notify sits OUTSIDE the `setOpen` updater: StrictMode invokes updaters twice and would
+    double-fire it. Accepted cost: the first frame after opening renders from an empty snapshot (so
+    off-screen rows flash "paused") — one frame, since the invoke is a HashMap scan.
+  - **`DropdownOption.icon?: ReactNode`** is a *generic* leading slot (`.dd__opt-icon`, sized by
+    `font-size` since the glyphs are `1em`/`currentColor`) — the caller decides what a row's glyph means,
+    so `Dropdown` never learns the word "activity". The marker is **not** on the trigger: the selected row
+    is displayed by definition, so a permanent play icon there is noise. Scratch rows get it too (same
+    computation on `<id>:shell`) — marking worktrees but not scratch would read as a bug.
+  - Worth an eyeball: displayed vs running differ only in opacity, so they may be hard to tell apart in
+    practice; swapping running to a distinct glyph is a one-line change in `ACTIVITY_ICON`.
+  138 Rust (+1) + 522 JS (+8) tests green; tsc + Vite + cargo clean, warning-free.
+
 **Next / resuming work — read `docs/ROADMAP.md` first.** It is the single prioritized backlog, split into
 **main build sub-projects** (the big sequential arc — sub-project 5 onward: Linear tile, then GitHub/Calendar
 tiles, reusing the SP4 provider+panel + Keychain seam) and **smaller iterations** (scoped polish/enhancements). When

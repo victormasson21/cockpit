@@ -54,6 +54,8 @@
 .dd button.dd__opt:disabled { color: var(--tx-3); cursor: default; }
 .dd__opt--selected { color: var(--tx-hi); }
 .dd__opt-label { overflow: hidden; text-overflow: ellipsis; }
+/* Leading glyph slot (the slot picker's activity marker). Icons are 1em/currentColor, so size is font-size. */
+.dd__opt-icon { display: inline-flex; flex: 0 0 auto; font-size: 12px; }
 .dd__opt-hint { color: var(--tx-3); font-size: var(--fs-sm); flex: 0 0 auto; }
 .dd__tick { display: inline-flex; margin-left: auto; color: var(--accent); font-size: 13px; }
 

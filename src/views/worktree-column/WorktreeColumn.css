@@ -153,3 +153,6 @@
 .tc__warn { color: var(--bad-tx); font-size: var(--fs-md); margin: 0 0 var(--space-2); }
 .tc__error { color: var(--bad-tx); background: var(--bad-bg); border: 1px solid var(--bad); border-radius: var(--r-sm); padding: 6px 10px; font-size: var(--fs-sm); margin: 0 0 var(--space-2); }
 .tc__actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-3); }
+
+/* Picker activity marker: displayed is full-strength, the off-screen states are dimmed. */
+.wt-col__act--dim { display: inline-flex; opacity: 0.5; }

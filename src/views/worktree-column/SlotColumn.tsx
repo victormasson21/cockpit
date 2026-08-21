@@ -1,9 +1,9 @@
 // SlotColumn.tsx — one Worktrees-view column: picker + gear menu over a slot's entity body (a worktree or a scratch terminal).
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useSettings } from "../../settings/store";
 import { makePtyId } from "../../worktrees/ptyId";
 import { resolveSlotEntity } from "../slots";
-import { GearIcon, CloseIcon, PauseIcon, BinIcon, GhostIcon, PinIcon } from "../icons";
+import { GearIcon, CloseIcon, PauseIcon, BinIcon, GhostIcon, PinIcon, PlayIcon } from "../icons";
 import { Dropdown } from "../Dropdown";
 import type { DropdownGroup } from "../dropdownModel";
 import { WorktreeBody } from "./WorktreeBody";
@@ -11,7 +11,17 @@ import { ScratchBody } from "./ScratchBody";
 import { PendingBody } from "./PendingBody";
 import { TeardownConfirm } from "./TeardownConfirm";
 import { killPanes, liveRoles } from "../../worktrees/paneLifecycle";
+import { ptyLiveIds } from "../../worktrees/ptyPane";
+import { activityOf, type Activity } from "../../worktrees/activity";
 import "./WorktreeColumn.css";
+
+// Runtime-activity glyphs for the picker rows. Same play glyph for displayed and running (dimmed),
+// since both mean "alive"; pause + dimmed means nothing is running.
+const ACTIVITY_ICON: Record<Activity, ReactNode> = {
+  displayed: <PlayIcon />,
+  running: <span className="wt-col__act--dim"><PlayIcon /></span>,
+  paused: <span className="wt-col__act--dim"><PauseIcon /></span>,
+};
 
 export function SlotColumn({ value, onSelect, variant = "full", onPin, onClose }: { value: string | null; onSelect: (id: string | null) => void; variant?: "full" | "calm"; onPin?: (id: string) => void; onClose?: () => void }) {
   // One selector per field, deliberately: this column owns the terminals, so a bare useSettings() would
@@ -22,6 +32,8 @@ export function SlotColumn({ value, onSelect, variant = "full", onPin, onClose }
   const removeScratch = useSettings((s) => s.removeScratch);
   const updateWorktree = useSettings((s) => s.updateWorktree);
   const renameScratch = useSettings((s) => s.renameScratch);
+  const slots = useSettings((s) => s.slots);
+  const cockpitWorktreeId = useSettings((s) => s.cockpit.cockpitWorktreeId);
   const ongoing = worktrees.filter((w) => w.status === "ongoing");
   const activeId = value;
   const entity = resolveSlotEntity(activeId, worktrees, scratchTerminals, pendingWorktrees);
@@ -59,6 +71,13 @@ export function SlotColumn({ value, onSelect, variant = "full", onPin, onClose }
   const attention = useSettings((s) => (attnPtyId ? Boolean(s.attention[attnPtyId]) : false));
   const iconKind = entity?.kind === "scratch" ? "terminal" : "tree"; // scratch → terminal glyph; worktree & empty slots → tree.
 
+  // Which PTYs are alive, refreshed as the picker opens: the answer only has to be true while the
+  // list is on screen, so this is a local snapshot rather than a store slice or a poll.
+  const [livePtyIds, setLivePtyIds] = useState<string[]>([]);
+  const refreshActivity = () => { void ptyLiveIds().then(setLivePtyIds).catch(() => setLivePtyIds([])); };
+  const displayedIds = [...slots.map((s) => s.id), cockpitWorktreeId];
+  const activityIcon = (id: string) => ACTIVITY_ICON[activityOf(id, { displayedIds, livePtyIds })];
+
   // Picker rows: clear-action + (synthetic pending) ungrouped, then Worktrees / Scratch groups.
   const pickerGroups: DropdownGroup[] = [
     { options: [
@@ -68,9 +87,9 @@ export function SlotColumn({ value, onSelect, variant = "full", onPin, onClose }
     ]},
     // The repo basename rides as a `suffix` (rendered at a lighter weight) so each slot's origin is
     // obvious at a glance without competing with the title.
-    { label: "Worktrees", options: ongoing.map((w) => ({ value: w.id, label: w.name, suffix: w.repoPath.split("/").pop() })) },
+    { label: "Worktrees", options: ongoing.map((w) => ({ value: w.id, label: w.name, suffix: w.repoPath.split("/").pop(), icon: activityIcon(w.id) })) },
     ...(scratchTerminals.length > 0
-      ? [{ label: "Scratch", options: scratchTerminals.map((s) => ({ value: s.id, label: s.title })) }]
+      ? [{ label: "Scratch", options: scratchTerminals.map((s) => ({ value: s.id, label: s.title, icon: activityIcon(s.id) })) }]
       : []),
   ];
 
@@ -88,6 +107,7 @@ export function SlotColumn({ value, onSelect, variant = "full", onPin, onClose }
       <Dropdown
         value={activeId} onChange={(v) => onSelect(v || null)} groups={pickerGroups}
         placeholder="Select…" variant="heading" onRename={onRename} editValue={editValue}
+        onOpen={refreshActivity}
       />
     </>
   );
