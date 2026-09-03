@@ -9,6 +9,8 @@
 > **On "let's continue":** present this file's items grouped as below — main sub-projects first, then smaller iterations — and help pick one. Main sub-projects start with the brainstorming skill; smaller iterations can often go straight to a plan or a direct change.
 >
 > **Learning-driven ideas** (Cockpit improvements that double as ML-curriculum practice) live separately in `ML-CURRICULUM-IDEAS.md` — a parking lot, not scheduled work.
+>
+> **Publishing** is audited separately in `publish-readiness.md` — the leaks, licence, onboarding, packaging and safety gaps that block a public repo or a downloadable build. Not scheduled work until publishing is a goal.
 
 ---
 
