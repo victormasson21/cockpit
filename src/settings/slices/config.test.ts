@@ -111,4 +111,11 @@ describe("worktree contexts and the launch view", () => {
     useSettings.getState().setDefaultView("cockpit");
     expect(useSettings.getState().cockpit.preferences.defaultView).toBe("cockpit");
   });
+
+  it("setNotifyOnAttention persists the desktop-notification toggle", () => {
+    useSettings.getState().setNotifyOnAttention(false);
+    expect(useSettings.getState().cockpit.preferences.notifyOnAttention).toBe(false);
+    useSettings.getState().setNotifyOnAttention(true);
+    expect(useSettings.getState().cockpit.preferences.notifyOnAttention).toBe(true);
+  });
 });

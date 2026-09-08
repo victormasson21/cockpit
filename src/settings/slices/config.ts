@@ -22,6 +22,7 @@ export interface ConfigSlice {
   setWorktreeContext: (source: WorktreeSource, text: string) => void;
   setDefaultView: (v: View) => void;
   setBackground: (id: string) => void;
+  setNotifyOnAttention: (on: boolean) => void;
 }
 
 export const EMPTY_CONFIG: CockpitConfig = {
@@ -77,5 +78,7 @@ export const createConfigSlice: SettingsSlice<ConfigSlice> = (set, get) => {
     // The view you switch to becomes the view you launch into (defaultView has no other writer).
     setDefaultView: (v) => get().setCockpit((c) => ({ ...c, preferences: { ...c.preferences, defaultView: v } })),
     setBackground: (id) => get().setCockpit((c) => ({ ...c, preferences: { ...c.preferences, background: id } })),
+    setNotifyOnAttention: (on) =>
+      get().setCockpit((c) => ({ ...c, preferences: { ...c.preferences, notifyOnAttention: on } })),
   };
 };

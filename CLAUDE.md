@@ -231,6 +231,22 @@ renders them. Getting this one pattern right makes the Nth integration mechanica
   130 JS tests green (4 new); tsc + Vite clean; no Rust changes. **GUI acceptance PENDING human eyeball.**
   Spec/plan: `docs/superpowers/{specs,plans}/2026-07-08-themed-dropdown*`.
 
+- **Desktop notifications for the attention signal (2026-09-08):** a bell in a Claude/scratch pane
+  already sets the session-only `attention` flag (glow + "Check me out" badge). It now also raises a
+  macOS notification naming the worktree and bounces the Dock, but **only while cockpit is unfocused** —
+  the on-screen glow covers the focused case. `src/worktrees/attentionNotifier.ts` **subscribes** to the
+  store rather than being called from `markAttention`, so `workspace.ts` is untouched and the slice stays
+  OS-free; `newlyMarked` makes it edge-triggered (Claude bells repeatedly while waiting, and only the
+  first deserves a banner). The three OS calls are injected (`AttentionPorts`), so 18 tests cover the
+  logic against the real store with only the boundary stubbed. Toggle in Settings › Notifications
+  (`preferences.notifyOnAttention`, absent = on). `tauri-plugin-notification` v2 + `notification:default`,
+  `core:window:allow-is-focused`, `core:window:allow-request-user-attention`.
+  **macOS gotchas worth keeping:** the first notification after install is always eaten by the OS
+  authorisation prompt (macOS reports permission granted *before* prompting), `tauri dev` cannot deliver
+  notifications at all (not a bundle — test the packaged `.app`), and ad-hoc signature churn between
+  builds does not reset the grant. **Live acceptance PENDING** — logic verified, packaged app not yet run.
+  Spec: `docs/superpowers/specs/2026-09-08-attention-desktop-notifications-design.md`.
+
 ## Replacing the logo
 
 The logo (since 2026-07-07: the persimmon-tree drawing, dark ink + orange fruit) is displayed in
