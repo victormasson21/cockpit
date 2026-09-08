@@ -6,6 +6,9 @@
   "permissions": [
     "core:default",
     "opener:default",
-    "dialog:default"
+    "dialog:default",
+    "notification:default",
+    "core:window:allow-is-focused",
+    "core:window:allow-request-user-attention"
   ]
 }

@@ -8,6 +8,7 @@ import { writePty } from "./worktrees/ptyPane";
 import { loadSettings } from "./settings/api";
 import { versionLabel } from "./version";
 import { slackInit } from "./tiles/slack/api";
+import { primeNotifications, startAttentionNotifier } from "./worktrees/attentionNotifier";
 import { useSettings } from "./settings/store";
 import { WorktreesView } from "./views/WorktreesView";
 import { CockpitView } from "./views/CockpitView";
@@ -55,6 +56,13 @@ function App() {
   const [version, setVersion] = useState<string | null>(null);
   useEffect(() => {
     getVersion().then(setVersion).catch(() => {});
+  }, []);
+
+  // Desktop notification when a background pane bells. Primed here so the OS permission prompt does not
+  // land on the user's first real "Check me out".
+  useEffect(() => {
+    void primeNotifications();
+    return startAttentionNotifier();
   }, []);
 
   // Drive the countdown here (App never unmounts), so the timer keeps ticking across view switches.

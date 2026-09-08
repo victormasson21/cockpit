@@ -15,6 +15,7 @@ export interface Preferences {
   panes?: number; // legacy: old fixed Worktrees/Calm column count. No longer read/written (layout is now responsive); kept optional for back-compat with older cockpit.json.
   fontScale?: number; // text zoom multiplier (Cmd +/-/0); 1 = 100%. optional for back-compat with older cockpit.json
   background?: string; // id from the background registry; absent or unknown = the default. "none" = off.
+  notifyOnAttention?: boolean; // desktop notification + Dock bounce when a pane bells while cockpit is in the background. Absent = on.
 }
 
 export interface HostConfig { startCmd: string; address: string }
