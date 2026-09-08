@@ -16,13 +16,25 @@
 
 /* heading variant — the slot column's bold title-as-picker look. Flex row so the title grows +
    truncates while the chevron button stays pinned at the right (level with the gear in the header). */
-.dd--heading { display: flex; align-items: center; flex: 1 1 auto; min-width: 0; }
+/* the gap separates the title pill from the chevron pill in the editable shape; the non-editable
+   shape has a single child, so it costs nothing there */
+.dd--heading { display: flex; align-items: center; gap: var(--space-1); flex: 1 1 auto; min-width: 0; }
 .dd--heading button.dd__trigger {
   flex: 1 1 auto; min-width: 0;
-  background: none; border: none; padding: 0 2px;
+  background: none; border: none; border-radius: var(--r-sm);
+  /* the pill needs room around the text, but the text must not move: the negative margin
+     cancels the extra left padding so the title stays 2px off the icon as before */
+  padding: 4px 6px; margin-left: -4px;
   color: var(--tx-hi); font-size: var(--fs-xl); font-weight: 700;
+  transition: background-color 200ms ease-out;
 }
-.dd--heading button.dd__trigger:hover:not(:disabled) { background: none; background-image: none; }
+/* hover pill — the same state layer as the gear and the picker rows, so the heading reads as a target */
+.dd--heading button.dd__trigger:hover:not(:disabled) { background: var(--hover); background-image: none; }
+/* the label takes the free width, which pins a same-button chevron (non-editable shape) at the right
+   edge — level with the sibling chevron button of the editable shape and the gear */
+.dd--heading .dd__label { flex: 1 1 auto; }
+/* match the chevron button's 12px inset from the right edge (the trigger's own 6px right padding covers the rest) */
+.dd--heading .dd__chevron { padding: 0 6px 0 12px; }
 
 /* form variant — matches the global input baseline so the closed state blends into forms */
 .dd--form button.dd__trigger {
@@ -65,14 +77,9 @@
   font-size: var(--fs-2xs); color: var(--tx-3);
 }
 
-/* editable heading — label is its own click-to-edit button; chevron is a sibling icon-btn (matches the gear) */
-.dd--heading button.dd__trigger--editable {
-  flex: 1 1 auto;
-  background: none; border: none; padding: 0 2px;
-  color: var(--tx-hi); font-size: var(--fs-xl); font-weight: 700;
-  min-width: 0; max-width: 100%; cursor: text; text-align: left;
-}
-.dd--heading button.dd__trigger--editable:hover:not(:disabled) { background: none; background-image: none; }
+/* editable heading — label is its own click-to-edit button (inherits the heading trigger box + hover pill
+   above); chevron is a sibling icon-btn (matches the gear) */
+.dd--heading button.dd__trigger--editable { cursor: text; }
 /* chevron-as-button: shares the .icon-btn baseline (padding 6px 12px, hover) with the gear for a comfy target */
 .dd button.dd__chevron-btn { flex: 0 0 auto; font-size: 14px; }
 /* inline edit input — mirrors the heading type so the box doesn't jump when entering edit mode */
