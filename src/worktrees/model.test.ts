@@ -1,6 +1,6 @@
 // model.test.ts — pure worktree helpers (existing link reducers + source link construction from a deduction).
 import { describe, it, expect } from "vitest";
-import { makeWorktree, addLink, updateLink, removeLink, sourceLinkFrom, prLinkToAdd, branchSpecFrom, FORM_DEFAULTS, resolveHost } from "./model";
+import { makeWorktree, isPrimaryTree, addLink, updateLink, removeLink, sourceLinkFrom, prLinkToAdd, branchSpecFrom, FORM_DEFAULTS, resolveHost } from "./model";
 import type { DeducedWorktree } from "./api";
 import type { KnownRepo, Worktree } from "../settings/types";
 
@@ -132,5 +132,19 @@ describe("resolveHost", () => {
   it("only matches the worktree's own repo", () => {
     expect(resolveHost(wt("", ""), [{ path: "/other", host: { startCmd: "pnpm dev", address: "http://z" } }]))
       .toEqual({ startCmd: "", address: "" });
+  });
+});
+
+describe("isPrimaryTree", () => {
+  const wt = (worktreePath: string): Worktree => makeWorktree({
+    id: "wt-1", name: "n", repoPath: "/repo", branch: "main", worktreePath,
+    host: { startCmd: "", address: "" },
+  });
+
+  it("recognises an entity opened on the repo root itself", () => {
+    expect(isPrimaryTree(wt("/repo"))).toBe(true);
+  });
+  it("rejects a managed worktree created under the cockpit root", () => {
+    expect(isPrimaryTree(wt("/Users/me/CockpitWorktrees/repo/fix-login"))).toBe(false);
   });
 });

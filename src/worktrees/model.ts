@@ -9,6 +9,13 @@ export function makeWorktree(
   return { status: "ongoing", links: [], ...fields };
 }
 
+// True when the entity is the repo's own primary working tree rather than a worktree cockpit created.
+// Derived, not stored: `git worktree add` can never place a worktree at the repo root, so the paths
+// matching is the fact itself — no persisted flag to migrate or keep in sync.
+export function isPrimaryTree(worktree: Worktree): boolean {
+  return worktree.worktreePath === worktree.repoPath;
+}
+
 // The host config to actually use, falling back per field to the repo's saved default.
 // `worktree.host` is only ever a snapshot taken at creation (deduce/checkout) and no UI edits it afterwards,
 // so a default saved after a worktree existed would otherwise never reach it — the Run button stayed dead

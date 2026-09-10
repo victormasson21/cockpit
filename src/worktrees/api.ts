@@ -35,6 +35,10 @@ export const deduceWorktree = (prompt: string, repoPaths: string[]) =>
 export const resolveRepoRoot = (path: string) =>
   invoke<string>("resolve_repo_root", { path });
 
+// The branch a working tree has checked out right now. Used for primary-tree entities, whose branch
+// the user changes outside cockpit, so the model's creation-time snapshot cannot be trusted.
+export const currentBranch = (repoPath: string) => invoke<string>("current_branch", { repoPath });
+
 // One local branch row for the existing-branch picker (mirrors Rust BranchInfo).
 // checkedOut flags a branch git won't let us worktree-add (already checked out somewhere); checkedOutPath says where.
 export interface BranchInfo {

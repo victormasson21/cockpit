@@ -32,18 +32,23 @@ export function removeSlot(slots: Slots, key: string): Slots {
   return slots.filter((s) => s.key !== key);
 }
 
-// placeEntity: show a newly-created entity — fill the first empty slot, else append if there's room,
-// else replace the rightmost column (the bumped entity keeps running, re-assignable via the dropdown).
+// placeEntity: show an entity — fill the first empty slot, else append if there's room, else replace the
+// rightmost column (the bumped entity keeps running, re-assignable via the dropdown). Idempotent: an
+// entity already in a column is left where it is, so one worktree can never own two columns (which would
+// mount its panes twice and bind two xterms to one PTY).
 export function placeEntity(slots: Slots, id: string, mintKey: () => string): Slots {
+  if (slots.some((s) => s.id === id)) return slots;
   const empty = slots.findIndex((s) => s.id === null);
   if (empty !== -1) return slots.map((s, i) => (i === empty ? { ...s, id } : s));
   if (slots.length < SLOT_COUNT) return [...slots, { key: mintKey(), id }];
   return slots.map((s, i) => (i === slots.length - 1 ? { ...s, id } : s));
 }
 
-// fillEntity: like placeEntity but NEVER evicts — fill an empty slot or append when there's room, else
-// leave slots untouched. Used by Cockpit-view create (the Cockpit column is its own separate slot).
+// fillEntity: like placeEntity — including the already-shown no-op — but NEVER evicts: fill an empty slot
+// or append when there's room, else leave slots untouched. Used by Cockpit-view create (the Cockpit column
+// is its own separate slot).
 export function fillEntity(slots: Slots, id: string, mintKey: () => string): Slots {
+  if (slots.some((s) => s.id === id)) return slots;
   const empty = slots.findIndex((s) => s.id === null);
   if (empty !== -1) return slots.map((s, i) => (i === empty ? { ...s, id } : s));
   if (slots.length < SLOT_COUNT) return [...slots, { key: mintKey(), id }];

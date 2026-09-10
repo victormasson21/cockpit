@@ -58,6 +58,14 @@ describe("slots", () => {
     const s: Slots = [{ key: "a", id: "1" }, { key: "b", id: "2" }, { key: "c", id: "3" }];
     expect(placeEntity(s, "9", minter())).toEqual([{ key: "a", id: "1" }, { key: "b", id: "2" }, { key: "c", id: "9" }]);
   });
+  it("placeEntity is a no-op when the entity already occupies a column", () => {
+    const shown = [{ key: "a", id: "1" }, { key: "b", id: null }];
+    expect(placeEntity(shown, "1", minter())).toBe(shown);
+  });
+  it("fillEntity is a no-op when the entity already occupies a column", () => {
+    const shown = [{ key: "a", id: "1" }, { key: "b", id: null }];
+    expect(fillEntity(shown, "1", minter())).toBe(shown);
+  });
   it("fillEntity fills an empty slot or appends when room, never evicts at the cap", () => {
     const cap: Slots = [{ key: "a", id: "1" }, { key: "b", id: "2" }, { key: "c", id: "3" }];
     expect(fillEntity(cap, "9", minter())).toBe(cap); // no eviction

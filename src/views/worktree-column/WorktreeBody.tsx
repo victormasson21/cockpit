@@ -1,4 +1,5 @@
 // WorktreeBody.tsx — the worktree slot body: chips + dynamic panes (claude always; host via Run; extra shells via Add) + the bottom Run/Add bar.
+import { useEffect } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { Worktree } from "../../settings/types";
 import { useSettings } from "../../settings/store";
@@ -7,7 +8,8 @@ import { WorktreePane } from "./WorktreePane";
 import { WorktreeInfo } from "./WorktreeInfo";
 import { LinksList } from "../../tiles/worktree/LinksList";
 import { claudePaneAutostart } from "../../worktrees/claudeCmd";
-import { resolveHost } from "../../worktrees/model";
+import { resolveHost, isPrimaryTree } from "../../worktrees/model";
+import { currentBranch } from "../../worktrees/api";
 import { closePane } from "../../worktrees/paneLifecycle";
 import { EMPTY_PANE_SET, MAX_EXTRAS, isPaneOpen } from "../../worktrees/paneSet";
 import { CopyIcon, PlayIcon, PlusIcon } from "../icons";
@@ -20,6 +22,23 @@ export function WorktreeBody({ worktree }: { worktree: Worktree }) {
   const toggleWorktreePane = useSettings((s) => s.toggleWorktreePane);
   const expandWorktreePane = useSettings((s) => s.expandWorktreePane);
   const knownRepos = useSettings((s) => s.cockpit.knownRepos);
+  const updateWorktree = useSettings((s) => s.updateWorktree);
+
+  // A primary-tree entity is the user's own clone, so they switch branches in it outside cockpit and the
+  // model's snapshot goes stale — taking the ⓘ row and the branch-derived chips with it. Re-read HEAD on
+  // mount and whenever the window regains focus (they left to run git somewhere else and came back).
+  const primary = isPrimaryTree(worktree);
+  useEffect(() => {
+    if (!primary) return;
+    const syncHead = () => {
+      currentBranch(worktree.repoPath)
+        .then((head) => { if (head !== worktree.branch) updateWorktree(worktree.id, { branch: head }); })
+        .catch((e) => console.warn("HEAD re-read failed:", e));
+    };
+    syncHead();
+    window.addEventListener("focus", syncHead);
+    return () => window.removeEventListener("focus", syncHead);
+  }, [primary, worktree.id, worktree.repoPath, worktree.branch, updateWorktree]);
 
   const paneProps = (role: string) => ({
     open: isPaneOpen(paneSet, role),

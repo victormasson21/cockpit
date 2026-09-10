@@ -858,3 +858,26 @@ existed only to out-specify `.wt-pane--closed`. `View` is now `"cockpit" | "work
 persisted `defaultView` falls through `normalizeView`'s catch-all to Worktrees, so no migration is needed.
 The "one mounted tree at two densities" xterm constraint is retired — Worktrees is a plain single mount.
 541 JS + 137 Rust tests green; tsc + Vite + cargo clean.
+
+✅ **Open the repo's own working tree (2026-09-10).** Checkout can now open the primary clone as a column
+instead of only adding worktrees. The branch the repo itself holds is hoisted to the top of the picker and
+stays pickable ("· open in place") — every other checked-out branch stays disabled, since git still refuses
+to worktree-add a claimed branch. Picking it runs **no git at all**: the entity is a plain `Worktree` with
+`worktreePath === repoPath`, which is also the marker — `isPrimaryTree`, derived rather than persisted,
+because `git worktree add` can never place a worktree at the repo root, so there is no flag to migrate.
+Everything in `WorktreeBody` (Claude pane, Run, extra shells, chips, links, Cockpit pin, rename) works
+unchanged; a second Open of the same repo reveals the existing column rather than minting a rival entity.
+Two consequences handled: the model's branch snapshot goes stale because the user switches branches in that
+clone outside cockpit, so the new `current_branch` command re-reads HEAD on mount and on window focus and
+writes it back (the ⓘ row and the branch-derived chips follow); and git teardown is off the table — `git
+worktree remove` refuses a main working tree and Wipe's `git branch -D` would aim at their trunk, so the gear
+menu swaps **Delete + Wipe** for **Forget**, which kills the panes and drops cockpit's model row only.
+`TeardownConfirm` is unreachable for these entities. Review caught the reveal-the-existing-column path
+duplicating instead of deduping — `placeEntity`/`fillEntity` never checked whether the id was already in a
+slot, so one worktree could own two columns and bind two xterms to one PTY; both reducers are now
+idempotent, which closes the same hole for the picker. Known and accepted: the Diff tab on a primary tree
+sitting on the default branch compares main to main and shows nothing; a detached primary tree reports its
+branch as the literal "HEAD"; and `checkedOutPath === repoPath` is a string match, so a trailing slash or a
+symlinked repo path in `knownRepos` makes the primary row silently absent (the robust fix is backend-side —
+`git worktree list --porcelain` always lists the main working tree first).
+**GUI verified.** 552 JS (+11) + 138 Rust (+1) tests green; tsc + Vite + cargo clean.

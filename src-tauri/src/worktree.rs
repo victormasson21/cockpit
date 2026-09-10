@@ -294,6 +294,13 @@ pub fn resolve_repo_root(path: String) -> Result<String, String> {
         .map_err(|_| format!("Not a git repository: {path}"))
 }
 
+// The branch a working tree currently has checked out. Read live rather than trusted from the model:
+// a primary-tree entity points at the user's own clone, where they switch branches outside cockpit.
+#[tauri::command(async)]
+pub fn current_branch(repo_path: String) -> Result<String, String> {
+    git::run(&repo_path, ["rev-parse", "--abbrev-ref", "HEAD"]).map(|out| out.trim().to_string())
+}
+
 // Resolve the base ref to diff against: an explicit base wins; else the repo default branch;
 // else an error the UI shows inline (we won't guess a base).
 fn resolve_base(base: &str, repo_path: &str) -> Result<String, String> {
@@ -446,6 +453,13 @@ mod tests {
         let repo = init_test_repo();
         let path = repo.path().to_string_lossy().to_string();
         assert_eq!(delete_branch(path, "feat/already-gone".into()), Ok(()));
+    }
+
+    #[test]
+    fn current_branch_reads_the_checked_out_branch() {
+        let repo = init_test_repo();
+        let path = repo.path().to_string_lossy().to_string();
+        assert_eq!(current_branch(path), Ok("main".to_string()));
     }
 
     #[test]

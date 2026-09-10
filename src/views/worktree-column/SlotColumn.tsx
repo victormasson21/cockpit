@@ -3,6 +3,7 @@ import { useState, type ReactNode } from "react";
 import { useSettings } from "../../settings/store";
 import { makePtyId } from "../../worktrees/ptyId";
 import { resolveSlotEntity } from "../slots";
+import { isPrimaryTree } from "../../worktrees/model";
 import { GearIcon, CloseIcon, PauseIcon, BinIcon, GhostIcon, PinIcon, PlayIcon } from "../icons";
 import { Dropdown } from "../Dropdown";
 import type { DropdownGroup } from "../dropdownModel";
@@ -30,6 +31,7 @@ export function SlotColumn({ value, onSelect, onPin, onClose }: { value: string 
   const scratchTerminals = useSettings((s) => s.scratchTerminals);
   const pendingWorktrees = useSettings((s) => s.pendingWorktrees);
   const removeScratch = useSettings((s) => s.removeScratch);
+  const removeWorktree = useSettings((s) => s.removeWorktree);
   const updateWorktree = useSettings((s) => s.updateWorktree);
   const renameScratch = useSettings((s) => s.renameScratch);
   const slots = useSettings((s) => s.slots);
@@ -63,6 +65,18 @@ export function SlotColumn({ value, onSelect, onPin, onClose }: { value: string 
     setMenuOpen(false);
     await killPanes(entity.scratch.id, ["shell"]);
     removeScratch(entity.scratch.id);
+  };
+
+  // A primary-tree entity is the user's own clone, so git teardown is off the table: `git worktree remove`
+  // refuses a main working tree, and Wipe's `git branch -D` would aim at their trunk. Forget replaces both —
+  // it drops cockpit's model row and leaves the repo untouched.
+  const primary = entity?.kind === "worktree" && isPrimaryTree(entity.worktree);
+  const forget = async () => {
+    if (entity?.kind !== "worktree") return;
+    setMenuOpen(false);
+    const id = entity.worktree.id;
+    await killPanes(id, liveRoles(id));
+    removeWorktree(id);
   };
 
   // Tint the column icon when this slot's attention-bearing pane (worktree's claude / scratch's shell) bells.
@@ -132,8 +146,14 @@ export function SlotColumn({ value, onSelect, onPin, onClose }: { value: string 
                 {entity?.kind === "worktree" ? (
                   <>
                     <button onClick={pauseActive}><PauseIcon />Pause</button>
-                    <button className="wt-col__danger" onClick={() => { setConfirm("delete"); setMenuOpen(false); }}><BinIcon />Delete</button>
-                    <button className="wt-col__danger" onClick={() => { setConfirm("wipe"); setMenuOpen(false); }}><GhostIcon />Wipe</button>
+                    {primary ? (
+                      <button className="wt-col__danger" onClick={forget}><BinIcon />Forget</button>
+                    ) : (
+                      <>
+                        <button className="wt-col__danger" onClick={() => { setConfirm("delete"); setMenuOpen(false); }}><BinIcon />Delete</button>
+                        <button className="wt-col__danger" onClick={() => { setConfirm("wipe"); setMenuOpen(false); }}><GhostIcon />Wipe</button>
+                      </>
+                    )}
                   </>
                 ) : entity?.kind === "scratch" ? (
                   <button className="wt-col__danger" onClick={deleteScratch}><BinIcon />Delete</button>
