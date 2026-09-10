@@ -90,6 +90,16 @@ renders them. Getting this one pattern right makes the Nth integration mechanica
 - Prefer fewer files, fewer dependencies, fewer abstractions until one is needed.
   A small, manageable codebase beats a feature-rich one we can't hold in our heads.
 
+## Git workflow
+
+**Trunk commits are permitted here.** Commit straight to `main`; do not branch first.
+This is a solo desktop app with no reviewers and no deploy gate, so a branch adds a
+merge step and guards nothing. Use a `feature/` branch only when the work wants one —
+a long spike, or a change you may abandon.
+
+Nothing else is relaxed. The build check and the secrets scan run before every commit,
+and every push is confirmed.
+
 ## As-built notes
 
 - **Stack confirmed in code:** Tauri v2 + React **19** + TS (Vite), Rust core.

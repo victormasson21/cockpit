@@ -19,6 +19,9 @@ src-tauri/target/
 
 # Machine-local Claude Code settings
 .claude/settings.local.json
+# Agent working state: @ctx session continuity + transient scan/payload files.
+# Never repo content — docs/superpowers/ holds the checked-in specs and plans.
+docs/ai/
 
 # Editor directories and files
 .vscode/*
