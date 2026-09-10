@@ -813,7 +813,7 @@ The stroke table in the spec is a starting point, stated there as such. This tas
 
 Run: `npm run tauri dev`
 
-Then Settings → Appearance → Background → **London map**, and switch to the **Calm** view, which leaves the most space.
+Then Settings → Appearance → Background → **London map**, and switch to the **Cockpit** view, which leaves the most space.
 
 - [ ] **Step 2: Work through the smoke checklist**
 

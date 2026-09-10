@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-22
 **Status:** approved, ready for plan
-**Scope:** the **Worktrees view** column layout (Calm mirrors it; Cockpit's single column is untouched).
+**Scope:** the **Worktrees view** column layout (Cockpit's single column is untouched).
 
 ## Problem
 
@@ -108,12 +108,6 @@ Renders `slots.length` `SlotColumn`s (keyed by `slot.key`) inside `.wt-view`, fo
   but `SlotColumn`'s own props stay `value` / `onSelect` / `onClose` — the host binds them to
   a specific `key`.
 
-### `CalmView`
-
-Mirrors Worktrees: renders the same shared `slots` (same `slot.key` keys), driven by
-`slots.length`. **Kept decluttered — no `+` rail, no gear** (tile set is managed from the
-Worktrees view; Calm just reflects it).
-
 ### `App`
 
 Remove the header **2 / 3 panes toggle** block and the `.app__panes` / `.app__pane*` CSS.
@@ -129,7 +123,7 @@ Unchanged. Its `SlotColumn` gets no `onClose`, so Close = `setCockpitWorktree(nu
 - `init` builds slots via `initSlots(worktrees, mintKey)`; no more `slotCount` init or
   `preferences.panes` read.
 - `addEmptySlot()`, `setSlot(key, id)`, `removeSlot(key)` — thin wrappers over the helpers.
-- `placeNewEntity(id, view)`: Worktrees/Calm → `placeEntity`; Cockpit → `setCockpitWorktree(id)`
+- `placeNewEntity(id, view)`: Worktrees → `placeEntity`; Cockpit → `setCockpitWorktree(id)`
   **and** `placeEntity` into the shared slots only if there's room (fill-empty/append, never
   evict — matches the old `fillFreeSlot` "no eviction" intent).
 - `clearEntity` / `swapSlotId` used by `removeWorktree`, `removeScratch`, and the deduce
@@ -156,8 +150,6 @@ is unaffected (still runs green).
 
 1. **Reorder** — drag-to-swap tile positions. For now, reordering still goes through the
    dropdowns. Flagged for a follow-up.
-2. **Calm decoupling** — a "sync" option so Calm can show a different tile set than Worktrees
-   (today it mirrors the shared `slots`). Flagged for a follow-up.
 
 ## Non-goals / risks
 

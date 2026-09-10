@@ -486,11 +486,11 @@ Spec/plan: `docs/superpowers/{specs,plans}/2026-06-27-todo-and-timer-tiles*`.
 
 ✅ **Cockpit worktree column — complete & merged to `main`.** The Cockpit view's **right column** is now a worktree pane,
 reusing `SlotColumn` (its selection was refactored to be **prop-driven** — `value` + `onSelect` — so one component backs
-the Worktrees view's session slots, the Calm view, and the Cockpit view's **persisted** slot). New persisted
+the Worktrees view's session slots and the Cockpit view's **persisted** slot). New persisted
 `cockpitWorktreeId` field in `cockpit.json` (`#[serde(default)]`, omitted when cleared); store action `setCockpitWorktree`.
 Empty until assigned (the existing `SlotColumn` empty body). **View-dependent placement** (`placeNewEntity(id, view)`, the
 active `view` threaded from `App` into the Terminal button + `NewWorktreeModal`): creating on the **Cockpit** view sets the
-right-column slot (replace) + fills a free Worktrees slot if any (no eviction); creating on the **Worktrees/Calm** view fills
+right-column slot (replace) + fills a free Worktrees slot if any (no eviction); creating on the **Worktrees** view fills
 a free slot else replaces the last *visible* slot, Cockpit untouched. New pure helper `fillFreeSlot` (no-eviction) +
 `visibleCount`-aware `assignNewWorktree`; `removeWorktree`/`removeScratch` clear `cockpitWorktreeId` too; `addScratch` is
 create-only (placement is `placeNewEntity`'s job). Right column is `500px` wide. GUI-approved. Spec/plan:
@@ -635,8 +635,7 @@ prompt pre-filled + the error**. **Checkout / existing-branch flow is untouched.
   `paneRoles(worktreePanes[id] ?? EMPTY_PANE_SET)` (the fixed `WORKTREE_ROLES` list is deleted); **Pause also
   resets the pane set** so a paused worktree returns Claude-only instead of silently re-running the dev server.
   A **pin button** (`PinIcon`, end of the chips row, `pinnable` prop threaded only from `WorktreesView`;
-  Calm/Cockpit don't pass it) toggles `cockpitWorktreeId`. `calm` variant = single self-managed Claude pane,
-  no bar, no expand. **No new Rust surface** (only the `pane_open` field deletion). GUI acceptance PENDING
+  Cockpit doesn't pass it) toggles `cockpitWorktreeId`. **No new Rust surface** (only the `pane_open` field deletion). GUI acceptance PENDING
   human eyeball. Spec: `docs/superpowers/specs/2026-07-10-worktree-lazy-panes-design.md`;
   plan: `docs/superpowers/plans/2026-07-10-worktree-lazy-panes.md`.
 
@@ -753,7 +752,7 @@ both Important findings fixed (in-batch dedupe, history pagination).
   baseline itself. **Gotcha worth recording:** a hover popover offset with `margin-top` needs a `::before`
   bridge across the gap, because the gap belongs to the wrapper's ancestors and plain `:hover` drops there —
   the 4px offset was inherited from the click-toggled `.wt-col__menu-pop`/`Dropdown` popovers, where it is
-  harmless since those toggle on click, not hover. Full variant only (Calm/scratch/pending never had the
+  harmless since those toggle on click, not hover. Full variant only (scratch/pending never had the
   row); new `InfoIcon`/`FolderIcon` in `views/icons.tsx`; no Rust changes; no new tests (the suite is
   pure-logic only). GUI acceptance PENDING human eyeball. Spec:
   `docs/superpowers/specs/2026-07-29-worktree-info-button-design.md`.
@@ -1162,11 +1161,12 @@ both Important findings fixed (in-batch dedupe, history pagination).
     practice; swapping running to a distinct glyph is a one-line change in `ACTIVITY_ICON`.
   138 Rust (+1) + 522 JS (+8) tests green; tsc + Vite + cargo clean, warning-free.
 
-✅ **Calm view removed (2026-09-10).** The third view is gone, along with every trace of it: the nav entry,
-the `calm`/`variant` props on `WorktreesView`/`SlotColumn`, `WorktreeBody`'s `switcher` and `WorktreePane`'s
-`lead` header slot, and all `.wt-view--calm`/`.wt-col--calm` CSS. `View` is now `"cockpit" | "worktrees"`.
-No migration: a persisted `defaultView: "calm"` falls through `normalizeView`'s catch-all to Worktrees. The
-"one mounted tree at two densities" xterm constraint is retired with it — Worktrees is a plain single mount.
+✅ **Third view removed (2026-09-10).** The view set is now `Cockpit` + `Worktrees` only. Gone with it: the
+nav entry, `SlotColumn`'s `variant` prop, `WorktreeBody`'s `switcher`, `WorktreePane`'s `lead` header slot
+(the pane header is a plain icon+title again), and the CSS density overrides — including the two rules that
+existed only to out-specify `.wt-pane--closed`. `View` is now `"cockpit" | "worktrees"`; an unrecognised
+persisted `defaultView` falls through `normalizeView`'s catch-all to Worktrees, so no migration is needed.
+The "one mounted tree at two densities" xterm constraint is retired — Worktrees is a plain single mount.
 541 JS + 137 Rust tests green; tsc + Vite + cargo clean.
 
 **Next / resuming work — read `docs/ROADMAP.md` first.** It is the single prioritized backlog, split into

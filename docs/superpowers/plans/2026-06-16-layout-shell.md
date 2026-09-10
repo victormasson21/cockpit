@@ -40,7 +40,7 @@
 - `tiles/index.ts` — registers the stub tiles.
 - `layout/Layout.tsx` — dockview wrapper: builds panels from settings, wires change events.
 - `layout/UnknownTile.tsx` — placeholder for unregistered tile types.
-- `App.tsx` — loads settings, renders Layout, calm/main toggle, error banner.
+- `App.tsx` — loads settings, renders Layout, main view, error banner.
 - `main.tsx` — React entry.
 
 ---
@@ -488,7 +488,7 @@ export interface TileInstance<Config = unknown> {
 
 export interface Preferences {
   theme: "system" | "light" | "dark";
-  defaultView: "main" | "calm";
+  defaultView: "main";
 }
 
 export interface CockpitConfig {
@@ -949,7 +949,7 @@ git add -A
 git commit -m "feat(ui): dockview layout rendering tiles from settings"
 ```
 
-### Task 11: App assembly — load, render, calm toggle, error banner
+### Task 11: App assembly — load, render, error banner
 
 **Files:**
 - Modify: `src/App.tsx`
@@ -983,7 +983,6 @@ function App() {
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <div style={{ display: "flex", gap: 8, padding: 8, borderBottom: "1px solid #ddd" }}>
         <button onClick={() => setView("main")} disabled={view === "main"}>Main</button>
-        <button onClick={() => setView("calm")} disabled={view === "calm"}>Calm</button>
         <span style={{ marginLeft: "auto", opacity: 0.5 }}>{cockpit.tiles.length} tiles</span>
       </div>
       <div style={{ flex: 1, minHeight: 0 }}>
@@ -1004,16 +1003,14 @@ Ensure `src/main.tsx` mounts `App` (the template already does). No change unless
 
 Run: `npm run tauri dev`
 Expected and verify each:
-- Window opens with a top bar (Main / Calm) and a dockview area showing Clock + Notes tiles.
+- Window opens with a top bar (Main) and a dockview area showing Clock + Notes tiles.
 - Drag the Notes tile beside/below the Clock — it moves.
 - Type in Notes, quit (Cmd-Q), relaunch → text and layout restored.
-- Click Calm → empty/second layout; drag a tile in; relaunch on Calm default if set.
-
 - [ ] **Step 4: Commit**
 
 ```bash
 git add -A
-git commit -m "feat(ui): app assembly with calm/main view toggle"
+git commit -m "feat(ui): app assembly with main view"
 ```
 
 ### Task 12: Acceptance — hand-edit and malformed-config behaviour
@@ -1054,7 +1051,7 @@ git commit --allow-empty -m "test: manual acceptance of layout shell error handl
 
 ## Self-Review notes
 
-- **Spec coverage:** scope/boundaries (Task 0–1, scope honored — no terminals/integrations); tile contract (Task 7); two-file settings model (Tasks 2–3, 5); reconciliation join + orphans + unplaced (Task 6, applied in Task 10); data flow & two-command IPC (Tasks 4, 9); calm view as second named layout (Task 11); every error-handling row (Tasks 3 + 12); testing strategy (Rust Tasks 2–3, React Tasks 6–7, manual Task 12). Definition-of-done items all map to Task 11–12.
+- **Spec coverage:** scope/boundaries (Task 0–1, scope honored — no terminals/integrations); tile contract (Task 7); two-file settings model (Tasks 2–3, 5); reconciliation join + orphans + unplaced (Task 6, applied in Task 10); data flow & two-command IPC (Tasks 4, 9); every error-handling row (Tasks 3 + 12); testing strategy (Rust Tasks 2–3, React Tasks 6–7, manual Task 12). Definition-of-done items all map to Task 11–12.
 - **Apply-on-next-launch:** no file watcher anywhere — settings read once in Task 11. ✅
 - **Type consistency:** `TileInstance`/`CockpitConfig`/`LayoutConfig`/`Settings` shared between `types.ts` (TS) and `settings.rs` (Rust, with serde renames `type`/`defaultView`); `reconcile()` signature identical in test and impl; registry `getTile`/`registerTile`/`clearRegistry` consistent across Tasks 7–10.
 - **Known adjustment point:** dockview's exact `toJSON`/`fromJSON`/`addPanel` types vary by version; Task 10 Step 4 calls this out — match the installed API, keep the data shape.

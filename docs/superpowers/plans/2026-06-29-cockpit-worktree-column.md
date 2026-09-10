@@ -11,11 +11,11 @@
 ## Global Constraints
 
 - **No new dependencies, no Rust provider/commands/threads, no PTY changes.**
-- **Reuse, don't duplicate:** one `SlotColumn` serves both views via `value`/`onSelect` props. The Worktrees/Calm views' behaviour must be unchanged after the refactor.
+- **Reuse, don't duplicate:** one `SlotColumn` serves both views via `value`/`onSelect` props. The Worktrees views' behaviour must be unchanged after the refactor.
 - **Persisted, secrets-free config:** `cockpitWorktreeId` is `#[serde(default)]` on the Rust `CockpitConfig`; existing `cockpit.json` files must still load (keep existing back-compat tests green).
 - **Placement rule (view-dependent), applied identically to worktrees AND scratch:**
   - **Cockpit view active:** set `cockpitWorktreeId = newId` (replace); then fill a free Worktrees-view slot **if one exists**, else leave the Worktrees view unchanged (NO eviction).
-  - **Worktrees/Calm view active:** fill the first free Worktrees-view slot; if none free, replace the **last visible** slot (index `slotCount - 1`); Cockpit slot untouched.
+  - **Worktrees view active:** fill the first free Worktrees-view slot; if none free, replace the **last visible** slot (index `slotCount - 1`); Cockpit slot untouched.
 - **Cleanup:** removing a worktree/scratch that equals `cockpitWorktreeId` clears it (alongside the existing session-slot clear).
 - **`assignNewWorktree` stays backward-compatible:** add an optional `visibleCount` arg defaulting to `slots.length` so existing 2-arg callers/tests are unaffected.
 - **Frontend tests are pure-function / store-reducer only** (Vitest `node` env, no DOM). `SlotColumn`/`CockpitView` rendering is build-verified + GUI-checked.
@@ -36,7 +36,7 @@
 - `src/settings/types.ts` — `CockpitConfig.cockpitWorktreeId?`.
 - `src/settings/store.ts` (+ `store.test.ts`) — `setCockpitWorktree`, `placeNewEntity`, split `addScratch`, remove `assignNewWorktreeSlot`, cleanup in `removeWorktree`/`removeScratch`.
 - `src/views/worktree-column/SlotColumn.tsx` — selection via `value`/`onSelect` props.
-- `src/views/WorktreesView.tsx`, `src/views/CalmView.tsx` — pass `value`/`onSelect`.
+- `src/views/WorktreesView.tsx` — pass `value`/`onSelect`.
 - `src/views/CockpitView.tsx` (+ `CockpitView.css`) — right-column `SlotColumn` + 3-col layout.
 - `src/App.tsx`, `src/views/NewWorktreeModal.tsx` — thread the active `view` into placement.
 
@@ -181,7 +181,7 @@ git commit -m "feat(cockpit): persist cockpitWorktreeId in cockpit.json"
 
 **Interfaces:**
 - Consumes: `fillFreeSlot` (Task 1), `cockpitWorktreeId` config (Task 2).
-- Produces (store actions): `setCockpitWorktree(id: string | null): void`; `placeNewEntity(id: string, view: "cockpit" | "worktrees" | "calm"): void`. `addScratch()` now only creates the entity (no slot assignment). `assignNewWorktreeSlot` is removed. `removeWorktree`/`removeScratch` also clear `cockpitWorktreeId` when it matches.
+- Produces (store actions): `setCockpitWorktree(id: string | null): void`; `placeNewEntity(id: string, view: "cockpit" | "worktrees"): void`. `addScratch()` now only creates the entity (no slot assignment). `assignNewWorktreeSlot` is removed. `removeWorktree`/`removeScratch` also clear `cockpitWorktreeId` when it matches.
 
 - [ ] **Step 1: Update the store tests (RED)**
 
@@ -274,7 +274,7 @@ import { initSlots, setSlotAt, assignNewWorktree, fillFreeSlot, clearEntity, hid
 In the `SettingsState` interface: remove `assignNewWorktreeSlot: (id: string) => void;` and add:
 ```ts
   setCockpitWorktree: (id: string | null) => void;
-  placeNewEntity: (id: string, view: "cockpit" | "worktrees" | "calm") => void;
+  placeNewEntity: (id: string, view: "cockpit" | "worktrees") => void;
 ```
 
 Replace `removeWorktree` (lines 69-72) with:
@@ -338,20 +338,20 @@ git commit -m "feat(cockpit): persisted slot + view-dependent placeNewEntity + c
 
 ---
 
-## Task 4: `SlotColumn` selection made prop-driven (+ Worktrees/Calm callers)
+## Task 4: `SlotColumn` selection made prop-driven (+ Worktrees callers)
 
 **Files:**
-- Modify: `src/views/worktree-column/SlotColumn.tsx`, `src/views/WorktreesView.tsx`, `src/views/CalmView.tsx`
+- Modify: `src/views/worktree-column/SlotColumn.tsx`, `src/views/WorktreesView.tsx`
 
 **Interfaces:**
 - Consumes: store `slots`/`setSlot` (existing).
-- Produces: `SlotColumn({ value: string | null; onSelect: (id: string | null) => void; variant?: "full" | "calm" })`.
+- Produces: `SlotColumn({ value: string | null; onSelect: (id: string | null) => void; variant?: "full" })`.
 
 - [ ] **Step 1: Refactor `SlotColumn.tsx` signature + selection wiring**
 
-Change the signature (line 13) from `{ slotIndex, variant = "full" }: { slotIndex: number; variant?: "full" | "calm" }` to:
+Change the signature (line 13) from `{ slotIndex, variant = "full" }: { slotIndex: number; variant?: "full" }` to:
 ```tsx
-export function SlotColumn({ value, onSelect, variant = "full" }: { value: string | null; onSelect: (id: string | null) => void; variant?: "full" | "calm" }) {
+export function SlotColumn({ value, onSelect, variant = "full" }: { value: string | null; onSelect: (id: string | null) => void; variant?: "full" }) {
 ```
 Change the store destructure (line 14) to drop `setSlot` (no longer used here):
 ```tsx
@@ -393,27 +393,6 @@ export function WorktreesView() {
 }
 ```
 
-- [ ] **Step 3: Update `CalmView.tsx`**
-
-```tsx
-// CalmView.tsx — decluttered view: each slot shows only its worktree's Claude Code pane (variant="calm").
-import { SlotColumn } from "./worktree-column/SlotColumn";
-import { useSettings } from "../settings/store";
-import "./WorktreesView.css";
-
-export function CalmView() {
-  const slots = useSettings((s) => s.slots);
-  const slotCount = useSettings((s) => s.slotCount);
-  const setSlot = useSettings((s) => s.setSlot);
-  return (
-    <div className="wt-view">
-      {Array.from({ length: slotCount }, (_, i) => (
-        <SlotColumn key={i} value={slots[i]} onSelect={(id) => setSlot(i, id)} variant="calm" />
-      ))}
-    </div>
-  );
-}
-```
 
 - [ ] **Step 4: Build + tests**
 
@@ -425,7 +404,7 @@ Expected: all JS tests pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/views/worktree-column/SlotColumn.tsx src/views/WorktreesView.tsx src/views/CalmView.tsx
+git add src/views/worktree-column/SlotColumn.tsx src/views/WorktreesView.tsx
 git commit -m "refactor(worktree-column): SlotColumn selection via value/onSelect props"
 ```
 
@@ -501,7 +480,7 @@ Update `src/views/NewWorktreeModal.tsx` — accept the `view` prop and place via
   const { placeNewEntity } = useSettings();
   const created = (id: string) => { placeNewEntity(id, view); onClose(); };
 ```
-Add `view` to the component's props type (alongside `initialMode`/`onClose`): `view: "cockpit" | "worktrees" | "calm"`.
+Add `view` to the component's props type (alongside `initialMode`/`onClose`): `view: "cockpit" | "worktrees"`.
 
 - [ ] **Step 5: Whole-feature gate — build + both suites**
 
@@ -528,7 +507,7 @@ git commit -m "feat(cockpit): right-column worktree pane + view-dependent placem
 - `cockpitWorktreeId` persisted (Rust + TS, back-compat) → Task 2. ✅
 - `setCockpitWorktree`, `placeNewEntity`, cleanup, addScratch split → Task 3. ✅
 - `fillFreeSlot` + `visibleCount` eviction → Task 1. ✅
-- View-dependent placement rule (Cockpit vs Worktrees/Calm) → Task 3 (`placeNewEntity`) + Task 5 (App/modal pass `view`). ✅
+- View-dependent placement rule (Cockpit vs Worktrees) → Task 3 (`placeNewEntity`) + Task 5 (App/modal pass `view`). ✅
 - 3-column Cockpit layout + right column → Task 5. ✅
 - Empty-until-assigned → reused `SlotColumn` empty body (no new code). ✅
 - Cleanup-on-delete clears cockpit slot → Task 3. ✅
@@ -536,6 +515,6 @@ git commit -m "feat(cockpit): right-column worktree pane + view-dependent placem
 
 **2. Placeholder scan:** No abstract steps — every code step has complete code; edge cases (full Worktrees view on Cockpit-create → no eviction; deleted/missing/scratch id → empty via `resolveSlotEntity`) are concretely handled. ✅
 
-**3. Type consistency:** `fillFreeSlot(slots, id, visibleCount)` / `assignNewWorktree(slots, id, visibleCount?)` signatures match between Task 1 definition and Task 3 use. `placeNewEntity(id, view)` and `setCockpitWorktree(id|null)` match between the interface (Task 3), the store impl (Task 3), and the callers (Task 5 App/modal, CockpitView). `SlotColumn({value, onSelect, variant})` matches between Task 4 definition and all three callers (WorktreesView, CalmView, CockpitView). `cockpitWorktreeId` (TS) ↔ `cockpit_worktree_id` + `rename="cockpitWorktreeId"` (Rust) parity. The `view` union `"cockpit" | "worktrees" | "calm"` matches App's `View` type, the modal prop, and `placeNewEntity`'s param. ✅
+**3. Type consistency:** `fillFreeSlot(slots, id, visibleCount)` / `assignNewWorktree(slots, id, visibleCount?)` signatures match between Task 1 definition and Task 3 use. `placeNewEntity(id, view)` and `setCockpitWorktree(id|null)` match between the interface (Task 3), the store impl (Task 3), and the callers (Task 5 App/modal, CockpitView). `SlotColumn({value, onSelect, variant})` matches between Task 4 definition and all three callers (WorktreesView, CockpitView). `cockpitWorktreeId` (TS) ↔ `cockpit_worktree_id` + `rename="cockpitWorktreeId"` (Rust) parity. The `view` union `"cockpit" | "worktrees"` matches App's `View` type, the modal prop, and `placeNewEntity`'s param. ✅
 
 > Note: `SlotColumn`, `CockpitView`, and the layout are not unit-tested (node Vitest env, no DOM); they're build-verified + GUI-checked. The behavioural logic (placement rule, slot helpers, cleanup) lives in tested reducers/pure functions — that's where the risk is.

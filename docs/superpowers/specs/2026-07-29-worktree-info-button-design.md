@@ -85,7 +85,7 @@ fragment in `WorktreeBody` then wraps only the chips row, with `<WorktreeInfo>` 
 Those are the only two live references — the remaining `wt-col__path` hits in the repo are
 historical plan documents, which stay untouched.
 
-Scope note: the details row is full-variant only, so the Calm view is unaffected; scratch and
+Scope note: the details row is full-variant only; scratch and
 pending bodies never had it.
 
 ## Testing

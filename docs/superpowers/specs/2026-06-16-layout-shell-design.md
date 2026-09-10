@@ -24,7 +24,6 @@ plug-in that registers a tile and (optionally) adds its own IPC.
 - A **tile registry** — a typed contract any tile implements.
 - The **settings store** — two JSON files (user config + layout geometry),
   persisted by the Rust core, exposed to React.
-- **Calm view** as a second named saved layout, toggled via `defaultView`.
 - A couple of **stub tiles** (Clock, Notes) to exercise the layout. Not real
   features.
 
@@ -98,8 +97,7 @@ Disposable; `.gitignore` it.
 {
   "version": 1,
   "views": {
-    "main": { /* dockview serialized layout */ },
-    "calm": { /* a second saved dockview layout */ }
+    "main": { /* dockview serialized layout */ }
   }
 }
 ```
@@ -114,9 +112,7 @@ Disposable; `.gitignore` it.
 
 This reconciliation is what makes hand-editing `cockpit.json` safe.
 
-Two decisions: a **`version` field from day one** (cheap migrations later), and
-**calm view is just a second named layout** (no special rendering path; toggling
-= switch active dockview layout).
+One decision: a **`version` field from day one** (cheap migrations later).
 
 ## Data flow & ownership
 
@@ -163,8 +159,7 @@ take down the layout.**
 - **React:** unit-test the reconciliation logic (join × drop orphans × place
   unplaced) — the riskiest logic, and pure. Unit-test registry lookup.
   Dockview drag/resize interaction tests are brittle → light/manual coverage.
-- **Manual acceptance:** add a stub tile; move left→centre; resize; toggle calm
-  view; quit + relaunch → layout restored; hand-edit `cockpit.json` to add a
+- **Manual acceptance:** add a stub tile; move left→centre; resize; quit + relaunch → layout restored; hand-edit `cockpit.json` to add a
   tile → appears next launch.
 
 ## Definition of done
@@ -172,7 +167,6 @@ take down the layout.**
 - App launches to a 3-zone layout with stub tiles.
 - Tiles can be moved between zones, resized, expanded into centre, tabbed.
 - Layout + tile config survive quit/relaunch.
-- Calm view toggles to a second saved layout.
 - Hand-editing `cockpit.json` (valid) reflects next launch; malformed is backed
   up with defaults loaded, app still starts.
 - Rust persistence + React reconciliation unit tests green.

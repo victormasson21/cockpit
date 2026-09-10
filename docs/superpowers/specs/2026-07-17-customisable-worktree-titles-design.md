@@ -5,7 +5,7 @@
 
 ## Problem
 
-A Worktrees/Calm/Cockpit slot column shows the worktree's git-derived `name` as its
+A Worktrees/Cockpit slot column shows the worktree's git-derived `name` as its
 heading, and the whole heading acts as the picker trigger — clicking anywhere on it
 opens the worktree-selection dropdown. Users want to rename that heading to something
 meaningful (e.g. "Fix the login bug") while keeping the ability to switch which

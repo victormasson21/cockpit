@@ -150,7 +150,7 @@ spawn after launch continues; the pane's restart button and every later spawn ru
 the restored `panes` map, and `cockpitWorktreeId` — not from the `panes` map alone: a worktree that was
 sitting Claude-only has no `panes` entry at all (the map only gains one once Run/Add/collapse is used), and
 that is the most common case. Because the flag is keyed per worktree rather than per view, a worktree shown
-in the Cockpit or Calm view continues its conversation the same way.
+in the Cockpit view continues its conversation the same way.
 
 ## H. Files touched
 

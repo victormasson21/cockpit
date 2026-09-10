@@ -644,11 +644,11 @@ git commit -m "feat(worktrees): scratch-terminal session state + clearEntity ren
 - Create: `src/views/worktree-column/SlotColumn.tsx` (the renamed column; for now worktree-only behavior)
 - Create: `src/views/worktree-column/WorktreeBody.tsx` (extracted body)
 - Delete: `src/views/worktree-column/WorktreeColumn.tsx`
-- Modify: `src/views/WorktreesView.tsx`, `src/views/CalmView.tsx` (import `SlotColumn`)
+- Modify: `src/views/WorktreesView.tsx` (import `SlotColumn`)
 
 **Interfaces:**
 - Consumes: store `cockpit`, `slots`, `setSlot`, `removeWorktree`; `makePtyId`, `WorktreePane`, `worktreeChips`, `LinksList` (all existing); `resolveSlotEntity` (Task 4).
-- Produces: `export function SlotColumn({ slotIndex, variant }: { slotIndex: number; variant?: "full" | "calm" })`; `export function WorktreeBody({ worktree, variant }: { worktree: Worktree; variant: "full" | "calm" })`
+- Produces: `export function SlotColumn({ slotIndex, variant }: { slotIndex: number; variant?: "full" })`; `export function WorktreeBody({ worktree, variant }: { worktree: Worktree; variant: "full" })`
 
 This task is a pure refactor: the app must look and behave identically. Scratch rendering is added in Task 6.
 
@@ -664,7 +664,7 @@ import { worktreeChips } from "./chips";
 import { WorktreePane } from "./WorktreePane";
 import { LinksList } from "../../tiles/worktree/LinksList";
 
-export function WorktreeBody({ worktree, variant }: { worktree: Worktree; variant: "full" | "calm" }) {
+export function WorktreeBody({ worktree, variant }: { worktree: Worktree; variant: "full" }) {
   const attention = false; // stub: live "Claude is calling" detection deferred to a provider sub-project.
   return (
     // Re-keyed by id upstream so switching the picker remounts panes (detach old, attach new) without killing PTYs.
@@ -718,7 +718,7 @@ import "./WorktreeColumn.css";
 
 const WORKTREE_ROLES = ["git", "host", "claude"] as const;
 
-export function SlotColumn({ slotIndex, variant = "full" }: { slotIndex: number; variant?: "full" | "calm" }) {
+export function SlotColumn({ slotIndex, variant = "full" }: { slotIndex: number; variant?: "full" }) {
   const { cockpit, slots, setSlot, removeWorktree, scratchTerminals } = useSettings();
   const ongoing = cockpit.worktrees.filter((w) => w.status === "ongoing");
   const activeId = slots[slotIndex];
@@ -783,15 +783,6 @@ import { SlotColumn } from "./worktree-column/SlotColumn";
         <SlotColumn key={i} slotIndex={i} />
 ```
 
-In `src/views/CalmView.tsx`, same:
-
-```tsx
-import { SlotColumn } from "./worktree-column/SlotColumn";
-```
-```tsx
-        <SlotColumn key={i} slotIndex={i} variant="calm" />
-```
-
 Delete the old column:
 
 ```bash
@@ -805,12 +796,12 @@ Expected: tsc clean; all tests PASS.
 
 - [ ] **Step 5: Manual GUI check (no visible change)**
 
-Run the app. Worktrees + Calm views render and behave exactly as before — picker selects worktrees, Hide/Delete work, panes stream. This step guards the refactor.
+Run the app. Worktrees view render and behave exactly as before — picker selects worktrees, Hide/Delete work, panes stream. This step guards the refactor.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/views/worktree-column/SlotColumn.tsx src/views/worktree-column/WorktreeBody.tsx src/views/WorktreesView.tsx src/views/CalmView.tsx
+git add src/views/worktree-column/SlotColumn.tsx src/views/worktree-column/WorktreeBody.tsx src/views/WorktreesView.tsx
 git commit -m "refactor(worktrees): WorktreeColumn -> SlotColumn + extracted WorktreeBody"
 ```
 

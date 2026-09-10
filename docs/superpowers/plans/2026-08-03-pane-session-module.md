@@ -114,7 +114,7 @@ Behaviour is identical by construction except the attention fix, so the proof is
 This touches every terminal path, so the smoke list is long: a worktree's Claude pane starting; Run
 spawning the dev server; Add creating extra shells; Close on each kind (Claude respawns bare,
 host/extras disappear); restart; Pause then re-select (**no stale glow** — the fix); Delete and Wipe
-killing everything; a scratch terminal and its Delete; Calm view; Shift+Enter inserting a newline
+killing everything; a scratch terminal and its Delete; Shift+Enter inserting a newline
 rather than submitting; dragging a file from Finder onto a pane; and the attention glow clearing when
 you type.
 

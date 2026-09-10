@@ -78,11 +78,11 @@ today — it can't be removed). Expand/collapse route through the slice (`expand
 across whatever siblings currently exist.
 
 **Pin button:** rendered in the chips row only when a new `pinnable` prop is true — threaded
-`WorktreesView → SlotColumn → WorktreeBody`. Calm and Cockpit views don't pass it. Click toggles
+`WorktreesView → SlotColumn → WorktreeBody`. The Cockpit view doesn't pass it. Click toggles
 `setCockpitWorktree(id)` / `setCockpitWorktree(null)`; active styling when
 `cockpitWorktreeId === id`.
 
-**Untouched:** Calm view (single Claude pane, no buttons), Cockpit right column (same new body,
+**Untouched:** Cockpit right column (same new body,
 no pin), scratch terminals, Checkout, the deduce flow (new worktrees simply no longer spawn
 host/git), `useTerminal`, and all Rust code except the `pane_open` config-field deletion.
 

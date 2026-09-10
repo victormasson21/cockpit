@@ -84,7 +84,6 @@ real bundle. Keep these — they are expensive to rediscover.
 |---------|--------|
 | Worktrees view | the feature — Claude panes and extra shells |
 | Cockpit view | same, via the same panes |
-| Calm view | same; the attention map is view-independent |
 | `host` role (dev server) | none — `isAttentionRole` excludes it, so a noisy dev server cannot notify |
 
 ## Testing

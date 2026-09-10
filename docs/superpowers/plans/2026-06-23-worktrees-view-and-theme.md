@@ -4,7 +4,7 @@
 
 **Goal:** Replace the dockview-based shell with a themed, hand-built UI whose centrepiece is a Worktrees view — three fixed column slots, each displaying one running worktree (deduce-flow output) with terminals, chips, and per-pane collapse.
 
-**Architecture:** Drop dockview entirely. A single CSS design-token theme (`src/theme/tokens.css`) backs plain colocated `.css` files. `App.tsx` becomes a themed shell (brand · segmented `Cockpit/Worktrees/Calm` switcher · `+ New worktree`) rendering one view component. The Worktrees view renders 3 `WorktreeColumn`s bound to slot indices; slot→worktree assignment is **session-only** store state (no Rust change). Worktree terminals reuse the unchanged `useTerminal` hook.
+**Architecture:** Drop dockview entirely. A single CSS design-token theme (`src/theme/tokens.css`) backs plain colocated `.css` files. `App.tsx` becomes a themed shell (brand · segmented `Cockpit/Worktrees` switcher · `+ New worktree`) rendering one view component. The Worktrees view renders 3 `WorktreeColumn`s bound to slot indices; slot→worktree assignment is **session-only** store state (no Rust change). Worktree terminals reuse the unchanged `useTerminal` hook.
 
 **Tech Stack:** React 19 + TypeScript (Vite), Zustand store, xterm.js via `useTerminal`, Tauri IPC (`invoke`, `openUrl`). Vitest for pure logic.
 
@@ -520,7 +520,7 @@ git commit -m "feat(worktrees): themed terminal pane with chevron collapse"
 
 **Interfaces:**
 - Consumes: `useSettings` (`cockpit`, `slots`, `setSlot`, `removeWorktree`), `makePtyId`, `worktreeChips` (Task 2), `WorktreePane` (Task 5), `LinksList` (`src/tiles/worktree/LinksList.tsx`, unchanged), `invoke`, `openUrl`.
-- Produces: `WorktreeColumn(props: { slotIndex: number; variant?: "full" | "calm" })`.
+- Produces: `WorktreeColumn(props: { slotIndex: number; variant?: "full" })`.
 
 - [ ] **Step 1: Create the component**
 
@@ -538,7 +538,7 @@ import "./WorktreeColumn.css";
 
 const ROLES = ["git", "host", "claude"] as const;
 
-export function WorktreeColumn({ slotIndex, variant = "full" }: { slotIndex: number; variant?: "full" | "calm" }) {
+export function WorktreeColumn({ slotIndex, variant = "full" }: { slotIndex: number; variant?: "full" }) {
   const { cockpit, slots, setSlot, removeWorktree } = useSettings();
   const ongoing = cockpit.worktrees.filter((w) => w.status === "ongoing");
   const active = cockpit.worktrees.find((w) => w.id === slots[slotIndex]);
@@ -679,7 +679,7 @@ git commit -m "feat(worktrees): worktree column (picker, gear menu, chips, panes
 
 **Interfaces:**
 - Consumes: `WorktreeColumn` (Task 6), `SLOT_COUNT` (Task 1).
-- Produces: `WorktreesView()` — 3 equal columns, no horizontal scroll. (The `.wt-view` class is reused by `CalmView` in Task 9.)
+- Produces: `WorktreesView()` — 3 equal columns, no horizontal scroll.
 
 - [ ] **Step 1: Create the component**
 
@@ -703,7 +703,7 @@ export function WorktreesView() {
 - [ ] **Step 2: Create the stylesheet**
 
 ```css
-/* WorktreesView.css — three equal columns filling the body; shared by the Calm view. */
+/* WorktreesView.css — three equal columns filling the body. */
 .wt-view { display: flex; gap: var(--space-3); height: 100%; padding: var(--space-3); }
 ```
 
@@ -802,16 +802,14 @@ git commit -m "feat(worktrees): new-worktree modal hosting the deduce form"
 
 ---
 
-### Task 9: Cockpit + Calm views
+### Task 9: Cockpit view
 
 **Files:**
 - Create: `src/views/CockpitView.tsx`
 - Create: `src/views/CockpitView.css`
-- Create: `src/views/CalmView.tsx`
-
 **Interfaces:**
 - Consumes: `WorktreeColumn` (Task 6), `SLOT_COUNT` (Task 1), `WorktreesView.css` (Task 7, reused).
-- Produces: `CockpitView()`; `CalmView()`.
+- Produces: `CockpitView()`.
 
 - [ ] **Step 1: Create the Cockpit placeholder**
 
@@ -841,24 +839,6 @@ export function CockpitView() {
 .cockpit-view__card p { margin: 0; }
 ```
 
-- [ ] **Step 3: Create the Calm view (Claude pane per slot)**
-
-```tsx
-// CalmView.tsx — decluttered view: each slot shows only its worktree's Claude Code pane (variant="calm").
-import { WorktreeColumn } from "./worktree-column/WorktreeColumn";
-import { SLOT_COUNT } from "./slots";
-import "./WorktreesView.css";
-
-export function CalmView() {
-  return (
-    <div className="wt-view">
-      {Array.from({ length: SLOT_COUNT }, (_, i) => (
-        <WorktreeColumn key={i} slotIndex={i} variant="calm" />
-      ))}
-    </div>
-  );
-}
-```
 
 - [ ] **Step 4: Verify the build compiles**
 
@@ -868,8 +848,8 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/views/CockpitView.tsx src/views/CockpitView.css src/views/CalmView.tsx
-git commit -m "feat(views): Cockpit placeholder + Calm (Claude-only) views"
+git add src/views/CockpitView.tsx src/views/CockpitView.css
+git commit -m "feat(views): Cockpit placeholder view"
 ```
 
 ---
@@ -893,7 +873,7 @@ This task replaces the shell, deletes the dockview machinery, and widens the vie
 - Delete: `src/worktrees/TerminalPane.tsx`
 
 **Interfaces:**
-- Consumes: `WorktreesView`, `CockpitView`, `CalmView`, `NewWorktreeModal`, `loadSettings`, `useSettings`.
+- Consumes: `WorktreesView`, `CockpitView`, `NewWorktreeModal`, `loadSettings`, `useSettings`.
 
 - [ ] **Step 1: Widen the view type in `types.ts`**
 
@@ -902,7 +882,7 @@ Replace the `defaultView` line in `Preferences`:
 ```ts
 export interface Preferences {
   theme: "system" | "light" | "dark";
-  defaultView: "cockpit" | "worktrees" | "calm";
+  defaultView: "cockpit" | "worktrees";
 }
 ```
 
@@ -933,20 +913,18 @@ import { loadSettings } from "./settings/api";
 import { useSettings } from "./settings/store";
 import { WorktreesView } from "./views/WorktreesView";
 import { CockpitView } from "./views/CockpitView";
-import { CalmView } from "./views/CalmView";
 import { NewWorktreeModal } from "./views/NewWorktreeModal";
 import "./App.css";
 
-type View = "cockpit" | "worktrees" | "calm";
+type View = "cockpit" | "worktrees";
 const VIEWS: { id: View; label: string }[] = [
   { id: "cockpit", label: "Cockpit" },
   { id: "worktrees", label: "Worktrees" },
-  { id: "calm", label: "Calm" },
 ];
 
 // normalizeView: map the persisted defaultView (incl. legacy "main") onto a current view id.
 function normalizeView(v: string): View {
-  return v === "cockpit" || v === "calm" ? v : "worktrees";
+  return v === "cockpit" ? v : "worktrees";
 }
 
 function App() {
@@ -979,7 +957,6 @@ function App() {
       <main className="app__body">
         {view === "cockpit" && <CockpitView />}
         {view === "worktrees" && <WorktreesView />}
-        {view === "calm" && <CalmView />}
       </main>
       {creating && <NewWorktreeModal onClose={() => setCreating(false)} />}
     </div>
@@ -1043,7 +1020,7 @@ Expected: PASS — no lingering imports of `dockview`, `Layout`, `TerminalPane`,
 - [ ] **Step 9: Verify the app runs (manual)**
 
 Run: `npm run tauri dev`
-Expected: app opens dark-themed; header shows `cockpit v0.4`, the `Cockpit · Worktrees · Calm` switcher, and `+ New worktree`. Worktrees view shows 3 columns; existing worktrees auto-fill slots. `+ New worktree` opens the modal; the deduce/create flow still works; on Create a column fills. Per-pane chevrons collapse/expand and the open panes fill the height. The gear menu offers Hide/Delete. Switch to Calm → Claude-only panes; Cockpit → placeholder.
+Expected: app opens dark-themed; header shows `cockpit v0.4`, the `Cockpit · Worktrees` switcher, and `+ New worktree`. Worktrees view shows 3 columns; existing worktrees auto-fill slots. `+ New worktree` opens the modal; the deduce/create flow still works; on Create a column fills. Per-pane chevrons collapse/expand and the open panes fill the height. The gear menu offers Hide/Delete. Cockpit → placeholder.
 
 - [ ] **Step 10: Commit**
 
@@ -1077,9 +1054,9 @@ In the **As-built notes**, replace the dockview line ("dockview is **6.6.1**…"
 Add a new As-built bullet:
 
 ```
-- **Three views (`src/views/`):** `Cockpit` (themed placeholder — Worktrees replaced the old
-  Main view), `Worktrees` (the MVP: 3 fixed column slots, each a `WorktreeColumn` showing one
-  running worktree), and `Calm` (same columns, Claude pane only). The active view + the
+- **Two views (`src/views/`):** `Cockpit` (themed placeholder — Worktrees replaced the old
+  Main view) and `Worktrees` (the MVP: 3 fixed column slots, each a `WorktreeColumn` showing one
+  running worktree). The active view + the
   per-column **slot→worktree assignment** are **session-only** store state (not persisted; on
   load the first 3 ongoing worktrees auto-fill the slots). Each `WorktreePane` reuses the
   unchanged `useTerminal` hook and adds a chevron collapse (open panes flex-fill). `+ New
@@ -1103,7 +1080,7 @@ In `2026-06-16-cockpit-product-spec.md`, under "Cross-cutting decisions", change
 Under "## Main view — three columns", add a note at the top:
 
 ```
-> Updated 2026-06-23: the app now has three named views — **Cockpit · Worktrees · Calm**.
+> Updated 2026-06-23: the app now has two named views — **Cockpit · Worktrees**.
 > The worktree, formerly the right column of "Main", is now the dedicated **Worktrees** view
 > (3 fixed slots). "Cockpit" is the future home for the dashboard tiles below.
 ```
@@ -1120,7 +1097,7 @@ git commit -m "docs: record dockview removal + three-view architecture"
 ## Self-Review
 
 **Spec coverage:**
-- Theme tokens → Task 3. App shell / segmented switcher / `+ New worktree` → Task 10. dockview removal + deletions → Task 10. Slot model + session state → Tasks 1, 4. Worktrees view (3 slots) → Task 7. WorktreeColumn (dot, picker `⌄`, gear Hide/Delete, chips, path, panes, links, calm variant, empty state) → Task 6. WorktreePane + chevron collapse + flex-fill + mounted-when-hidden → Task 5. Chip derivation (Linear/PR/issue/preview + CI stub) → Task 2. Attention stub → Task 6. New-worktree modal → Task 8. Cockpit + Calm → Task 9. Docs → Task 11. **All spec sections covered.**
+- Theme tokens → Task 3. App shell / segmented switcher / `+ New worktree` → Task 10. dockview removal + deletions → Task 10. Slot model + session state → Tasks 1, 4. Worktrees view (3 slots) → Task 7. WorktreeColumn (dot, picker `⌄`, gear Hide/Delete, chips, path, panes, links, empty state) → Task 6. WorktreePane + chevron collapse + flex-fill + mounted-when-hidden → Task 5. Chip derivation (Linear/PR/issue/preview + CI stub) → Task 2. Attention stub → Task 6. New-worktree modal → Task 8. Cockpit → Task 9. Docs → Task 11. **All spec sections covered.**
 - Out-of-scope items (slot disk persistence, live Claude/git/CI, DONE/PAUSED, mark-completed, resize/reorder) are intentionally absent — matches the spec's "Out of scope".
 
 **Placeholder scan:** no "TBD"/"handle edge cases"/"similar to" — every code step is complete. The only intentional stubs (CI chip, Attention badge) are explicit, styled, and constant-driven (`attention = false`).

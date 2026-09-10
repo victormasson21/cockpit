@@ -236,7 +236,7 @@ Worktrees view, a slot holding a worktree):
 3. Hovering the ⓘ pops up three rows — folder + repo name, branch glyph + branch name, tree glyph + worktree dir name — in mono at the same size/colour the old row used.
 4. Moving the pointer from the ⓘ down onto the popup keeps it open; moving away closes it.
 5. The popup floats over the chips row and the pane below without pushing anything, and does not spill past the column's left edge.
-6. Calm view and scratch/pending slots look unchanged (they never had the details row).
+6. Scratch/pending slots look unchanged (they never had the details row).
 
 ## Notes for the implementer
 

@@ -35,7 +35,6 @@ the bottom — far from the chips they conceptually belong with.
   via `findLink(links, "linear.app")`. Note any gap found; otherwise no change.
 
 ## Out of scope
-- The `calm` variant (no chips/links) is untouched.
 - No live CI integration (the reason the stub existed) — simply removed until a real
   provider lands.
 

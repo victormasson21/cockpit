@@ -69,8 +69,6 @@ The change lives in `WorktreePane`, so it applies wherever panes render:
 |---------|--------|
 | Worktrees view | the feature — one accent line across all columns |
 | Cockpit right column | same behaviour, free |
-| Calm view | visual no-op: `.wt-col--calm .wt-pane` already sets `border: none` |
-
 No gating prop is needed.
 
 ## Files
@@ -95,7 +93,6 @@ Verification:
    - click a pane in a different column → the line moves across columns;
    - click a pane header button → no line appears from that alone;
    - a pane showing "Attention" stays warm-red while focused;
-   - Calm view shows no border change.
 
 ## Rejected alternatives
 

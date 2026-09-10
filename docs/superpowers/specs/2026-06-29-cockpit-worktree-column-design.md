@@ -47,7 +47,7 @@ When a new worktree **or** scratch is created, placement depends on the **active
 - **Cockpit view active:**
   1. `cockpitWorktreeId = newId` (replaces whatever is in the right column).
   2. If a free Worktrees-view slot exists → fill it. Else → **leave the Worktrees view unchanged** (no eviction).
-- **Worktrees view active (and Calm, which shares those columns):**
+- **Worktrees view active:**
   1. Fill the first free Worktrees-view slot; if none free → **replace the last visible slot** (index `slotCount - 1`).
   2. **Cockpit slot untouched.**
 
@@ -68,11 +68,11 @@ from the store, and its Hide action calls `setSlot(slotIndex, null)`. Refactor i
 SlotColumn({
   value: string | null,            // the currently-assigned entity id (or null)
   onSelect: (id: string | null) => void,  // picker change + Hide
-  variant?: "full" | "calm",
+  variant?: "full",
 })
 ```
 
-- **Worktrees view** (`WorktreesView.tsx`, `CalmView.tsx`) passes
+- **Worktrees view** (`WorktreesView.tsx`) passes
   `value={slots[i]}` and `onSelect={(id) => setSlot(i, id)}` — behaviour unchanged.
 - **Cockpit view** passes `value={cockpit.cockpitWorktreeId ?? null}` and
   `onSelect={setCockpitWorktree}`.
@@ -98,7 +98,7 @@ pub cockpit_worktree_id: Option<String>,
 
 - `setCockpitWorktree(id: string | null)` — persists via the existing `setCockpit`
   functional-updater + debounced save (sets/clears `cockpitWorktreeId`).
-- `placeNewEntity(id: string, view: "cockpit" | "worktrees" | "calm")` — applies the
+- `placeNewEntity(id: string, view: "cockpit" | "worktrees")` — applies the
   placement rule:
   - `view === "cockpit"`: `cockpitWorktreeId = id`; `slots = fillFreeSlot(slots, id, slotCount)`.
   - else: `slots = assignNewWorktree(slots, id, slotCount)` (evict last **visible**); cockpit untouched.

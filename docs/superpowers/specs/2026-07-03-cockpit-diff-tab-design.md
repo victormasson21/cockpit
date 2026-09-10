@@ -13,7 +13,7 @@ into a **🌶️ diff** of the current worktree (`docs/superpowers/specs/2026-06
 
 This sub-project adds a **`[ Terminals | Diff ]` tab bar** to the Cockpit worktree column so
 a worktree's **branch-vs-base diff** can be reviewed in-app — a file-list + expandable
-per-file hunks, colorized. It is **Cockpit-view only**: the Worktrees and Calm multi-column
+per-file hunks, colorized. It is **Cockpit-view only**: the Worktrees multi-column
 views stay terminal-only and byte-identical (opt-in via a new prop that defaults off).
 
 The outcome: select a worktree in the Cockpit right column, click **Diff**, and see the
@@ -27,7 +27,7 @@ without app-switching.
 | Diff scope | **Branch vs base** — `git diff --merge-base <base>` (working tree **and** commits vs the merge-base with `<base>`). Captures Claude's uncommitted edits and its commits. |
 | Base derivation | **Not persisted.** Frontend passes `base=""`; the backend resolves the repo default branch from `origin/HEAD` (a self-contained `symbolic-ref` helper in `worktree.rs`). If no base resolves → inline error. |
 | Rendering | **Stat list → expand hunks.** A `--numstat` file summary (path + green `+N` / red `-N`); click a file to lazily fetch + expand its colorized unified-diff hunks. No npm dep — parse in Rust (numstat) + TS (hunk coloring), render monospace. |
-| Placement | **Cockpit view, centre column.** A `Home | Diff` tab bar at the top of `CockpitView`'s centre column: Home = the local widgets (Todo/Timer), Diff = the diff of the **right-column** worktree (`cockpitWorktreeId`). Realises the product spec's centre-column "🌶️ diff" override. The worktree column is untouched (terminals only); Worktrees/Calm views unchanged. Tab state is session-only, defaults to Home. *(Revised during build: the first cut put the tabs in the worktree column; moved to the centre to match the design + the product spec's centre-override intent.)* |
+| Placement | **Cockpit view, centre column.** A `Home | Diff` tab bar at the top of `CockpitView`'s centre column: Home = the local widgets (Todo/Timer), Diff = the diff of the **right-column** worktree (`cockpitWorktreeId`). Realises the product spec's centre-column "🌶️ diff" override. The worktree column is untouched (terminals only); Worktrees views unchanged. Tab state is session-only, defaults to Home. *(Revised during build: the first cut put the tabs in the worktree column; moved to the centre to match the design + the product spec's centre-override intent.)* |
 | Empty/error state | **Inline message in the tab** — `No changes vs <base>` or git's stderr, matching the in-pane `[failed to start]` idiom. |
 | Refresh timing | **Snapshot on tab-open + manual refresh button**, with an **`as of HH:MM:SS` timestamp** so staleness is visible. No background polling — reactive/live updates are deferred to the future "Live worktree & Claude signals" provider. |
 
@@ -144,7 +144,7 @@ untouched.
   2. Edit a file in that worktree, hit refresh → the diff reflects the new change (snapshot
      freshness confirmed).
   3. Empty case: a worktree whose branch has no changes vs base → `No changes vs <base>`.
-  4. **Regression:** the **Worktrees** and **Calm** views show **no** tab bar and are visually
+  4. **Regression:** the **Worktrees** view shows **no** tab bar and is visually
      identical to before; a **scratch** entity in the Cockpit column shows no tab bar.
 
 ## Deferred

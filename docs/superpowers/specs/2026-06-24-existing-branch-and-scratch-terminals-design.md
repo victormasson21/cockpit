@@ -154,9 +154,7 @@ focused bodies:
   chips / path / links.
 
 Delete dispatches by kind: a worktree kills its 3 role ptys (today's loop); a
-scratch kills its one `shell` pty. `variant="calm"`: a scratch in Calm renders just
-its shell pane (it has no extra chrome to strip); a worktree renders header + claude
-pane as today.
+scratch kills its one `shell` pty.
 
 ## Files
 
@@ -172,8 +170,8 @@ pane as today.
 - `src/views/NewWorktreeModal.tsx` — `Deduce · Existing branch` segmented control.
 - `src/views/worktree-column/WorktreeColumn.tsx` → `SlotColumn.tsx` — entity
   resolution, two-optgroup picker, kind-dispatched Delete, body switch.
-- `src/views/WorktreesView.tsx`, `src/views/CalmView.tsx` — render `SlotColumn`
-  (rename; Calm passes `variant="calm"`).
+- `src/views/WorktreesView.tsx` — render `SlotColumn`
+  (rename).
 - `src/views/slots.ts` — `deleteWorktree` → `clearEntity`.
 - `src/settings/store.ts` — `scratchTerminals` session state + `addScratch` /
   `removeScratch`; `removeWorktree` uses `clearEntity`.

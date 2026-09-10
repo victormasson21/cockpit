@@ -11,7 +11,7 @@ one place, and to surface messages, tasks, jobs, etc. in **customisable tiles**.
 
 ## Main view — three columns
 
-> Updated 2026-06-23: the app now has three named views — **Cockpit · Worktrees · Calm**.
+> Updated 2026-06-23: the app now has two named views — **Cockpit · Worktrees**.
 > The worktree, formerly the right column of "Main", is now the dedicated **Worktrees** view
 > (3 fixed slots). "Cockpit" is the future home for the dashboard tiles below.
 
@@ -21,13 +21,6 @@ one place, and to surface messages, tasks, jobs, etc. in **customisable tiles**.
 - **Centre** — modular space: either permanent tiles (like Left), or a second
   worktree (like Right), or an *expansion* of a Left/Right tile (e.g. the code
   diff of the current worktree, or the body of a Slack message).
-
-## Calm view
-
-Decluttered: only the most important tile per worktree — the terminal running
-Claude Code.
-
----
 
 ## Left column — tiles / modules (name TBC)
 
@@ -66,12 +59,6 @@ initial task prompt.
 - **Default:** To-do (Notion), Tickets (Linear), Pomodoro timer.
 - **Overrides:** 🌶️ second worktree, 🌶️ diff, Slack message.
 - Default view can be overridden from usage.
-
-## Calm view
-
-🌶️ Claude tiles for ongoing workflows.
-
----
 
 ## Modularity (needs dedicated exploration)
 
@@ -112,7 +99,7 @@ This vision is ~5 subsystems. Build order, each shippable/usable on its own:
 0. ✅ **Core spike** — Tauri + React skeleton + IPC round-trip. *Done* (the
    terminal/PTY part deferred to sub-project 2, where terminals actually live).
 1. ✅ **Layout shell + settings** — dockview workspace, tile registry,
-   move/expand/tab tiles, calm-view toggle, two-file JSON settings store.
+   move/expand/tab tiles, two-file JSON settings store.
    *Done & merged* — see `layout-shell-design.md` + `../plans/2026-06-16-layout-shell.md`.
 2. ✅ **Worktree engine (manual)** — right column: model (repo/branch/worktree +
    local host), 3 auto-running terminals, status, recent-worktrees dropdown.

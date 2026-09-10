@@ -12,9 +12,8 @@ displaying one running worktree (the output of the deduce flow). This is primari
 a **styling + view-structure pass**: no new backend providers, no live PTY/git
 state detection.
 
-The app gains three named views — **Cockpit · Worktrees · Calm** — but only
-**Worktrees** is built out for this MVP. Cockpit becomes a themed placeholder;
-Calm is a light decluttered reuse of the Worktrees layout.
+The app gains two named views — **Cockpit · Worktrees** — but only
+**Worktrees** is built out for this MVP. Cockpit becomes a themed placeholder.
 
 ## Decision reversal: drop dockview
 
@@ -97,12 +96,12 @@ This token set is the reusable foundation the other views inherit.
 `App.tsx` becomes a themed shell, replacing the dockview `Layout`:
 
 - **Header:** brand (`cockpit v0.x`) left · **segmented control**
-  (`Cockpit · Worktrees · Calm`) center · **`+ New worktree`** button right.
+  (`Cockpit · Worktrees`) center · **`+ New worktree`** button right.
 - **Body:** renders the active view component directly
-  (`CockpitView` | `WorktreesView` | `CalmView`).
+  (`CockpitView` | `WorktreesView`).
 - Active view is store state; the persisted `preferences.defaultView` seeds it on
-  load. `defaultView`'s type widens from `"main" | "calm"` to
-  `"cockpit" | "worktrees" | "calm"`; legacy `"main"` (or any unknown value) maps
+  load. `defaultView`'s type widens from `"main"` to
+  `"cockpit" | "worktrees"`; legacy `"main"` (or any unknown value) maps
   to `"worktrees"`.
 
 ## Worktrees view
@@ -120,7 +119,7 @@ This token set is the reusable foundation the other views inherit.
 `src/views/worktree-column/WorktreeColumn.tsx` (+ `.css`) — the restyle of today's
 `WorktreeTile`, now a single-worktree column bound to a slot index.
 
-Props: `{ slotIndex: number; variant?: "full" | "calm" }`.
+Props: `{ slotIndex: number; variant?: "full" }`.
 
 Top-to-bottom when a worktree is assigned:
 
@@ -151,8 +150,7 @@ Top-to-bottom when a worktree is assigned:
 When the slot is empty: the column renders only the header with a "Select
 worktree" dropdown (the `⚙` menu is hidden/disabled), inviting selection.
 
-`variant="calm"` renders **only the header + the Claude Code pane** (for the Calm
-view); `variant="full"` (default) renders everything above.
+`variant="full"` (default) renders everything above.
 
 ### Chip derivation (pure, tested)
 
@@ -193,13 +191,10 @@ modal closes.
 `NewWorktreeForm`, `LinksList`, and `KnownReposEditor` are **reused as-is**
 (re-themed via CSS only).
 
-## Cockpit + Calm (secondary)
+## Cockpit (secondary)
 
 - **`CockpitView`** — minimal themed placeholder ("coming soon" / empty state),
   inheriting the theme. No tiles.
-- **`CalmView`** — renders the 3 slots using `WorktreeColumn variant="calm"`
-  (header + Claude pane only), matching the spec's "most important tile per
-  worktree."
 
 ## Files
 
@@ -207,7 +202,6 @@ modal closes.
 - `src/theme/tokens.css`
 - `src/views/WorktreesView.tsx` (+ `.css`)
 - `src/views/CockpitView.tsx`
-- `src/views/CalmView.tsx`
 - `src/views/Modal.tsx`, `src/views/NewWorktreeModal.tsx` (+ `.css`)
 - `src/views/worktree-column/WorktreeColumn.tsx` (+ `.css`)
 - `src/views/worktree-column/WorktreePane.tsx`

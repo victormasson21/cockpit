@@ -431,7 +431,7 @@ import { makePtyId } from "../../worktrees/ptyId";
 import { EMPTY_PANE_SET, MAX_EXTRAS, isPaneOpen } from "../../worktrees/paneSet";
 import { CopyIcon, PlayIcon, PlusIcon } from "../icons";
 
-export function WorktreeBody({ worktree, variant }: { worktree: Worktree; variant: "full" | "calm" }) {
+export function WorktreeBody({ worktree, variant }: { worktree: Worktree; variant: "full" }) {
   // Session-only dynamic pane set: which panes exist + their collapse state (absent = Claude only).
   const paneSet = useSettings((s) => s.worktreePanes[worktree.id]) ?? EMPTY_PANE_SET;
   const runHostPane = useSettings((s) => s.runHostPane);
@@ -447,7 +447,7 @@ export function WorktreeBody({ worktree, variant }: { worktree: Worktree; varian
           onToggle: () => toggleWorktreePane(worktree.id, role),
           onExpand: () => expandWorktreePane(worktree.id, role),
         }
-      : {}; // calm: single pane, self-managed, no expand
+      : {}; // single pane, self-managed, no expand
 
   // Close on host/extras REMOVES the pane: kill the PTY, drop any attention mark, drop it from the set.
   const closePane = (role: string) => {
@@ -537,7 +537,7 @@ export function WorktreeBody({ worktree, variant }: { worktree: Worktree; varian
 
 Notes for the implementer:
 - The old imports `PaneOpenState` and `updateWorktree` are gone; do not re-add them.
-- The claude pane in the calm variant keeps working: `paneProps` returns `{}` so it self-manages, and the Run/Add bar + host/extras are `variant === "full"` only.
+- The lone claude pane keeps working: `paneProps` returns `{}` so it self-manages, and the Run/Add bar + host/extras are `variant === "full"` only.
 - `wt-ico--terminal` already exists (used by the modal's Terminal heading and scratch bodies).
 
 - [ ] **Step 3: Add the action-bar CSS**
@@ -582,7 +582,7 @@ git commit -m "feat(panes): Claude-first worktree body with lazy Run/Add termina
 
 **Interfaces:**
 - Consumes: existing store `setCockpitWorktree(id: string | null)` and `cockpit.cockpitWorktreeId`.
-- Produces: `SlotColumn` and `WorktreeBody` accept optional `pinnable?: boolean` (default false). Only `WorktreesView` passes `pinnable` — `CalmView` and `CockpitView` are NOT modified.
+- Produces: `SlotColumn` and `WorktreeBody` accept optional `pinnable?: boolean` (default false). Only `WorktreesView` passes `pinnable` — `CockpitView` is NOT modified.
 
 - [ ] **Step 1: Add `PinIcon`**
 
@@ -611,7 +611,7 @@ export function PinIcon() {
 `src/views/worktree-column/SlotColumn.tsx` — accept + forward (only the signature and the `WorktreeBody` call change):
 
 ```tsx
-export function SlotColumn({ value, onSelect, variant = "full", pinnable = false }: { value: string | null; onSelect: (id: string | null) => void; variant?: "full" | "calm"; pinnable?: boolean }) {
+export function SlotColumn({ value, onSelect, variant = "full", pinnable = false }: { value: string | null; onSelect: (id: string | null) => void; variant?: "full"; pinnable?: boolean }) {
 ```
 
 ```tsx
@@ -621,7 +621,7 @@ export function SlotColumn({ value, onSelect, variant = "full", pinnable = false
 `src/views/worktree-column/WorktreeBody.tsx` — accept the prop:
 
 ```tsx
-export function WorktreeBody({ worktree, variant, pinnable = false }: { worktree: Worktree; variant: "full" | "calm"; pinnable?: boolean }) {
+export function WorktreeBody({ worktree, variant, pinnable = false }: { worktree: Worktree; variant: "full"; pinnable?: boolean }) {
 ```
 
 Add the selectors near the other store reads:
