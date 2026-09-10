@@ -1,5 +1,7 @@
 /* KnownReposEditor.css — layout only; inputs/buttons inherit the global theme baselines. */
-.known-repos { display: grid; gap: var(--space-2); font-size: var(--fs-md); color: var(--tx); }
+/* minmax(0, 1fr) rather than a bare auto track: a nowrap path or an input would otherwise set the track's
+   floor at its own min-content and push every row past the modal's edge at larger text zooms. */
+.known-repos { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2); font-size: var(--fs-md); color: var(--tx); }
 .known-repos strong { color: var(--tx); font-weight: 700; }
 .known-repos__empty { font-size: var(--fs-sm); color: var(--tx-2); }
 
@@ -7,7 +9,7 @@
 .known-repos__title { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 
 /* one repo: path + remove on top, then the two host-default inputs. */
-.known-repos__row { display: grid; gap: var(--space-1); padding-bottom: var(--space-2); border-bottom: 1px solid var(--divider); }
+.known-repos__row { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-1); padding-bottom: var(--space-2); border-bottom: 1px solid var(--divider); }
 .known-repos__head { display: flex; gap: var(--space-1); align-items: center; }
 .known-repos__path { flex: 1; font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
