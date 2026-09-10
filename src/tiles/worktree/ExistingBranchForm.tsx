@@ -6,39 +6,40 @@ import { makeWorktree, isPrimaryTree } from "../../worktrees/model";
 import { deriveBranchName } from "./branchName";
 import { useSettings } from "../../settings/store";
 import { Dropdown } from "../../views/Dropdown";
-import type { DropdownOption } from "../../views/dropdownModel";
+import type { DropdownGroup } from "../../views/dropdownModel";
 import "./ExistingBranchForm.css";
 
 // Hint tags appended after a branch's recency in the picker's dim hint slot.
 const OPEN_IN_PLACE_TAG = " · open in place";
 const CLAIMED_TAG = " · checked out";
-
-// A branch held by the repo's own working tree, as opposed to one of cockpit's managed worktrees.
-const claimedByRepo = (b: BranchInfo, repoPath: string) => b.checkedOut && b.checkedOutPath === repoPath;
+// Heading over the repo's own branch. Its position at the top already implies it, but a heading says it
+// outright — otherwise "the first row is your clone's branch" is a convention the reader has to know.
+const PRIMARY_GROUP_LABEL = "Checked out in the repo";
 
 // True when the selected branch is the one the repo's own tree has checked out: picking it opens that
 // tree in place, so there is no `git worktree add` to run and nothing new on disk.
-export function opensInPlace(branches: BranchInfo[], branch: string, repoPath: string): boolean {
-  const hit = branches.find((b) => b.name === branch);
-  return hit !== undefined && claimedByRepo(hit, repoPath);
+export function opensInPlace(branches: BranchInfo[], branch: string): boolean {
+  return branches.some((b) => b.name === branch && b.primaryTree);
 }
 
-// One picker row per branch, recency order as git gave it. The repo's OWN checked-out branch is hoisted
-// to the top and stays pickable — choosing it opens the primary working tree in place. Every other
-// checked-out branch stays disabled: git refuses to worktree-add a branch another tree already holds.
-export function branchPickerOptions(branches: BranchInfo[], repoPath: string): DropdownOption[] {
+// The picker's groups: the repo's own branch under its own heading, then every other branch in the
+// recency order git gave. Those others stay disabled when checked out — git refuses to worktree-add a
+// branch another tree already holds. A detached repo tree flags no branch, so the heading is omitted.
+export function branchPickerGroups(branches: BranchInfo[]): DropdownGroup[] {
   const tagFor = (b: BranchInfo) => {
-    if (claimedByRepo(b, repoPath)) return OPEN_IN_PLACE_TAG;
+    if (b.primaryTree) return OPEN_IN_PLACE_TAG;
     return b.checkedOut ? CLAIMED_TAG : "";
   };
-  const primary = branches.filter((b) => claimedByRepo(b, repoPath));
-  const rest = branches.filter((b) => !claimedByRepo(b, repoPath));
-  return [...primary, ...rest].map((b) => ({
+  const row = (b: BranchInfo) => ({
     value: b.name,
     label: b.name,
     hint: `${b.lastCommitRelative}${tagFor(b)}`,
-    disabled: b.checkedOut && !claimedByRepo(b, repoPath),
-  }));
+    disabled: b.checkedOut && !b.primaryTree,
+  });
+  const primary = branches.filter((b) => b.primaryTree).map(row);
+  const rest = branches.filter((b) => !b.primaryTree).map(row);
+  const primaryGroup = primary.length > 0 ? [{ label: PRIMARY_GROUP_LABEL, options: primary }] : [];
+  return [...primaryGroup, { options: rest }];
 }
 
 export function ExistingBranchForm({ onCreated }: { onCreated: (worktreeId: string) => void }) {
@@ -76,10 +77,10 @@ export function ExistingBranchForm({ onCreated }: { onCreated: (worktreeId: stri
   const pickBranch = (b: string) => {
     setBranch(b);
     const repoName = repoPath.split("/").pop() ?? b;
-    setName(opensInPlace(branches, b, repoPath) ? repoName : deriveBranchName(b));
+    setName(opensInPlace(branches, b) ? repoName : deriveBranchName(b));
   };
 
-  const inPlace = opensInPlace(branches, branch, repoPath);
+  const inPlace = opensInPlace(branches, branch);
   // Opening a repo that already has an entity would give one directory two columns and two Claude
   // panes racing in it — reveal the existing one instead of minting a second.
   const alreadyOpen = worktrees.find((w) => isPrimaryTree(w) && w.repoPath === repoPath);
@@ -126,7 +127,7 @@ export function ExistingBranchForm({ onCreated }: { onCreated: (worktreeId: stri
       )}
       {branches.length > 0 && (
         <Dropdown variant="form" placeholder="select branch…" value={branch || null} onChange={pickBranch}
-          groups={[{ options: branchPickerOptions(branches, repoPath) }]} />
+          groups={branchPickerGroups(branches)} />
       )}
       <input placeholder="name" value={name} onChange={(e) => setName(e.target.value)} />
       {error && <div className="eb-form__error">{error}</div>}

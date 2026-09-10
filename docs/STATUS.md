@@ -875,9 +875,16 @@ menu swaps **Delete + Wipe** for **Forget**, which kills the panes and drops coc
 `TeardownConfirm` is unreachable for these entities. Review caught the reveal-the-existing-column path
 duplicating instead of deduping — `placeEntity`/`fillEntity` never checked whether the id was already in a
 slot, so one worktree could own two columns and bind two xterms to one PTY; both reducers are now
-idempotent, which closes the same hole for the picker. Known and accepted: the Diff tab on a primary tree
-sitting on the default branch compares main to main and shows nothing; a detached primary tree reports its
-branch as the literal "HEAD"; and `checkedOutPath === repoPath` is a string match, so a trailing slash or a
-symlinked repo path in `knownRepos` makes the primary row silently absent (the robust fix is backend-side —
-`git worktree list --porcelain` always lists the main working tree first).
-**GUI verified.** 552 JS (+11) + 138 Rust (+1) tests green; tsc + Vite + cargo clean.
+idempotent, which closes the same hole for the picker.
+**Which branch is the repo's own is decided in Rust, not by comparing paths.** The first draft matched
+`checkedOutPath === repoPath` in the frontend, so a trailing slash or a symlinked checkout in `knownRepos`
+would have made the primary row silently absent. `git worktree list --porcelain` always prints the main
+working tree first, so `primary_tree_branch` reads that first block's `branch` line — no path comparison
+exists to break — and `mark_primary_tree` sets a new `primaryTree` flag on `BranchInfo`. `checkedOutPath`
+lost its only consumer and is gone. The picker now puts that branch under its own **"Checked out in the
+repo"** heading rather than relying on the reader knowing the first row is special; a detached repo tree
+flags no branch, so the heading is simply omitted.
+Known and accepted: the Diff tab on a primary tree sitting on the default branch compares main to main and
+shows nothing; a detached primary tree reports its branch as the literal "HEAD".
+**GUI verified**, except the "Checked out in the repo" heading, added after that pass and not yet eyeballed.
+552 JS (+11) + 142 Rust (+5) tests green; tsc + Vite + cargo clean.

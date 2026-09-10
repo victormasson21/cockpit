@@ -18,13 +18,15 @@ pub enum BranchSpec {
 // One local branch + how long ago it was last committed to (for the recency-sorted picker).
 // `checked_out` flags a branch git won't let us worktree-add (already checked out in the main repo or another
 // worktree); the UI disables those so the user can't pick a branch that would fail at create.
+// `primary_tree` is the one exception: the branch the repo's OWN working tree holds, which the UI offers
+// as "open in place" instead.
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BranchInfo {
     pub name: String,
     pub last_commit_relative: String,
     pub checked_out: bool,
-    pub checked_out_path: Option<String>,
+    pub primary_tree: bool,
 }
 
 // Parse `git for-each-ref` output (one `<name>\t<relative-date>` line per branch) into BranchInfo rows.
@@ -39,7 +41,7 @@ pub fn parse_branch_lines(stdout: &str) -> Vec<BranchInfo> {
                 name: parts.next().unwrap_or("").to_string(),
                 last_commit_relative: parts.next().unwrap_or("").to_string(),
                 checked_out: false,
-                checked_out_path: None,
+                primary_tree: false,
             }
         })
         .collect()
@@ -160,9 +162,35 @@ pub fn is_default_branch(branch: &str, default: Option<&str>) -> bool {
 // Mark each branch that is currently checked out in some worktree, recording where — a pure join so it's testable.
 pub fn mark_checked_out(mut branches: Vec<BranchInfo>, worktree_branches: &[(String, String)]) -> Vec<BranchInfo> {
     for b in &mut branches {
-        if let Some((_, path)) = worktree_branches.iter().find(|(name, _)| name == &b.name) {
+        if worktree_branches.iter().any(|(name, _)| name == &b.name) {
             b.checked_out = true;
-            b.checked_out_path = Some(path.clone());
+        }
+    }
+    branches
+}
+
+// The branch the repo's own working tree holds, or None when that tree is detached. `git worktree list`
+// always prints the main working tree first, so the answer is the first block's `branch` line — no path
+// comparison against the caller's repo path, which a trailing slash or a symlinked checkout would break.
+pub fn primary_tree_branch(porcelain: &str) -> Option<String> {
+    for line in porcelain.lines() {
+        if line.trim().is_empty() {
+            return None;
+        }
+        if let Some(b) = line.strip_prefix("branch ") {
+            let short = b.trim().strip_prefix("refs/heads/").unwrap_or(b.trim());
+            return Some(short.to_string());
+        }
+    }
+    None
+}
+
+// Flag the branch the repo's own working tree holds — the one branch the picker offers despite being
+// checked out, because opening it needs no `git worktree add`. A pure join so it's testable.
+pub fn mark_primary_tree(mut branches: Vec<BranchInfo>, primary_branch: Option<&str>) -> Vec<BranchInfo> {
+    for b in &mut branches {
+        if primary_branch == Some(b.name.as_str()) {
+            b.primary_tree = true;
         }
     }
     branches
@@ -262,10 +290,10 @@ pub fn list_branches(repo_path: String) -> Result<Vec<BranchInfo>, String> {
     let branches = parse_branch_lines(&out);
     // Flag branches already checked out elsewhere (git refuses to worktree-add those). A failure here is
     // non-fatal — we just return the branches unflagged rather than break the whole picker.
-    let worktree_branches = git::run(&repo_path, ["worktree", "list", "--porcelain"])
-        .map(|o| parse_worktree_branches(&o))
-        .unwrap_or_default();
-    Ok(mark_checked_out(branches, &worktree_branches))
+    let porcelain = git::run(&repo_path, ["worktree", "list", "--porcelain"]).unwrap_or_default();
+    let worktree_branches = parse_worktree_branches(&porcelain);
+    let flagged = mark_checked_out(branches, &worktree_branches);
+    Ok(mark_primary_tree(flagged, primary_tree_branch(&porcelain).as_deref()))
 }
 
 // Probe a worktree for uncommitted changes (for the Delete/Wipe confirm dialog). Missing dir → not
@@ -608,7 +636,38 @@ mod tests {
         assert_eq!(got[0].name, "orphan");
         assert_eq!(got[0].last_commit_relative, "");
         assert!(!got[0].checked_out);
-        assert_eq!(got[0].checked_out_path, None);
+        assert!(!got[0].primary_tree);
+    }
+
+    #[test]
+    fn primary_tree_branch_reads_the_first_worktree_block() {
+        // git always lists the main working tree first, whatever the branch's commit date — which is
+        // why identifying it needs no path comparison against the repo we were asked about.
+        let porcelain = "worktree /repo/main\nHEAD abc123\nbranch refs/heads/ca-v3-form-v1\n\n\
+                         worktree /repo/feat\nHEAD 789aaa\nbranch refs/heads/feat/login\n";
+        assert_eq!(primary_tree_branch(porcelain), Some("ca-v3-form-v1".to_string()));
+    }
+
+    #[test]
+    fn primary_tree_branch_is_none_when_the_main_tree_is_detached() {
+        // The block ends without a branch line, so the next worktree's branch must NOT be claimed as ours.
+        let porcelain = "worktree /repo/main\nHEAD abc123\ndetached\n\n\
+                         worktree /repo/feat\nHEAD 789aaa\nbranch refs/heads/feat/login\n";
+        assert_eq!(primary_tree_branch(porcelain), None);
+    }
+
+    #[test]
+    fn mark_primary_tree_flags_only_the_named_branch() {
+        let branches = parse_branch_lines("main\t2 days ago\nfeat/login\t5 days ago\n");
+        let got = mark_primary_tree(branches, Some("main"));
+        assert!(got[0].primary_tree);
+        assert!(!got[1].primary_tree);
+    }
+
+    #[test]
+    fn mark_primary_tree_flags_nothing_when_the_main_tree_is_detached() {
+        let branches = parse_branch_lines("main\t2 days ago\n");
+        assert!(!mark_primary_tree(branches, None)[0].primary_tree);
     }
 
     #[test]
@@ -674,8 +733,6 @@ mod tests {
         let wt = vec![("ca-v3-form-v1".to_string(), "/repo/main".to_string())];
         let got = mark_checked_out(branches, &wt);
         assert!(got[0].checked_out);
-        assert_eq!(got[0].checked_out_path, Some("/repo/main".to_string()));
         assert!(!got[1].checked_out);
-        assert_eq!(got[1].checked_out_path, None);
     }
 }

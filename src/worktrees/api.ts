@@ -40,12 +40,13 @@ export const resolveRepoRoot = (path: string) =>
 export const currentBranch = (repoPath: string) => invoke<string>("current_branch", { repoPath });
 
 // One local branch row for the existing-branch picker (mirrors Rust BranchInfo).
-// checkedOut flags a branch git won't let us worktree-add (already checked out somewhere); checkedOutPath says where.
+// checkedOut flags a branch git won't let us worktree-add (already checked out somewhere); primaryTree is
+// the one exception — the branch the repo's OWN working tree holds, which the picker opens in place.
 export interface BranchInfo {
   name: string;
   lastCommitRelative: string;
   checkedOut: boolean;
-  checkedOutPath?: string | null;
+  primaryTree: boolean;
 }
 
 // List a repo's local branches, most-recently-committed first.
