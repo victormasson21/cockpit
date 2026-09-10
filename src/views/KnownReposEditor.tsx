@@ -63,7 +63,10 @@ export function KnownReposEditor() {
 
   return (
     <div className="known-repos">
-      <strong>Known repos</strong>
+      <div className="known-repos__title">
+        <strong>Known repos</strong>
+        <button onClick={browse}>+ Browse for repos…</button>
+      </div>
       {repos.length === 0 && <div className="known-repos__empty">Add a repo so deduction can pick one.</div>}
       {repos.map((r) => (
         <div key={r.path} className="known-repos__row">
@@ -78,9 +81,6 @@ export function KnownReposEditor() {
             onChange={(e) => editHost(r.path, { address: e.target.value })} />
         </div>
       ))}
-      <div className="known-repos__add">
-        <button onClick={browse}>+ Browse for repos…</button>
-      </div>
       {note && <div className="known-repos__note">{note}</div>}
       {error && <div className="known-repos__error">{error}</div>}
     </div>
