@@ -140,13 +140,13 @@ pub struct TodoItem {
     pub list_id: Option<String>,
 }
 
-// User-facing display preferences (theme + which view opens on launch + visible Worktrees/Calm panes).
+// User-facing display preferences (theme + which view opens on launch + visible Worktrees panes).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Preferences {
     pub theme: String,
     #[serde(rename = "defaultView")]
     pub default_view: String,
-    // Visible column count for the Worktrees/Calm views (2 or 3); defaults for older files without it.
+    // Visible column count for the Worktrees view (2 or 3); defaults for older files without it.
     #[serde(default = "default_panes")]
     pub panes: u32,
     // Text zoom multiplier (Cmd +/-/0); 1.0 = 100%. Defaults for older files without it.

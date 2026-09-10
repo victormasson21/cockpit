@@ -121,7 +121,7 @@ export const createWorkspaceSlice: SettingsSlice<WorkspaceSlice> = (set, get) =>
     swapSlots: (keyA, keyB) => setSession((st) => ({ slots: swapSlotsFn(st.slots, keyA, keyB) })),
     // Persisted Cockpit-view right-column slot (omit from JSON when cleared).
     setCockpitWorktree: (id) => get().setCockpit((c) => ({ ...c, cockpitWorktreeId: id ?? undefined })),
-    // View-dependent placement of a newly-created worktree/scratch/pending. Worktrees/Calm reflow the
+    // View-dependent placement of a newly-created worktree/scratch/pending. Worktrees reflows the
     // shared slots (placeEntity); Cockpit sets its own persisted column and only fills a free shared
     // slot (fillEntity — no eviction).
     placeNewEntity: (id, view) => {

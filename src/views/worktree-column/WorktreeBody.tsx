@@ -1,5 +1,4 @@
 // WorktreeBody.tsx — the worktree slot body: chips + dynamic panes (claude always; host via Run; extra shells via Add) + the bottom Run/Add bar.
-import type { ReactNode } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { Worktree } from "../../settings/types";
 import { useSettings } from "../../settings/store";
@@ -13,10 +12,7 @@ import { closePane } from "../../worktrees/paneLifecycle";
 import { EMPTY_PANE_SET, MAX_EXTRAS, isPaneOpen } from "../../worktrees/paneSet";
 import { CopyIcon, PlayIcon, PlusIcon } from "../icons";
 
-// `switcher` (calm density only) is the icon+dropdown unit, injected into the Claude pane header so the
-// dropdown sits level with the restart button (calm has no separate column header). It is the one
-// difference CSS cannot express, which is why it is a prop and the rest of calm's declutter is not.
-export function WorktreeBody({ worktree, switcher }: { worktree: Worktree; switcher?: ReactNode }) {
+export function WorktreeBody({ worktree }: { worktree: Worktree }) {
   // Session-only dynamic pane set: which panes exist + their collapse state (absent = Claude only).
   const paneSet = useSettings((s) => s.worktreePanes[worktree.id]) ?? EMPTY_PANE_SET;
   const runHostPane = useSettings((s) => s.runHostPane);
@@ -60,7 +56,6 @@ export function WorktreeBody({ worktree, switcher }: { worktree: Worktree; switc
         {/* attention highlight (border/glow + badge) is owned by WorktreePane via the live store. */}
         <WorktreePane
           title="Claude Code" icon={<span className="wt-ico wt-ico--claude" aria-hidden />}
-          lead={switcher}
           worktreeId={worktree.id} role="claude" cwd={worktree.worktreePath}
           autostartCmd={claudePaneAutostart(worktree.prompt, promptPending, restored)}
           onEnsured={() => {

@@ -23,7 +23,7 @@ export function AppearanceSettings() {
           ...BACKGROUNDS.map((b) => ({ value: b.id, label: b.label })),
         ] }]}
       />
-      <p className="appearance__hint">Shows behind every view — most visible in Cockpit and Calm, which leave the most space.</p>
+      <p className="appearance__hint">Shows behind every view — most visible in Cockpit, which leaves the most space.</p>
       {variant?.attribution && <p className="appearance__hint">{variant.attribution}</p>}
     </div>
   );

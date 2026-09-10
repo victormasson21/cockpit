@@ -7,7 +7,7 @@ import type { BranchSpec, DeducedWorktree } from "./api";
 import { branchSpecFrom, makeWorktree, sourceLinkFrom } from "./model";
 import { effectiveContext, type WorktreeSource } from "./worktreeContext";
 
-type View = "cockpit" | "worktrees" | "calm";
+type View = "cockpit" | "worktrees";
 
 export interface DeduceFlowInput {
   prompt: string;

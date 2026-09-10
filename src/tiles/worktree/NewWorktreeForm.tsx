@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useSettings } from "../../settings/store";
 import "./NewWorktreeForm.css";
 
-type View = "cockpit" | "worktrees" | "calm";
+type View = "cockpit" | "worktrees";
 
 export function NewWorktreeForm({ view, onClose }: { view: View; onClose: () => void }) {
   const startDeduceWorktree = useSettings((s) => s.startDeduceWorktree);

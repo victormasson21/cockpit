@@ -9,9 +9,6 @@ import "./WorktreePane.css";
 type PaneChrome = {
   title: string;
   icon?: ReactNode;
-  // Replaces icon+title at the start of the header (calm mode injects the worktree switcher here,
-  // so the dropdown sits level with the restart button and the "Claude Code" label is gone).
-  lead?: ReactNode;
   badge?: ReactNode;
   action?: ReactNode; // extra header control (e.g. the claude pane's copy-prompt button)
   // Controlled open-state (WorktreeBody coordinates sibling panes for expand); omitted → self-managed.
@@ -23,7 +20,7 @@ type PaneChrome = {
   onClose?: () => void;
 };
 
-export function WorktreePane({ title, icon, lead, badge, action, open: openProp, onToggle, onExpand, onClose, ...args }: UseTerminalArgs & PaneChrome) {
+export function WorktreePane({ title, icon, badge, action, open: openProp, onToggle, onExpand, onClose, ...args }: UseTerminalArgs & PaneChrome) {
   const { containerRef, restart, close } = useTerminal(args);
   // "Keystrokes land here": true while focus is inside this pane's terminal body. Local state, not
   // the store — unlike attention (a bell in a background pane is read by SlotColumn), focus has no
@@ -53,7 +50,7 @@ export function WorktreePane({ title, icon, lead, badge, action, open: openProp,
   return (
     <div className={`wt-pane ${open ? "wt-pane--open" : "wt-pane--closed"}${focused ? " wt-pane--focused" : ""}${needsAttention ? " wt-pane--attention" : ""}`}>
       <div className="wt-pane__header">
-        {lead ?? (<>{icon}<span className="wt-pane__title">{title}</span></>)}
+        {icon}<span className="wt-pane__title">{title}</span>
         {needsAttention && <span className="wt-attention">Check me out</span>}
         {badge}
         {action}

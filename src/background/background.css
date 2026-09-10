@@ -3,7 +3,7 @@
 /* z-index: -1, not auto: a fixed element paints ABOVE static in-flow content, so the layer has to go
    negative to sit under the app. -1 still paints above body's --bg-0, which stays the base ground —
    so a variant may be translucent and read against it. No view paints its own ground, so this shows
-   through every gutter, column padding, empty slot and Calm's 10vh breathing room. */
+   through every gutter, column padding and empty slot. */
 .app__bg {
   position: fixed;
   inset: 0;

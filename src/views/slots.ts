@@ -81,7 +81,7 @@ export type PendingWorktree = {
   id: string;
   prompt: string;
   status: "deducing" | "creating";
-  view: "cockpit" | "worktrees" | "calm";
+  view: "cockpit" | "worktrees";
 };
 
 // What a slot id resolves to: a worktree, a scratch terminal, a pending worktree, or nothing.

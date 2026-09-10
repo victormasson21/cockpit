@@ -10,7 +10,7 @@ import type { TodosSlice } from "./slices/todos";
 import type { WorkspaceSlice } from "./slices/workspace";
 import type { ZoomSlice } from "./slices/zoom";
 
-export type View = "cockpit" | "worktrees" | "calm";
+export type View = "cockpit" | "worktrees";
 
 // `init` hydrates every slice at once, so it lives on the assembly point (store.ts) rather than in a slice.
 export interface HydrateSlice {

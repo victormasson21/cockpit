@@ -6,7 +6,7 @@ import { useSettings } from "../settings/store";
 import type { WorktreeSource } from "../worktrees/worktreeContext";
 import "./CreateWorktreeButton.css";
 
-type View = "cockpit" | "worktrees" | "calm";
+type View = "cockpit" | "worktrees";
 
 export function CreateWorktreeButton({
   source, view, getInput, title = "Create worktree",

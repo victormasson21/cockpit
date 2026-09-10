@@ -23,7 +23,7 @@ const ACTIVITY_ICON: Record<Activity, ReactNode> = {
   paused: <span className="wt-col__act--dim"><PauseIcon /></span>,
 };
 
-export function SlotColumn({ value, onSelect, variant = "full", onPin, onClose }: { value: string | null; onSelect: (id: string | null) => void; variant?: "full" | "calm"; onPin?: (id: string) => void; onClose?: () => void }) {
+export function SlotColumn({ value, onSelect, onPin, onClose }: { value: string | null; onSelect: (id: string | null) => void; onPin?: (id: string) => void; onClose?: () => void }) {
   // One selector per field, deliberately: this column owns the terminals, so a bare useSettings() would
   // remount nothing but re-render the whole subtree on every unrelated store write.
   const worktrees = useSettings((s) => s.cockpit.worktrees);
@@ -41,7 +41,7 @@ export function SlotColumn({ value, onSelect, variant = "full", onPin, onClose }
   // Delete/Wipe open a confirmation dialog (worktree only); state is local to each column instance.
   const [confirm, setConfirm] = useState<"delete" | "wipe" | null>(null);
 
-  // Close removes the whole column when the host provides onClose (Worktrees/Calm reflow); otherwise it
+  // Close removes the whole column when the host provides onClose (the Worktrees view reflows); otherwise it
   // just unassigns (Cockpit's single persistent column). Menu-driven removals funnel through here.
   const close = () => { setMenuOpen(false); (onClose ?? (() => onSelect(null)))(); };
 
@@ -99,8 +99,7 @@ export function SlotColumn({ value, onSelect, variant = "full", onPin, onClose }
   const onRename = entity?.kind === "worktree" ? (t: string) => updateWorktree(entity.worktree.id, { name: t })
     : entity?.kind === "scratch" ? (t: string) => renameScratch(entity.scratch.id, t) : undefined;
 
-  // The switcher = identity glyph + worktree dropdown. In calm mode over a worktree it's injected
-  // into the Claude pane header (level with restart) instead of a standalone column header.
+  // The switcher = identity glyph + worktree dropdown.
   const switcher = (
     <>
       <span className={`wt-col__icon wt-col__icon--${iconKind}${attention ? " wt-col__icon--attention" : ""}`} aria-hidden />
@@ -111,16 +110,13 @@ export function SlotColumn({ value, onSelect, variant = "full", onPin, onClose }
       />
     </>
   );
-  const calmWorktree = variant === "calm" && entity?.kind === "worktree";
 
   return (
-    <div className={`wt-col${variant === "calm" ? " wt-col--calm" : ""}`}>
-      {!calmWorktree && (
+    <div className="wt-col">
       <div className="wt-col__header">
         {switcher}
-        {/* Calm mode is the decluttered view: switcher + Claude terminal only — no gear menu. */}
         {/* The gear shows on empty slots too (Close only); pending tiles get no menu. */}
-        {variant !== "calm" && entity?.kind !== "pending" && (
+        {entity?.kind !== "pending" && (
           <div className="wt-col__menu">
             <button className="icon-btn wt-col__gear" aria-label="column settings" onClick={() => setMenuOpen((o) => !o)}><GearIcon /></button>
             {menuOpen && (
@@ -147,14 +143,12 @@ export function SlotColumn({ value, onSelect, variant = "full", onPin, onClose }
           </div>
         )}
       </div>
-      )}
 
       {!entity ? (
         <div className="wt-col__empty">Nothing in this slot.</div>
       ) : entity.kind === "worktree" ? (
         // Key on the component (not a wrapper div) so the remount preserves the .wt-col → .wt-col__body flex chain.
-        // calm: hand the switcher down so it renders inside the Claude pane header (no column header above).
-        <WorktreeBody key={entity.worktree.id} worktree={entity.worktree} switcher={calmWorktree ? switcher : undefined} />
+        <WorktreeBody key={entity.worktree.id} worktree={entity.worktree} />
       ) : entity.kind === "scratch" ? (
         <ScratchBody key={entity.scratch.id} scratchId={entity.scratch.id} />
       ) : (

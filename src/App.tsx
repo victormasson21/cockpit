@@ -20,16 +20,15 @@ import { HeaderTimer } from "./tiles/timer/HeaderTimer";
 import { useTimer } from "./tiles/timer/timerStore";
 import "./App.css";
 
-type View = "cockpit" | "worktrees" | "calm";
+type View = "cockpit" | "worktrees";
 const VIEWS: { id: View; label: string }[] = [
   { id: "cockpit", label: "Cockpit" },
   { id: "worktrees", label: "Worktrees" },
-  { id: "calm", label: "Calm" },
 ];
 
-// normalizeView: map the persisted defaultView (incl. legacy "main") onto a current view id.
+// normalizeView: map the persisted defaultView (incl. legacy ids) onto a current view id.
 function normalizeView(v: string): View {
-  return v === "cockpit" || v === "calm" ? v : "worktrees";
+  return v === "cockpit" ? v : "worktrees";
 }
 
 function App() {
@@ -89,7 +88,7 @@ function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [zoomIn, zoomOut, resetZoom]);
 
-  // Cmd/Ctrl+N: open the New modal; Cmd/Ctrl+T: add a panel (the Worktrees `+` rail); Cmd/Ctrl+1..3: switch view.
+  // Cmd/Ctrl+N: open the New modal; Cmd/Ctrl+T: add a panel (the Worktrees `+` rail); Cmd/Ctrl+1..2: switch view.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
@@ -183,10 +182,7 @@ function App() {
       </header>
       <main className="app__body">
         {view === "cockpit" && <CockpitView onOpenSettings={() => setSettingsOpen(true)} />}
-        {/* Worktrees and Calm are ONE mounted tree at two densities, deliberately: they render the same
-            slots, and swapping trees would dispose every xterm — the replayed scrollback was drawn at
-            the old width, so the TUI came back with broken linebreaks. */}
-        {view !== "cockpit" && <WorktreesView onPin={pinToCockpit} calm={view === "calm"} />}
+        {view === "worktrees" && <WorktreesView onPin={pinToCockpit} />}
       </main>
       {creating && <NewWorktreeModal view={view} onClose={() => { setCreating(false); clearWorktreeError(); }} />}
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}

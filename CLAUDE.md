@@ -97,9 +97,9 @@ renders them. Getting this one pattern right makes the Nth integration mechanica
   **dockview was removed** (it fought the fixed, designed layouts; see
   `docs/superpowers/specs/2026-06-23-worktrees-view-and-theme-design.md`). Zustand for the
   live store. Vitest (frontend) + `cargo test` (Rust).
-- **Three views (`src/views/`):** `Cockpit` (themed placeholder — Worktrees replaced the old
-  Main view), `Worktrees` (the MVP: 3 fixed column slots, each a `WorktreeColumn` showing one
-  running worktree), and `Calm` (same columns, Claude pane only). The active view + the
+- **Two views (`src/views/`):** `Cockpit` (themed placeholder — Worktrees replaced the old
+  Main view) and `Worktrees` (the MVP: 3 fixed column slots, each a `WorktreeColumn` showing one
+  running worktree). The active view + the
   per-column **slot→worktree assignment** are **session-only** store state (not persisted; on
   load the first 3 ongoing worktrees auto-fill the slots). Each `WorktreePane` reuses the
   unchanged `useTerminal` hook and adds a chevron collapse (open panes flex-fill). Panes are
@@ -193,7 +193,7 @@ renders them. Getting this one pattern right makes the Nth integration mechanica
   skip_serializing_if)]` back-compat — absent = all open), so each worktree's arrangement survives view
   switches AND app restarts; `WorktreeBody` writes it via the existing `updateWorktree` and passes it to
   `WorktreePane` as optional controlled props `open`/`onToggle`/`onExpand`. When those props are omitted the
-  pane self-manages session-only as before, so Calm/scratch single panes are unchanged and get no expand
+  pane self-manages session-only as before, so scratch single panes are unchanged and get no expand
   button — expanding a lone pane is meaningless. **Close** cuts off whatever is running (autostart cmd AND its
   shell) and lands on a fresh bare prompt: `pty_kill` → `pty_ensure` with NO autostart (the shared `respawn`
   helper in `useTerminal.ts`; restart = same path re-running the autostart). **Gotcha:** a kill without respawn
@@ -1151,6 +1151,13 @@ both Important findings fixed (in-batch dedupe, history pagination).
   - Worth an eyeball: displayed vs running differ only in opacity, so they may be hard to tell apart in
     practice; swapping running to a distinct glyph is a one-line change in `ACTIVITY_ICON`.
   138 Rust (+1) + 522 JS (+8) tests green; tsc + Vite + cargo clean, warning-free.
+
+✅ **Calm view removed (2026-09-10).** The third view is gone, along with every trace of it: the nav entry,
+the `calm`/`variant` props on `WorktreesView`/`SlotColumn`, `WorktreeBody`'s `switcher` and `WorktreePane`'s
+`lead` header slot, and all `.wt-view--calm`/`.wt-col--calm` CSS. `View` is now `"cockpit" | "worktrees"`.
+No migration: a persisted `defaultView: "calm"` falls through `normalizeView`'s catch-all to Worktrees. The
+"one mounted tree at two densities" xterm constraint is retired with it — Worktrees is a plain single mount.
+541 JS + 137 Rust tests green; tsc + Vite + cargo clean.
 
 **Next / resuming work — read `docs/ROADMAP.md` first.** It is the single prioritized backlog, split into
 **main build sub-projects** (the big sequential arc — sub-project 5 onward: Linear tile, then GitHub/Calendar

@@ -14,7 +14,7 @@ function SectionHeading({ icon, label }: { icon: "claude" | "branch" | "terminal
   );
 }
 
-export function NewWorktreeModal({ view, onClose }: { view: "cockpit" | "worktrees" | "calm"; onClose: () => void }) {
+export function NewWorktreeModal({ view, onClose }: { view: "cockpit" | "worktrees"; onClose: () => void }) {
   const placeNewEntity = useSettings((s) => s.placeNewEntity);
   const addScratch = useSettings((s) => s.addScratch);
   // Existing-branch create: place the new worktree in a slot, then close.
