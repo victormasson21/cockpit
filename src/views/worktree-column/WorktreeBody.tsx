@@ -8,8 +8,8 @@ import { WorktreePane } from "./WorktreePane";
 import { WorktreeInfo } from "./WorktreeInfo";
 import { LinksList } from "../../tiles/worktree/LinksList";
 import { claudePaneAutostart } from "../../worktrees/claudeCmd";
-import { resolveHost, isPrimaryTree } from "../../worktrees/model";
-import { currentBranch } from "../../worktrees/api";
+import { resolveHost, isPrimaryTree, editorRoots } from "../../worktrees/model";
+import { currentBranch, branchRoots, openInEditor } from "../../worktrees/api";
 import { closePane } from "../../worktrees/paneLifecycle";
 import { EMPTY_PANE_SET, MAX_EXTRAS, isPaneOpen } from "../../worktrees/paneSet";
 import { CopyIcon, PlayIcon, PlusIcon } from "../icons";
@@ -40,6 +40,19 @@ export function WorktreeBody({ worktree }: { worktree: Worktree }) {
     return () => window.removeEventListener("focus", syncHead);
   }, [primary, worktree.id, worktree.repoPath, worktree.branch, updateWorktree]);
 
+  // Open the work in VS Code. The same-branch scan runs on the click, not on mount: it costs a git call
+  // per known repo, and the answer is only wanted when the button is pressed. A failed scan still opens
+  // the worktree itself — one folder is a degraded answer, no folder is a dead button.
+  const openEditor = async () => {
+    const detected = await branchRoots(worktree.worktreePath, knownRepos.map((r) => r.path)).catch((e) => {
+      console.warn("same-branch scan failed:", e);
+      return [];
+    });
+    await openInEditor(worktree.name, editorRoots(worktree.worktreePath, detected)).catch((e) =>
+      console.error("VS Code launch failed:", e),
+    );
+  };
+
   const paneProps = (role: string) => ({
     open: isPaneOpen(paneSet, role),
     onToggle: () => toggleWorktreePane(worktree.id, role),
@@ -63,6 +76,13 @@ export function WorktreeBody({ worktree }: { worktree: Worktree }) {
       <div className="wt-col__chips">
         {/* identity (repo/branch/dir) is behind this hover popup rather than its own row */}
         <WorktreeInfo worktree={worktree} />
+        <button
+          className="wt-chip wt-chip--editor"
+          title="open in VS Code — with any same-branch trees from your other repos"
+          onClick={openEditor}
+        >
+          VS Code
+        </button>
         {worktreeChips(worktree, host.address).map((c, i) => (
           <button key={i} className={`wt-chip wt-chip--${c.kind}`} disabled={!c.url} onClick={() => c.url && openUrl(c.url)}>
             {c.label}

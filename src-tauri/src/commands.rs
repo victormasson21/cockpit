@@ -11,7 +11,7 @@ pub struct Settings {
 }
 
 // Resolve the per-app OS config directory (e.g. ~/Library/Application Support/com.cockpit.app).
-fn config_dir(app: &tauri::AppHandle) -> PathBuf {
+pub fn config_dir(app: &tauri::AppHandle) -> PathBuf {
     use tauri::Manager;
     app.path().app_config_dir().expect("no app config dir")
 }

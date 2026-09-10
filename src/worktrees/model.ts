@@ -29,6 +29,12 @@ export function resolveHost(worktree: Worktree, knownRepos: KnownRepo[]): HostCo
   };
 }
 
+// The folders the editor button opens: this worktree first (it is the work), then the same-branch trees
+// detected in other repos. VS Code orders a multi-root window by this list, so first means primary.
+export function editorRoots(worktreePath: string, detected: readonly string[]): readonly string[] {
+  return [worktreePath, ...detected.filter((path) => path !== worktreePath)];
+}
+
 // Append a link (returns a new array).
 export function addLink(links: WorktreeLink[], link: WorktreeLink): WorktreeLink[] {
   return [...links, link];

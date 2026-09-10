@@ -12,4 +12,5 @@
 .known-repos__add { display: flex; gap: var(--space-1); }
 
 /* inline error when a picked folder is not a git repo. */
+.known-repos__note { font-size: var(--fs-sm); color: var(--tx-2); }
 .known-repos__error { font-size: var(--fs-sm); color: var(--bad); }

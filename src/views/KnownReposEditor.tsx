@@ -1,9 +1,9 @@
-// KnownReposEditor.tsx — Settings pane: add (via native folder picker) / remove known repo paths
-// + edit each repo's saved host default (start cmd + address).
+// KnownReposEditor.tsx — Settings pane: add (via native folder picker, one or many at a time) / remove
+// known repo paths + edit each repo's saved host default (start cmd + address).
 import { useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useSettings } from "../settings/store";
-import { resolveRepoRoot } from "../worktrees/api";
+import { discoverRepos } from "../worktrees/api";
 import type { HostConfig } from "../settings/types";
 import "./KnownReposEditor.css";
 
@@ -13,20 +13,44 @@ export function mergeHost(current: HostConfig | undefined, patch: Partial<HostCo
   return { startCmd: "", address: "", ...current, ...patch };
 }
 
+export interface PickReport {
+  added: readonly string[];
+  message: string;
+}
+
+// What a pick added, and the one line the editor shows about it. Pure so the wording of a partly
+// redundant pick (select a group folder twice and most of it is already known) is unit-tested.
+export function summarisePicks(found: readonly string[], existing: readonly string[]): PickReport {
+  if (found.length === 0) return { added: [], message: "No git repos found in the selection" };
+  const added = found.filter((path) => !existing.includes(path));
+  const alreadyKnown = found.length - added.length;
+  const parts = [
+    added.length > 0 ? `Added ${added.length}` : null,
+    alreadyKnown > 0 ? `${alreadyKnown} already known` : null,
+  ];
+  return { added, message: parts.filter((part) => part !== null).join(" · ") };
+}
+
 export function KnownReposEditor() {
   const repos = useSettings((s) => s.cockpit.knownRepos);
   const addKnownRepo = useSettings((s) => s.addKnownRepo);
   const removeKnownRepo = useSettings((s) => s.removeKnownRepo);
   const setRepoHost = useSettings((s) => s.setRepoHost);
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
 
-  // Open the native folder picker; validate + normalize the pick to its repo root, then add it.
+  // Open the native folder picker with multi-select on, resolve every pick to repo roots, add them.
+  // Selecting the repos themselves and standing inside a folder that holds them both work — the panel
+  // returns the same kind of path either way, and discovery decides what it means (see discover_repos).
   const browse = async () => {
     setError(null);
-    const picked = await open({ directory: true, multiple: false, title: "Select a repo folder" });
-    if (typeof picked !== "string") return; // cancelled (null) — silent no-op.
+    setNote(null);
+    const picked = await open({ directory: true, multiple: true, title: "Select repo folders" } as const);
+    if (picked === null) return; // cancelled — silent no-op.
     try {
-      addKnownRepo(await resolveRepoRoot(picked)); // store dedupes by path.
+      const report = summarisePicks(await discoverRepos(picked), repos.map((r) => r.path));
+      report.added.forEach(addKnownRepo);
+      setNote(report.message);
     } catch (e) {
       setError(String(e));
     }
@@ -55,8 +79,9 @@ export function KnownReposEditor() {
         </div>
       ))}
       <div className="known-repos__add">
-        <button onClick={browse}>+ Browse for repo…</button>
+        <button onClick={browse}>+ Browse for repos…</button>
       </div>
+      {note && <div className="known-repos__note">{note}</div>}
       {error && <div className="known-repos__error">{error}</div>}
     </div>
   );

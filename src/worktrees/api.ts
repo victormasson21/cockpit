@@ -35,6 +35,11 @@ export const deduceWorktree = (prompt: string, repoPaths: string[]) =>
 export const resolveRepoRoot = (path: string) =>
   invoke<string>("resolve_repo_root", { path });
 
+// Repo roots for a set of picked folders: a pick inside a repo resolves to that repo (a linked worktree
+// to its primary), anything else is walked for the repos it holds. Deduped, order preserved.
+export const discoverRepos = (paths: readonly string[]) =>
+  invoke<string[]>("discover_repos", { paths });
+
 // The branch a working tree has checked out right now. Used for primary-tree entities, whose branch
 // the user changes outside cockpit, so the model's creation-time snapshot cannot be trusted.
 export const currentBranch = (repoPath: string) => invoke<string>("current_branch", { repoPath });
@@ -72,6 +77,16 @@ export const worktreeDiff = (worktreePath: string, repoPath: string, base: strin
 // One file's raw unified patch, fetched lazily when a file row is expanded.
 export const worktreeFileDiff = (worktreePath: string, repoPath: string, base: string, path: string) =>
   invoke<string>("worktree_file_diff", { worktreePath, repoPath, base, path });
+
+// Working trees across the given repos on the same branch as the one at `worktreePath` — a cross-repo
+// change carries one branch name through every repo it spans, so these are the folders the work covers.
+// The branch comes from HEAD on the Rust side, so a worktree that has since branched again still matches.
+export const branchRoots = (worktreePath: string, repoPaths: readonly string[]) =>
+  invoke<string[]>("branch_roots", { worktreePath, repoPaths });
+
+// Open folders in VS Code: one directly, several as a multi-root workspace named after the worktree.
+export const openInEditor = (name: string, paths: readonly string[]) =>
+  invoke<void>("open_in_editor", { name, paths });
 
 // The PR for the worktree's current branch (mirrors Rust WorktreePr); null when no PR exists yet.
 export interface WorktreePr { number: number; url: string }

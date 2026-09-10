@@ -1,6 +1,7 @@
 mod auth;
 mod commands;
 mod deduce;
+mod editor;
 mod git;
 mod github;
 mod keychain;
@@ -40,6 +41,9 @@ pub fn run() {
             worktree::worktree_diff,
             worktree::worktree_file_diff,
             worktree::resolve_repo_root,
+            worktree::discover_repos,
+            worktree::branch_roots,
+            editor::open_in_editor,
             worktree::current_branch,
             github::worktree_pr,
             deduce::deduce_worktree,

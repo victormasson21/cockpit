@@ -410,6 +410,91 @@ pub fn delete_branch(repo_path: String, branch: String) -> Result<(), String> {
     git::run(&repo_path, delete_branch_args(&branch)).map(|_| ())
 }
 
+// Resolve any path inside a git working tree to the PRIMARY repo root. `--git-common-dir` reports the
+// primary's `.git` for a clone, one of its subdirectories and a linked worktree alike, so its parent is
+// always the clone the user thinks of as "the repo" — never a worktree cockpit created.
+fn primary_root(dir: &Path) -> Option<String> {
+    let common = git::run(&dir.to_string_lossy(), ["rev-parse", "--path-format=absolute", "--git-common-dir"]).ok()?;
+    Some(Path::new(common.trim()).parent()?.to_string_lossy().to_string())
+}
+
+// How far below a picked folder to look for repos. 3 spans a group-of-groups layout
+// (`~/Repos/<org>/<repo>`) with a level to spare, and caps the damage if a whole home dir is picked.
+const MAX_DISCOVERY_DEPTH: usize = 3;
+
+// Order-preserving insert: overlapping picks (`~/Repos` and `~/Repos/elder`) reach the same repo twice.
+fn push_unique(out: &mut Vec<String>, root: String) {
+    if !out.contains(&root) {
+        out.push(root);
+    }
+}
+
+// Dirs a scan must never walk into: dotfile-prefixed (`.git`, caches, editor state) and dependency trees.
+fn is_searchable(path: &Path) -> bool {
+    let name = path.file_name().unwrap_or_default().to_string_lossy();
+    path.is_dir() && !name.starts_with('.') && name != "node_modules"
+}
+
+// Walk `dir` for repos, stopping at each one — a repo's own vendored checkouts and submodules are part
+// of it, not siblings of it. Unlike a picked path, a walked one is filtered by a cheap `.git` test
+// before git is spawned, so picking a huge tree costs directory reads rather than thousands of processes.
+fn collect_repos(dir: &Path, depth: usize, out: &mut Vec<String>) {
+    if depth == 0 {
+        return;
+    }
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return; // unreadable dir is data, not an error: skip it and keep scanning the rest.
+    };
+    for path in entries.flatten().map(|e| e.path()).filter(|p| is_searchable(p)) {
+        if path.join(".git").exists() {
+            if let Some(root) = primary_root(&path) {
+                push_unique(out, root);
+            }
+            continue;
+        }
+        collect_repos(&path, depth - 1, out);
+    }
+}
+
+// Repo roots for a set of picked folders (the Settings multi-select picker). A pick inside a repo
+// resolves to that repo; anything else is treated as "the repos in here" and walked. The dialog hands
+// back only paths, so a selected folder and the folder the panel was standing in are indistinguishable
+// — this keys off what is on disk instead, which makes both gestures land in the right case.
+#[tauri::command(async)]
+pub fn discover_repos(paths: Vec<String>) -> Vec<String> {
+    let mut out = Vec::new();
+    for path in paths.iter().map(Path::new) {
+        match primary_root(path) {
+            Some(root) => push_unique(&mut out, root),
+            None => collect_repos(path, MAX_DISCOVERY_DEPTH, &mut out),
+        }
+    }
+    out
+}
+
+// Every working tree across `repo_paths` on the same branch as the tree at `worktree_path` — the editor
+// button's answer to "which folders did this piece of work touch". A cross-repo change carries one branch
+// name through every repo it spans, so a same-branch tree elsewhere is a root worth opening alongside it.
+//
+// The branch is read from HEAD, not taken from the caller: the worktree model only snapshots it at
+// creation, and a Claude session that branched again since would otherwise detect nothing.
+#[tauri::command(async)]
+pub fn branch_roots(worktree_path: String, repo_paths: Vec<String>) -> Vec<String> {
+    let Ok(branch) = current_branch(worktree_path) else {
+        return Vec::new(); // gone from disk: no branch to match, and the caller still opens the worktree.
+    };
+    let mut out = Vec::new();
+    for repo_path in &repo_paths {
+        let porcelain = git::run(repo_path, ["worktree", "list", "--porcelain"]).unwrap_or_default();
+        for (tree_branch, path) in parse_worktree_branches(&porcelain) {
+            if tree_branch == branch {
+                push_unique(&mut out, path);
+            }
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -472,6 +557,14 @@ mod tests {
         run(&["init", "-q", "-b", "main"]);
         run(&["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "init"]);
         dir
+    }
+
+    // Init a repo at an arbitrary path (the discovery tests need several under one parent).
+    fn init_repo_at(path: &Path) -> String {
+        std::fs::create_dir_all(path).unwrap();
+        let dir = path.to_string_lossy().to_string();
+        git::run(&dir, ["init", "-q", "-b", "main"]).unwrap();
+        std::fs::canonicalize(path).unwrap().to_string_lossy().to_string()
     }
 
     #[test]
@@ -734,5 +827,131 @@ mod tests {
         let got = mark_checked_out(branches, &wt);
         assert!(got[0].checked_out);
         assert!(!got[1].checked_out);
+    }
+
+    #[test]
+    fn discover_repos_resolves_a_repo_to_itself() {
+        let repo = init_test_repo();
+        let got = discover_repos(vec![repo.path().to_string_lossy().to_string()]);
+        let want = std::fs::canonicalize(repo.path()).unwrap().to_string_lossy().to_string();
+        assert_eq!(got, vec![want]);
+    }
+
+    #[test]
+    fn discover_repos_resolves_a_linked_worktree_to_its_primary() {
+        let repo = init_test_repo();
+        let wt = repo.path().join("linked");
+        git::run(&repo.path().to_string_lossy(), ["worktree", "add", "-b", "side", &wt.to_string_lossy()]).unwrap();
+        let got = discover_repos(vec![wt.to_string_lossy().to_string()]);
+        let want = std::fs::canonicalize(repo.path()).unwrap().to_string_lossy().to_string();
+        assert_eq!(got, vec![want]);
+    }
+
+    // A group folder (`~/Repos/elder`) is not a repo itself — the pick means "the repos in here".
+    #[test]
+    fn discover_repos_descends_a_group_folder() {
+        let group = tempfile::tempdir().unwrap();
+        let a = init_repo_at(&group.path().join("alpha"));
+        let b = init_repo_at(&group.path().join("beta"));
+        let got = discover_repos(vec![group.path().to_string_lossy().to_string()]);
+        assert_eq!(got.len(), 2, "got {got:?}");
+        assert!(got.contains(&a) && got.contains(&b), "got {got:?}");
+    }
+
+    #[test]
+    fn discover_repos_dedupes_overlapping_picks() {
+        let group = tempfile::tempdir().unwrap();
+        let a = init_repo_at(&group.path().join("alpha"));
+        let got = discover_repos(vec![
+            group.path().to_string_lossy().to_string(),
+            group.path().join("alpha").to_string_lossy().to_string(),
+        ]);
+        assert_eq!(got, vec![a]);
+    }
+
+    #[test]
+    fn discover_repos_stops_at_the_depth_cap() {
+        let group = tempfile::tempdir().unwrap();
+        let deep = init_repo_at(&group.path().join("a/b/c"));
+        let too_deep = init_repo_at(&group.path().join("d/e/f/g"));
+        let got = discover_repos(vec![group.path().to_string_lossy().to_string()]);
+        assert!(got.contains(&deep), "3 levels down should be found: {got:?}");
+        assert!(!got.contains(&too_deep), "4 levels down should be out of reach: {got:?}");
+    }
+
+    #[test]
+    fn discover_repos_skips_dependency_and_dotfile_dirs() {
+        let group = tempfile::tempdir().unwrap();
+        let vendored = init_repo_at(&group.path().join("node_modules/dep"));
+        let hidden = init_repo_at(&group.path().join(".cache/thing"));
+        let got = discover_repos(vec![group.path().to_string_lossy().to_string()]);
+        assert!(!got.contains(&vendored), "node_modules should be skipped: {got:?}");
+        assert!(!got.contains(&hidden), "dotfile dirs should be skipped: {got:?}");
+    }
+
+    // A checkout vendored inside a repo is part of that repo, not a sibling of it.
+    #[test]
+    fn discover_repos_does_not_descend_into_a_repo() {
+        let group = tempfile::tempdir().unwrap();
+        let outer = init_repo_at(&group.path().join("alpha"));
+        init_repo_at(&group.path().join("alpha/vendor/inner"));
+        let got = discover_repos(vec![group.path().to_string_lossy().to_string()]);
+        assert_eq!(got, vec![outer]);
+    }
+
+    // Real-environment check (`cargo test -- --ignored`), like shell_env's PATH test: this machine keeps
+    // its repos two levels below ~/Repos, with ~/elder-dev symlinked to one of the groups.
+    #[test]
+    #[ignore]
+    fn discover_repos_walks_the_real_repos_folder() {
+        let home = std::env::var("HOME").unwrap();
+        let got = discover_repos(vec![format!("{home}/Repos")]);
+        assert!(got.len() > 20, "expected the whole tree, got {got:?}");
+        assert!(got.iter().any(|p| p.ends_with("/cockpit")), "cockpit missing from {got:?}");
+        assert!(!got.iter().any(|p| p.contains("CockpitWorktrees")), "linked worktrees leaked: {got:?}");
+    }
+
+    // Add a worktree on a new branch and return its path.
+    fn add_worktree_at(repo: &Path, name: &str, branch: &str) -> PathBuf {
+        let wt = repo.join(name);
+        git::run(&repo.to_string_lossy(), ["worktree", "add", "-b", branch, &wt.to_string_lossy()]).unwrap();
+        wt
+    }
+
+    #[test]
+    fn branch_roots_finds_the_working_tree_on_that_branch() {
+        let repo = init_test_repo();
+        let wt = add_worktree_at(repo.path(), "linked", "side");
+        let got = branch_roots(wt.to_string_lossy().to_string(), vec![repo.path().to_string_lossy().to_string()]);
+        let want = std::fs::canonicalize(&wt).unwrap().to_string_lossy().to_string();
+        assert_eq!(got, vec![want]);
+    }
+
+    // The worktree model's branch is a creation-time snapshot, and a Claude session inside the worktree
+    // may have branched again since. Detection has to read HEAD, or a renamed branch detects nothing.
+    #[test]
+    fn branch_roots_reads_the_branch_the_worktree_is_on_now() {
+        let repo = init_test_repo();
+        let wt = add_worktree_at(repo.path(), "linked", "side");
+        git::run(&wt.to_string_lossy(), ["checkout", "-q", "-b", "moved-on"]).unwrap();
+        let got = branch_roots(wt.to_string_lossy().to_string(), vec![repo.path().to_string_lossy().to_string()]);
+        let want = std::fs::canonicalize(&wt).unwrap().to_string_lossy().to_string();
+        assert_eq!(got, vec![want]);
+    }
+
+    #[test]
+    fn branch_roots_ignores_repos_without_that_branch() {
+        let repo = init_test_repo();
+        let wt = add_worktree_at(repo.path(), "linked", "side");
+        let elsewhere = init_test_repo();
+        let not_a_repo = tempfile::tempdir().unwrap();
+        let got = branch_roots(
+            wt.to_string_lossy().to_string(),
+            vec![
+                elsewhere.path().to_string_lossy().to_string(),
+                not_a_repo.path().to_string_lossy().to_string(),
+            ],
+        );
+        assert!(got.is_empty(), "got {got:?}");
     }
 }

@@ -58,6 +58,7 @@
 .wt-chip--pr::before { -webkit-mask-image: url("../../assets/icons/branch.png"); mask-image: url("../../assets/icons/branch.png"); }
 .wt-chip--figma::before { -webkit-mask-image: url("../../assets/icons/figma.png"); mask-image: url("../../assets/icons/figma.png"); }
 .wt-chip--localhost::before { -webkit-mask-image: url("../../assets/icons/chrome.png"); mask-image: url("../../assets/icons/chrome.png"); }
+.wt-chip--editor::before { -webkit-mask-image: url("../../assets/icons/vscode.png"); mask-image: url("../../assets/icons/vscode.png"); }
 .wt-chip:disabled { cursor: default; opacity: 0.8; }
 .wt-chip:not(:disabled):hover { color: var(--tx); border-color: var(--accent); }
 

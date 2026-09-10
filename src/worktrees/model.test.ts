@@ -1,6 +1,6 @@
 // model.test.ts — pure worktree helpers (existing link reducers + source link construction from a deduction).
 import { describe, it, expect } from "vitest";
-import { makeWorktree, isPrimaryTree, addLink, updateLink, removeLink, sourceLinkFrom, prLinkToAdd, branchSpecFrom, FORM_DEFAULTS, resolveHost } from "./model";
+import { makeWorktree, isPrimaryTree, editorRoots, addLink, updateLink, removeLink, sourceLinkFrom, prLinkToAdd, branchSpecFrom, FORM_DEFAULTS, resolveHost } from "./model";
 import type { DeducedWorktree } from "./api";
 import type { KnownRepo, Worktree } from "../settings/types";
 
@@ -146,5 +146,15 @@ describe("isPrimaryTree", () => {
   });
   it("rejects a managed worktree created under the cockpit root", () => {
     expect(isPrimaryTree(wt("/Users/me/CockpitWorktrees/repo/fix-login"))).toBe(false);
+  });
+});
+
+describe("editorRoots", () => {
+  it("opens the worktree itself first", () => {
+    expect(editorRoots("/wt/mine", ["/other/repo"])).toEqual(["/wt/mine", "/other/repo"]);
+  });
+
+  it("keeps the worktree's own path out of the detected tail", () => {
+    expect(editorRoots("/wt/mine", ["/wt/mine", "/other/repo"])).toEqual(["/wt/mine", "/other/repo"]);
   });
 });
