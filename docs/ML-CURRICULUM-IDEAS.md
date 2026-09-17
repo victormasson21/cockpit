@@ -27,6 +27,9 @@ Almost exactly Module 2's deliverable 2, applied to our own system. **Keystone i
 harness becomes the measurement layer for #4 (routing), #6 (fine-tune comparison), and
 #5 (injection defences) — build it first.
 
+> **Picked up 2026-09-17 — brainstorm in progress**, paused at decision 1 of 6. Resume from
+> `docs/superpowers/specs/2026-09-17-deduce-eval-harness-brainstorm-wip.md`. No code written.
+
 ### 2. Cockpit MCP server + agent loop — *Module 4 (Building an Agent)*
 
 - An MCP server exposing Cockpit's internals: `create_worktree`, `list_worktrees`,
