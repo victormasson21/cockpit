@@ -1,5 +1,5 @@
 // WorktreeBody.tsx — the worktree slot body: chips + dynamic panes (claude always; host via Run; extra shells via Add) + the bottom Run/Add bar.
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { Worktree } from "../../settings/types";
 import { useSettings } from "../../settings/store";
@@ -7,7 +7,7 @@ import { worktreeChips } from "./chips";
 import { WorktreePane } from "./WorktreePane";
 import { WorktreeInfo } from "./WorktreeInfo";
 import { LinksList } from "../../tiles/worktree/LinksList";
-import { claudePaneAutostart } from "../../worktrees/claudeCmd";
+import { claudeInDirCmd, claudePaneAutostart } from "../../worktrees/claudeCmd";
 import { resolveHost, isPrimaryTree, editorRoots } from "../../worktrees/model";
 import { currentBranch, branchRoots, openInEditor } from "../../worktrees/api";
 import { closePane } from "../../worktrees/paneLifecycle";
@@ -23,6 +23,7 @@ export function WorktreeBody({ worktree }: { worktree: Worktree }) {
   const expandWorktreePane = useSettings((s) => s.expandWorktreePane);
   const knownRepos = useSettings((s) => s.cockpit.knownRepos);
   const updateWorktree = useSettings((s) => s.updateWorktree);
+  const [claudeRunCmd, setClaudeRunCmd] = useState<string>();
 
   // A primary-tree entity is the user's own clone, so they switch branches in it outside cockpit and the
   // model's snapshot goes stale — taking the ⓘ row and the branch-derived chips with it. Re-read HEAD on
@@ -62,6 +63,11 @@ export function WorktreeBody({ worktree }: { worktree: Worktree }) {
   // Close on host/extras REMOVES the pane (kill + drop) — the ordering that matters is in closePane.
   const close = (role: string) => { void closePane(worktree.id, role); };
 
+  const runInClaudePane = (cmd: string) => {
+    if (!isPaneOpen(paneSet, "claude")) toggleWorktreePane(worktree.id, "claude");
+    setClaudeRunCmd(cmd);
+  };
+
   // One-shot: true only in the session that created this worktree, until the claude PTY's first ensure.
   const promptPending = useSettings((s) => Boolean(s.initialPromptPending[worktree.id]));
   // True only for the first spawn after a restart, on a worktree the previous session had open.
@@ -70,6 +76,7 @@ export function WorktreeBody({ worktree }: { worktree: Worktree }) {
   // Resolved live (not read off the model) so a repo default saved after this worktree was created still applies.
   const host = resolveHost(worktree, knownRepos);
   const startCmd = host.startCmd;
+  const ccCmd = claudeInDirCmd(worktree.worktreePath);
   return (
     // Re-keyed by id upstream so switching the picker remounts panes (detach old, attach new) without killing PTYs.
     <div className="wt-col__body">
@@ -83,13 +90,20 @@ export function WorktreeBody({ worktree }: { worktree: Worktree }) {
         >
           VS Code
         </button>
+        <button
+          className="wt-chip wt-chip--terminal"
+          title={`copy: ${ccCmd}`}
+          onClick={() => navigator.clipboard.writeText(ccCmd).catch((e) => console.error("copy claude command failed", e))}
+        >
+          Copy cc
+        </button>
         {worktreeChips(worktree, host.address).map((c, i) => (
           <button key={i} className={`wt-chip wt-chip--${c.kind}`} disabled={!c.url} onClick={() => c.url && openUrl(c.url)}>
             {c.label}
           </button>
         ))}
         {/* user links live in the same row as the derived chips, with + link at the end. */}
-        <LinksList worktreeId={worktree.id} worktreePath={worktree.worktreePath} links={worktree.links} />
+        <LinksList worktreeId={worktree.id} worktreePath={worktree.worktreePath} links={worktree.links} onRunCommand={runInClaudePane} />
       </div>
       <div className="wt-col__panes">
         {/* attention highlight (border/glow + badge) is owned by WorktreePane via the live store. */}
@@ -108,6 +122,8 @@ export function WorktreeBody({ worktree }: { worktree: Worktree }) {
               onClick={() => navigator.clipboard.writeText(prompt).catch((e) => console.error("copy prompt failed", e))}
             ><CopyIcon /></button>
           ) : undefined}
+          runCmd={claudeRunCmd}
+          onRan={() => setClaudeRunCmd(undefined)}
           {...paneProps("claude")}
         />
         {paneSet.host && (

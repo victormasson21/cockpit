@@ -20,6 +20,8 @@ export interface UseTerminalArgs {
   cwd: string;
   autostartCmd?: string;
   onEnsured?: () => void; // fires after the mount-time pty_ensure resolves (one-shot autostart consumption)
+  runCmd?: string;
+  onRan?: () => void;
 }
 
 // The xterm base font size at 100% zoom; multiplied by the store's fontScale so terminals zoom too.
@@ -53,7 +55,7 @@ const TERM_THEME = {
 };
 
 // Mount an xterm into a div and keep it attached to the (worktree, role) PTY for the component's lifetime.
-export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured }: UseTerminalArgs) {
+export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured, runCmd, onRan }: UseTerminalArgs) {
   const containerRef = useRef<HTMLDivElement>(null);
   // The pane's IPC handle, in a ref so restart/close (defined below the effect) reach the same PTY.
   const paneRef = useRef<PtyPane>(ptyPane(worktreeId, role));
@@ -65,6 +67,8 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured }: 
   autostartRef.current = autostartCmd;
   const onEnsuredRef = useRef(onEnsured);
   onEnsuredRef.current = onEnsured;
+  const onRanRef = useRef(onRan);
+  onRanRef.current = onRan;
   const fontScale = useSettings((s) => s.fontScale);
 
   useEffect(() => {
@@ -203,6 +207,12 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured }: 
   const restart = () => respawn(autostartRef.current, "restart");
   // close: cut off whatever is running (autostart cmd AND its shell), land on a fresh empty prompt.
   const close = () => respawn(undefined, "close");
+
+  useEffect(() => {
+    if (!runCmd) return;
+    onRanRef.current?.();
+    respawn(runCmd, "run");
+  }, [runCmd]);
 
   return { containerRef, restart, close };
 }

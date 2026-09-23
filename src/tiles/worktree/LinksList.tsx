@@ -6,10 +6,16 @@ import { useSettings } from "../../settings/store";
 import { addLink, updateLink, removeLink, prLinkToAdd } from "../../worktrees/model";
 import { worktreePr } from "../../worktrees/api";
 import { linkGlyph } from "../../views/worktree-column/chips";
+import { isClaudeCommand } from "../../worktrees/claudeCmd";
 
 // Returns chip elements (a fragment) so links sit in the same flex row as the derived chips.
 // worktreePath backs the "+ PR" button, which asks gh for the branch's PR and links it.
-export function LinksList({ worktreeId, worktreePath, links }: { worktreeId: string; worktreePath: string; links: WorktreeLink[] }) {
+export function LinksList({ worktreeId, worktreePath, links, onRunCommand }: {
+  worktreeId: string;
+  worktreePath: string;
+  links: WorktreeLink[];
+  onRunCommand: (cmd: string) => void;
+}) {
   const updateWorktree = useSettings((s) => s.updateWorktree);
   const commit = (next: WorktreeLink[]) => updateWorktree(worktreeId, { links: next });
   // A link is being edited if explicitly opened OR still blank (freshly added via + link).
@@ -51,7 +57,9 @@ export function LinksList({ worktreeId, worktreePath, links }: { worktreeId: str
         ) : (
           // the chip's leading logo follows the link's target (Linear / PR / Figma / chainlink)
           <span key={i} className={`wt-chip wt-chip--${linkGlyph(l.url)} wt-linkchip`}>
-            <button className="wt-linkchip__open" onClick={() => openUrl(l.url)}>{l.label || l.url}</button>
+            <button className="wt-linkchip__open" onClick={() => (isClaudeCommand(l.url) ? onRunCommand(l.url.trim()) : openUrl(l.url))}>
+              {l.label || l.url}
+            </button>
             <button className="wt-linkchip__act" title="edit" onClick={() => setEdit(i, true)}>✎</button>
             <button className="wt-linkchip__act" title="remove" onClick={() => commit(removeLink(links, i))}>✕</button>
           </span>

@@ -57,6 +57,9 @@ describe("linkGlyph", () => {
   it("picks the Figma glyph for a figma.com url", () => {
     expect(linkGlyph("https://www.figma.com/design/abc/Checkout")).toBe("figma");
   });
+  it("picks the Claude glyph for a claude command", () => {
+    expect(linkGlyph("claude --resume be83c1b6-b9d7-4e0c-9498-16af432a9082")).toBe("claude");
+  });
   it("falls back to the chainlink for anything else", () => {
     expect(linkGlyph("https://example.com/docs")).toBe("link");
     expect(linkGlyph("")).toBe("link");

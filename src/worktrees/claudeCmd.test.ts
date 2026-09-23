@@ -1,6 +1,6 @@
 // claudeCmd.test.ts — shell-escaping + one-shot autostart selection for the claude pane.
 import { describe, it, expect } from "vitest";
-import { claudeAutostart, claudePaneAutostart } from "./claudeCmd";
+import { claudeAutostart, claudeInDirCmd, claudePaneAutostart, isClaudeCommand } from "./claudeCmd";
 
 describe("claudeAutostart", () => {
   it("wraps a plain prompt in single quotes", () => {
@@ -14,6 +14,24 @@ describe("claudeAutostart", () => {
   });
   it("keeps newlines literal inside the quotes (zsh reads continuation lines as one arg)", () => {
     expect(claudeAutostart("line one\nline two")).toBe("claude 'line one\nline two'");
+  });
+});
+
+describe("claudeInDirCmd", () => {
+  it("cds into the quoted dir, then starts claude", () => {
+    expect(claudeInDirCmd("/Users/me/CockpitWorktrees/web app/it's")).toBe("cd '/Users/me/CockpitWorktrees/web app/it'\\''s' && claude");
+  });
+});
+
+describe("isClaudeCommand", () => {
+  it("accepts claude alone or with arguments, ignoring surrounding whitespace", () => {
+    expect(isClaudeCommand("claude --resume be83c1b6-b9d7-4e0c-9498-16af432a9082")).toBe(true);
+    expect(isClaudeCommand("  claude  ")).toBe(true);
+  });
+  it("rejects URLs and words that only start with claude", () => {
+    expect(isClaudeCommand("https://claude.ai/code")).toBe(false);
+    expect(isClaudeCommand("claudette")).toBe(false);
+    expect(isClaudeCommand("")).toBe(false);
   });
 });
 

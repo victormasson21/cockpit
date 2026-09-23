@@ -2,9 +2,17 @@
 
 // Shell-quote the prompt as one argument: POSIX single-quote idiom (' → '\''). Newlines stay
 // literal — zsh keeps reading continuation lines until the closing quote, yielding one arg.
+const shellQuote = (arg: string): string => `'${arg.replace(/'/g, "'\\''")}'`;
+
 export function claudeAutostart(prompt: string): string {
-  return `claude '${prompt.replace(/'/g, "'\\''")}'`;
+  return `claude ${shellQuote(prompt)}`;
 }
+
+export function claudeInDirCmd(dir: string): string {
+  return `cd ${shellQuote(dir)} && claude`;
+}
+
+export const isClaudeCommand = (text: string): boolean => /^claude(\s|$)/.test(text.trim());
 
 // Resume this worktree's last conversation when the pane came back from a previous session. `|| claude`
 // covers `--continue` exiting non-zero because there is nothing to continue (claude was never used

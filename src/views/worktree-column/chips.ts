@@ -1,6 +1,7 @@
 // chips.ts — derive display chips for a worktree column from existing model data only (no live providers).
 import type { Worktree, WorktreeLink } from "../../settings/types";
 import { isGithubPrUrl } from "../../worktrees/model";
+import { isClaudeCommand } from "../../worktrees/claudeCmd";
 
 export type ChipKind = "linear" | "pr" | "issue" | "localhost";
 export interface Chip { kind: ChipKind; label: string; url?: string }
@@ -8,8 +9,9 @@ export interface Chip { kind: ChipKind; label: string; url?: string }
 // Which logo a chip's leading marker shows. One glyph per recognised source; chainlink otherwise.
 // The names double as the CSS modifiers (`.wt-chip--linear` …), so derived chips and user links
 // share one glyph vocabulary.
-export type Glyph = "linear" | "pr" | "figma" | "link";
+export type Glyph = "claude" | "linear" | "pr" | "figma" | "link";
 export function linkGlyph(url: string): Glyph {
+  if (isClaudeCommand(url)) return "claude";
   const u = url.toLowerCase();
   if (u.includes("linear.app")) return "linear";
   if (isGithubPrUrl(u)) return "pr";
