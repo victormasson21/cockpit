@@ -1,4 +1,4 @@
-// LinksList.tsx — a worktree's user links rendered as chips inside the top row; click opens, inline edit/remove, + link.
+// LinksList.tsx — a worktree's user links rendered as chips inside the top row; click opens, or runs a claude command in the Claude pane; inline edit/remove, + link.
 import { useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { WorktreeLink } from "../../settings/types";

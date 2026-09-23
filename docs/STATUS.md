@@ -897,3 +897,20 @@ zero alpha at its edge, not `filter: blur()`, so nothing is re-filtered per fram
 Their durations differ per band, so the pattern takes a long time to repeat. Pure CSS: no state, no timers.
 Holds still under reduced motion. Tune it in `AURORA_BANDS` (`src/background/aurora.tsx`). Not the default.
 **GUI verified.** 558 JS tests green; tsc + Vite clean.
+
+✅ **PR tile Clear, Copy cc, claude-command links (2026-09-23).**
+- **PR Reviews tile:** a **Clear** button sits before the refresh time, which now reads "Refreshed now".
+  `clearPrItems` empties the list but keeps the channel and the `lastSeenTs` cursor, so cleared PRs do not
+  come back on the next fetch. The tile body scrolls, and the Timer tile has `flex-shrink: 0`. Before this,
+  every tile in the left column shrank together, so a long PR list clipped the Timer. `Tile` takes an
+  optional `className` so a tile can style its own chrome.
+- **Copy cc chip:** sits next to VS Code with the terminal glyph. It copies `cd '<worktreePath>' && claude`
+  (`claudeInDirCmd`, which shares `shellQuote` with the prompt autostart). It runs plain `claude`, not
+  `--continue`, because the Claude pane is already in that conversation.
+- **Claude-command links:** a user link whose URL starts with `claude` (`isClaudeCommand`) gets the Claude
+  glyph (`linkGlyph` → `claude`). Clicking it opens the Claude pane if it is collapsed, then kills the pane
+  and respawns it with the command. The command reaches `useTerminal` as a one-shot `runCmd` prop from
+  `WorktreeBody` local state. `onRan` clears it, so the same link can run again. The respawn uses the
+  terminal's real size. Restart still runs plain `claude`. The whole line goes to the shell, so anything
+  chained after `claude` runs too. Accepted, because links come only from the user's own config.
+Layout checked headlessly at font scale 1.6. 563 JS tests green; tsc + Vite clean. Not yet GUI verified.
