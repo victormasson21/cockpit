@@ -13,7 +13,13 @@
     rgba(var(--rgb), 0.06) 72%,
     rgba(var(--rgb), 0) 100%);
   opacity: var(--low);
-  animation: au-drift ease-in-out infinite alternate;
+  animation: au-drift ease-in-out infinite alternate, au-roam ease-in-out infinite alternate;
+}
+
+/* Roam animates `translate`, not `transform`, so it runs beside the drift instead of overriding it. */
+@keyframes au-roam {
+  from { translate: 0 0; }
+  to { translate: 0 var(--roam); }
 }
 
 @keyframes au-drift {
