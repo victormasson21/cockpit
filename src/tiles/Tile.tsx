@@ -2,14 +2,15 @@
 import type { ReactNode } from "react";
 import "./Tile.css";
 
-export function Tile({ title, icon, actions, children }: {
+export function Tile({ title, icon, actions, className, children }: {
   title: string;
   icon?: ReactNode;
   actions?: ReactNode;
+  className?: string;
   children: ReactNode;
 }) {
   return (
-    <section className="tile">
+    <section className={`tile${className ? ` ${className}` : ""}`}>
       <header className="tile__head">
         {icon && <span className="tile__icon">{icon}</span>}
         <span className="tile__title">{title}</span>

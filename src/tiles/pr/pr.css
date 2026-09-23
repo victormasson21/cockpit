@@ -1,4 +1,5 @@
 /* pr.css — PR Reviews tile body styling (chrome lives in Tile.css; gear/cta/empty reuse slack.css). */
+.pr-tile .tile__body { overflow-y: auto; }
 .pr-tile__refreshed { font-size: var(--fs-2xs); opacity: 0.5; margin-right: 6px; }
 .pr-tile__list { list-style: none; margin: 0; padding: 0; }
 .pr-tile__row { display: flex; flex-direction: column; gap: 4px; padding: 10px; border-bottom: 1px solid var(--divider); }
@@ -12,9 +13,10 @@
 /* Ship/Show/Ask marker from the Slack message: review-status trio, shown ahead of the title. */
 .pr-tile__mode { font-size: var(--fs-2xs); font-weight: 700; background: var(--review-bg); color: var(--review-tx); border: 1px solid var(--review-bdr); border-radius: 4px; padding: 1px 5px; margin-right: 6px; vertical-align: 1px; }
 .pr-tile__actions { display: flex; gap: 8px; justify-content: flex-end; }
-.pr-tile__remove, .pr-tile__review { font-size: var(--fs-xs); border-radius: 12px; padding: 3px 12px; cursor: pointer; }
-.pr-tile__remove { background: none; border: 1px solid var(--divider); color: inherit; opacity: 0.8; }
-.pr-tile__remove:hover { opacity: 1; }
+.pr-tile__remove, .pr-tile__clear, .pr-tile__review { font-size: var(--fs-xs); border-radius: 12px; padding: 3px 12px; cursor: pointer; }
+.pr-tile__remove, .pr-tile__clear { background: none; border: 1px solid var(--divider); color: inherit; opacity: 0.8; }
+.pr-tile__remove:hover, .pr-tile__clear:hover:not(:disabled) { opacity: 1; }
+.pr-tile__clear:disabled { opacity: 0.4; cursor: default; }
 .pr-tile__review { background: var(--accent); border: 1px solid var(--accent); color: var(--on-accent); font-weight: 600; }
 .pr-tile__review:hover { background-image: linear-gradient(var(--hover), var(--hover)); }
 .pr-tile__error { padding: 10px; font-size: var(--fs-xs); opacity: 0.8; }

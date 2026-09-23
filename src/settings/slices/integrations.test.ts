@@ -73,4 +73,11 @@ describe("PR reviews actions", () => {
     useSettings.getState().removePrItem("1");
     expect(useSettings.getState().cockpit.integrations?.prReviews?.items.map((i) => i.id)).toEqual(["2"]);
   });
+
+  it("clearPrItems drops every item but keeps the channel and cursor", () => {
+    useSettings.getState().setPrChannel("C1");
+    useSettings.getState().applyPrFetch([item("2", "u2"), item("1", "u1")], "2");
+    useSettings.getState().clearPrItems();
+    expect(useSettings.getState().cockpit.integrations?.prReviews).toEqual({ channelId: "C1", lastSeenTs: "2", items: [] });
+  });
 });

@@ -11,6 +11,7 @@ export interface IntegrationsSlice {
   setPrChannel: (id: string | null) => void;
   applyPrFetch: (items: PrReviewItem[], newestTs?: string) => void;
   removePrItem: (id: string) => void;
+  clearPrItems: () => void;
 }
 
 export const createIntegrationsSlice: SettingsSlice<IntegrationsSlice> = (_set, get) => ({
@@ -40,5 +41,11 @@ export const createIntegrationsSlice: SettingsSlice<IntegrationsSlice> = (_set, 
       const pr = c.integrations?.prReviews;
       if (!pr) return c;
       return { ...c, integrations: { ...c.integrations, prReviews: { ...pr, items: pr.items.filter((i) => i.id !== id) } } };
+    }),
+  clearPrItems: () =>
+    get().setCockpit((c) => {
+      const pr = c.integrations?.prReviews;
+      if (!pr) return c;
+      return { ...c, integrations: { ...c.integrations, prReviews: { ...pr, items: [] } } };
     }),
 });

@@ -19,7 +19,7 @@ export function TimerTile() {
   const idleFull = !running && remaining === minutes * 60;
 
   return (
-    <Tile title="TIMER" icon={<span>⏱</span>}>
+    <Tile title="TIMER" icon={<span>⏱</span>} className="timer-tile">
       <div className="timer">
         <div className={`timer__time ${done ? "timer__time--done" : ""}`}>{formatTime(remaining)}</div>
         <div className="timer__controls">

@@ -15,6 +15,7 @@ export function PrReviewsTile({ onOpenSettings }: { onOpenSettings: () => void }
   const pr = useSettings((s) => s.cockpit.integrations?.prReviews);
   const applyPrFetch = useSettings((s) => s.applyPrFetch);
   const removePrItem = useSettings((s) => s.removePrItem);
+  const clearPrItems = useSettings((s) => s.clearPrItems);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshedAt, setRefreshedAt] = useState<number | null>(null); // session-only
   const [error, setError] = useState<string | null>(null);
@@ -56,11 +57,12 @@ export function PrReviewsTile({ onOpenSettings }: { onOpenSettings: () => void }
   }, [pr?.channelId, pr?.lastSeenTs]);
 
   const items = pr?.items ?? [];
-  // relativeTime says "now" for <60s — read as "just now" here to avoid "Refreshed now ago".
+  // relativeTime says "now" for <60s — drop the "ago" to avoid "Refreshed now ago".
   const rel = refreshedAt ? relativeTime(refreshedAt / 1000, Date.now()) : null;
   const actions = (
     <>
-      {rel && <span className="pr-tile__refreshed">{rel === "now" ? "Refreshed just now" : `Refreshed ${rel} ago`}</span>}
+      <button className="pr-tile__clear" disabled={items.length === 0} onClick={clearPrItems}>Clear</button>
+      {rel && <span className="pr-tile__refreshed">{rel === "now" ? "Refreshed now" : `Refreshed ${rel} ago`}</span>}
       <button
         className={`slack-tile__gear${refreshing ? " slack-tile__gear--spin" : ""}`}
         aria-label="refresh pr reviews"
@@ -73,7 +75,7 @@ export function PrReviewsTile({ onOpenSettings }: { onOpenSettings: () => void }
   );
 
   return (
-    <Tile title="PR REVIEWS" actions={actions}>
+    <Tile title="PR REVIEWS" actions={actions} className="pr-tile">
       {!pr?.channelId ? (
         <button className="slack-tile__cta" onClick={onOpenSettings}>Pick a PR channel in Settings</button>
       ) : (

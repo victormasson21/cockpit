@@ -1,4 +1,5 @@
 /* timer.css — Timer tile body: big countdown + controls. */
+.timer-tile { flex-shrink: 0; }
 .timer { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); padding: var(--space-4); }
 .timer__time { font-size: var(--fs-display); font-weight: 700; font-variant-numeric: tabular-nums; font-family: var(--mono); color: var(--tx-hi); }
 .timer__time--done { color: var(--warn-tx); }
