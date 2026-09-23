@@ -888,3 +888,12 @@ Known and accepted: the Diff tab on a primary tree sitting on the default branch
 shows nothing; a detached primary tree reports its branch as the literal "HEAD".
 **GUI verified**, except the "Checked out in the repo" heading, added after that pass and not yet eyeballed.
 552 JS (+11) + 142 Rust (+5) tests green; tsc + Vite + cargo clean.
+
+✅ **Aurora background (2026-09-23).** A new "Aurora" entry in Settings › Appearance, parked since the
+London map specs. Seven soft coloured bands (greens, teal, violet, pink, blue, pale yellow) sway sideways
+and roam down over the top three-quarters of the screen. Each band is an elliptical radial gradient reaching
+zero alpha at its edge, not `filter: blur()`, so nothing is re-filtered per frame. The sway animates
+`transform` and the roam animates `translate`, so the two run side by side instead of overriding each other.
+Their durations differ per band, so the pattern takes a long time to repeat. Pure CSS: no state, no timers.
+Holds still under reduced motion. Tune it in `AURORA_BANDS` (`src/background/aurora.tsx`). Not the default.
+**GUI verified.** 558 JS tests green; tsc + Vite clean.
