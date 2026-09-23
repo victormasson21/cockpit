@@ -4,6 +4,7 @@ import type { ReactElement } from "react";
 import { NightSky } from "./nightSky";
 import { LondonMap } from "./londonMap";
 import { LondonTrains } from "./londonTrains";
+import { Aurora } from "./aurora";
 
 // The "off" id. Persisted like any other, so choosing off is a deliberate, durable choice rather
 // than an absent field that a future default could silently override.
@@ -32,6 +33,7 @@ const TFL_ATTRIBUTION =
 // like deepSlate.css and TERM_THEME — the app-wide token rule does not bind them).
 export const BACKGROUNDS: BackgroundVariant[] = [
   { id: "night-sky", label: "Night sky", render: () => <NightSky /> },
+  { id: "aurora", label: "Aurora", render: () => <Aurora /> },
   // Roads and the river only. The Underground is the live variant's subject, so it is drawn there rather
   // than here; the TfL credit stays on both because the baked data file ships either way.
   { id: "london-map", label: "London map", render: () => <LondonMap />, attribution: TFL_ATTRIBUTION },

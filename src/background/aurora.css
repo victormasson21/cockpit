@@ -1,0 +1,27 @@
+/* aurora.css — the aurora variant's artwork. Colours are literal here by design: a background IS colour
+   (see the variant contract in background.css). */
+
+.au { position: absolute; inset: 0; }
+
+/* A gradient reaching zero alpha at its edge, not filter: blur() — the softness rasterises once and
+   only transform/opacity animate, so nothing is re-filtered per frame behind the terminals. */
+.au__band {
+  position: absolute;
+  background: radial-gradient(ellipse closest-side,
+    rgba(var(--rgb), 0.55) 0%,
+    rgba(var(--rgb), 0.22) 40%,
+    rgba(var(--rgb), 0.06) 72%,
+    rgba(var(--rgb), 0) 100%);
+  opacity: var(--low);
+  animation: au-drift ease-in-out infinite alternate;
+}
+
+@keyframes au-drift {
+  0% { opacity: var(--low); transform: translateX(-8vw) rotate(var(--tilt)) scaleX(1); }
+  50% { opacity: var(--peak); }
+  100% { opacity: var(--low); transform: translateX(8vw) rotate(calc(var(--tilt) * -1)) scaleX(1.25); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .au__band { animation: none; opacity: var(--peak); transform: rotate(var(--tilt)); }
+}

@@ -42,6 +42,9 @@ describe("BACKGROUNDS", () => {
   it("never uses the off id for a real variant", () => {
     expect(BACKGROUNDS.map((b) => b.id)).not.toContain(NO_BACKGROUND);
   });
+  it("ships the aurora variant", () => {
+    expect(BACKGROUNDS.some((b) => b.id === "aurora")).toBe(true);
+  });
   it("ships the London map variant", () => {
     expect(BACKGROUNDS.some((b) => b.id === "london-map")).toBe(true);
   });
