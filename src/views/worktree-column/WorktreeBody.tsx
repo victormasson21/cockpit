@@ -7,7 +7,7 @@ import { worktreeChips } from "./chips";
 import { WorktreePane } from "./WorktreePane";
 import { WorktreeInfo } from "./WorktreeInfo";
 import { LinksList } from "../../tiles/worktree/LinksList";
-import { claudeInDirCmd, claudePaneAutostart } from "../../worktrees/claudeCmd";
+import { cdCmd, claudePaneAutostart } from "../../worktrees/claudeCmd";
 import { resolveHost, isPrimaryTree, editorRoots } from "../../worktrees/model";
 import { currentBranch, branchRoots, openInEditor } from "../../worktrees/api";
 import { closePane } from "../../worktrees/paneLifecycle";
@@ -76,7 +76,7 @@ export function WorktreeBody({ worktree }: { worktree: Worktree }) {
   // Resolved live (not read off the model) so a repo default saved after this worktree was created still applies.
   const host = resolveHost(worktree, knownRepos);
   const startCmd = host.startCmd;
-  const ccCmd = claudeInDirCmd(worktree.worktreePath);
+  const cdLine = cdCmd(worktree.worktreePath);
   return (
     // Re-keyed by id upstream so switching the picker remounts panes (detach old, attach new) without killing PTYs.
     <div className="wt-col__body">
@@ -92,10 +92,10 @@ export function WorktreeBody({ worktree }: { worktree: Worktree }) {
         </button>
         <button
           className="wt-chip wt-chip--terminal"
-          title={`copy: ${ccCmd}`}
-          onClick={() => navigator.clipboard.writeText(ccCmd).catch((e) => console.error("copy claude command failed", e))}
+          title={`copy: ${cdLine}`}
+          onClick={() => navigator.clipboard.writeText(cdLine).catch((e) => console.error("copy cd command failed", e))}
         >
-          Copy cc
+          Copy cd
         </button>
         {worktreeChips(worktree, host.address).map((c, i) => (
           <button key={i} className={`wt-chip wt-chip--${c.kind}`} disabled={!c.url} onClick={() => c.url && openUrl(c.url)}>

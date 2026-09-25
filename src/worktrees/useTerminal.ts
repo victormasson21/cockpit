@@ -31,7 +31,7 @@ const termFontSize = (scale: number) => Math.round(TERM_BASE_FONT * scale);
 // Fixed always-dark terminal palette (theme spec §3) — deliberately NOT chrome tokens: terminal
 // bodies keep this exact dark set even if a light chrome theme is added later.
 const TERM_THEME = {
-  background: "#0E1F2D",
+  background: "#00000000",
   foreground: "#9aa3b2",
   cursor: "#e7ebf2",
   cursorAccent: "#0E1F2D",
@@ -78,6 +78,7 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured, ru
     // Mount at the current zoom; a separate effect reflows on later zoom changes without remounting.
     const term = new Terminal({
       allowProposedApi: true, // required by the Unicode11 addon's term.unicode.activeVersion = "11"
+      allowTransparency: true,
       convertEol: false,
       scrollback: 10000, // Claude sessions blow past xterm's 1000-line default
       fontSize: termFontSize(useSettings.getState().fontScale),

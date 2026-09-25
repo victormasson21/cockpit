@@ -4,7 +4,7 @@
    still win on their own terms — no dependence on source order or doubled selectors. */
 .wt-pane {
   display: flex; flex-direction: column; min-height: 0;
-  background: var(--surface); border: 1px solid var(--pane-bdr, var(--bdr)); border-radius: var(--r); overflow: hidden;
+  border: 1px solid var(--pane-bdr, var(--bdr)); border-radius: var(--r); overflow: hidden;
 }
 .wt-pane--open { flex: 1; }
 .wt-pane--closed { flex: 0 0 auto; }
@@ -25,7 +25,7 @@
 .wt-pane__header {
   display: flex; align-items: center; gap: var(--space-2);
   padding: var(--space-1) var(--space-2);
-  background: var(--surface); color: var(--tx-2);
+  background: var(--surface-panel); color: var(--tx-2);
   font-size: var(--fs-xs); user-select: none; border-bottom: 1px solid var(--divider);
 }
 .wt-pane__title { font-weight: 600; }
@@ -48,4 +48,5 @@
    Slim the vertical padding (keeping the wide horizontal click area) to keep the header narrow. */
 .wt-pane__restart, .wt-pane__close, .wt-pane__expand, .wt-pane__chevron { font-size: var(--fs-2xl); padding-top: 2px; padding-bottom: 2px; }
 .wt-pane__restart { margin-left: auto; }
-.wt-pane__body { flex: 1; min-height: 0; padding: var(--space-1); background: var(--term); }
+.wt-pane__body { flex: 1; min-height: 0; padding: var(--space-1); background: var(--term-panel); }
+.wt-pane__body .xterm .xterm-viewport { background-color: transparent; }

@@ -1,4 +1,4 @@
-// claudeCmd.ts — pure builders and checks for claude command lines: pane autostart, Copy cc, link commands. No IO.
+// claudeCmd.ts — pure builders and checks for claude command lines: pane autostart, Copy cd, link commands. No IO.
 
 // Shell-quote the prompt as one argument: POSIX single-quote idiom (' → '\''). Newlines stay
 // literal — zsh keeps reading continuation lines until the closing quote, yielding one arg.
@@ -8,8 +8,8 @@ export function claudeAutostart(prompt: string): string {
   return `claude ${shellQuote(prompt)}`;
 }
 
-export function claudeInDirCmd(dir: string): string {
-  return `cd ${shellQuote(dir)} && claude`;
+export function cdCmd(dir: string): string {
+  return `cd ${shellQuote(dir)}`;
 }
 
 export const isClaudeCommand = (text: string): boolean => /^claude(\s|$)/.test(text.trim());
