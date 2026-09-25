@@ -923,5 +923,5 @@ hide the background. xterm runs with `allowTransparency` and a transparent theme
 nothing overrides it from the theme, so `WorktreePane.css` clears it. Modals, dropdowns, the header and the
 diff stay solid. Checked headlessly in WebKit and Chromium against Aurora. 563 JS tests green; tsc + Vite clean.
 
-✅ **Copy cc copies only the cd (2026-09-25).** The chip now copies `cd '<worktreePath>'` without
-`&& claude`; `claudeInDirCmd` became `cdCmd`. The label still reads "Copy cc". 563 JS tests green; tsc + Vite clean.
+✅ **Copy cc became Copy cd (2026-09-25).** The chip is relabelled "Copy cd" and copies `cd '<worktreePath>'` without
+`&& claude`; `claudeInDirCmd` became `cdCmd`. 563 JS tests green; tsc + Vite clean.

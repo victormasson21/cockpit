@@ -1,4 +1,4 @@
-// claudeCmd.ts — pure builders and checks for claude command lines: pane autostart, Copy cc, link commands. No IO.
+// claudeCmd.ts — pure builders and checks for claude command lines: pane autostart, Copy cd, link commands. No IO.
 
 // Shell-quote the prompt as one argument: POSIX single-quote idiom (' → '\''). Newlines stay
 // literal — zsh keeps reading continuation lines until the closing quote, yielding one arg.
