@@ -1,6 +1,6 @@
 // claudeCmd.test.ts — shell-escaping + one-shot autostart selection for the claude pane.
 import { describe, it, expect } from "vitest";
-import { claudeAutostart, claudeInDirCmd, claudePaneAutostart, isClaudeCommand } from "./claudeCmd";
+import { claudeAutostart, cdCmd, claudePaneAutostart, isClaudeCommand } from "./claudeCmd";
 
 describe("claudeAutostart", () => {
   it("wraps a plain prompt in single quotes", () => {
@@ -17,9 +17,9 @@ describe("claudeAutostart", () => {
   });
 });
 
-describe("claudeInDirCmd", () => {
-  it("cds into the quoted dir, then starts claude", () => {
-    expect(claudeInDirCmd("/Users/me/CockpitWorktrees/web app/it's")).toBe("cd '/Users/me/CockpitWorktrees/web app/it'\\''s' && claude");
+describe("cdCmd", () => {
+  it("cds into the quoted dir", () => {
+    expect(cdCmd("/Users/me/CockpitWorktrees/web app/it's")).toBe("cd '/Users/me/CockpitWorktrees/web app/it'\\''s'");
   });
 });
 

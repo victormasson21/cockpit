@@ -8,8 +8,8 @@ export function claudeAutostart(prompt: string): string {
   return `claude ${shellQuote(prompt)}`;
 }
 
-export function claudeInDirCmd(dir: string): string {
-  return `cd ${shellQuote(dir)} && claude`;
+export function cdCmd(dir: string): string {
+  return `cd ${shellQuote(dir)}`;
 }
 
 export const isClaudeCommand = (text: string): boolean => /^claude(\s|$)/.test(text.trim());
