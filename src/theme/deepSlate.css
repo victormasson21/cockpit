@@ -44,4 +44,7 @@
   --overlay: rgba(0,0,0,.6);         /* modal scrim (kept from the old theme) */
   --bad-rgb: 217,131,111;            /* --bad as rgb channels for glow alpha  */
   --menu-shadow: 0 8px 24px rgba(0,0,0,.35); /* floating popovers (dropdown, gear menu) */
+  --panel-opacity: 50%;
+  --surface-panel: color-mix(in srgb, var(--surface) var(--panel-opacity), transparent);
+  --term-panel: color-mix(in srgb, var(--term) var(--panel-opacity), transparent);
 }

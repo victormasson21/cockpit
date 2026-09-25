@@ -914,3 +914,11 @@ Holds still under reduced motion. Tune it in `AURORA_BANDS` (`src/background/aur
   terminal's real size. Restart still runs plain `claude`. The whole line goes to the shell, so anything
   chained after `claude` runs too. Accepted, because links come only from the user's own config.
 Layout checked headlessly at font scale 1.6. 563 JS tests green; tsc + Vite clean. Not yet GUI verified.
+
+✅ **Translucent panels (2026-09-25).** Tiles, pane headers and terminal bodies sit at `--panel-opacity`
+(50%, `deepSlate.css`) so the background layer shows through. `--surface-panel` / `--term-panel` mix the
+solid tokens toward transparent. The `.wt-pane` shell paints nothing, or it would stack under the body and
+hide the background. xterm runs with `allowTransparency` and a transparent theme background; the body's
+`--term-panel` supplies the dark ground. xterm 6's stylesheet paints `.xterm-viewport` solid black and
+nothing overrides it from the theme, so `WorktreePane.css` clears it. Modals, dropdowns, the header and the
+diff stay solid. Checked headlessly in WebKit and Chromium against Aurora. 563 JS tests green; tsc + Vite clean.
