@@ -7,6 +7,7 @@ import { notepadAutostart } from "../../worktrees/claudeCmd";
 import { NOTEPAD_ID } from "../../worktrees/ptyId";
 import { killPanes } from "../../worktrees/paneLifecycle";
 import { WorktreePane } from "../worktree-column/WorktreePane";
+import { CodeOverlay } from "./CodeOverlay";
 import { PlusIcon } from "../icons";
 import "../worktree-column/WorktreeColumn.css";
 import "./notepad.css";
@@ -20,6 +21,7 @@ export function NotepadView({ claudeDir, onOpenClaude, onCloseClaude }: {
   onCloseClaude: () => void;
 }) {
   const [text, setText] = useState("");
+  const [scroll, setScroll] = useState({ top: 0, left: 0 }); // mirrored onto the overlay
   // Refs, not state, for what the poll and the debounced save read: they must see the latest values
   // without re-arming the interval or the timer on every keystroke.
   const textRef = useRef(text);
@@ -89,10 +91,15 @@ export function NotepadView({ claudeDir, onOpenClaude, onCloseClaude }: {
 
   return (
     <div className="notepad">
-      <textarea
-        ref={editorRef} className="notepad__editor" value={text} placeholder="Paste or type…" spellCheck={false}
-        onChange={(e) => onChange(e.target.value)} onBlur={() => { if (dirtyRef.current) void save(); }}
-      />
+      {/* Overlay first, textarea (positioned) after: caret and selection paint over the coloured glyphs. */}
+      <div className="notepad__editor-wrap">
+        <CodeOverlay text={text} scrollTop={scroll.top} scrollLeft={scroll.left} />
+        <textarea
+          ref={editorRef} className="notepad__text notepad__editor" value={text} placeholder="Paste or type…" spellCheck={false}
+          onChange={(e) => onChange(e.target.value)} onBlur={() => { if (dirtyRef.current) void save(); }}
+          onScroll={(e) => setScroll({ top: e.currentTarget.scrollTop, left: e.currentTarget.scrollLeft })}
+        />
+      </div>
       {claudeDir && (
         <div className="notepad__pane">
           <WorktreePane
