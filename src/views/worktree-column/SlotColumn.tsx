@@ -4,9 +4,10 @@ import { useSettings } from "../../settings/store";
 import { makePtyId } from "../../worktrees/ptyId";
 import { resolveSlotEntity } from "../slots";
 import { isPrimaryTree } from "../../worktrees/model";
-import { GearIcon, CloseIcon, PauseIcon, BinIcon, GhostIcon, PinIcon, PlayIcon } from "../icons";
+import { GearIcon, CloseIcon, PauseIcon, BinIcon, GhostIcon, PlayIcon } from "../icons";
 import { Dropdown } from "../Dropdown";
 import type { DropdownGroup } from "../dropdownModel";
+import { worktreeOption } from "../worktreeOption";
 import { WorktreeBody } from "./WorktreeBody";
 import { ScratchBody } from "./ScratchBody";
 import { PendingBody } from "./PendingBody";
@@ -24,7 +25,7 @@ const ACTIVITY_ICON: Record<Activity, ReactNode> = {
   paused: <span className="wt-col__act--dim"><PauseIcon /></span>,
 };
 
-export function SlotColumn({ value, onSelect, onPin, onClose }: { value: string | null; onSelect: (id: string | null) => void; onPin?: (id: string) => void; onClose?: () => void }) {
+export function SlotColumn({ value, onSelect, onClose }: { value: string | null; onSelect: (id: string | null) => void; onClose: () => void }) {
   // One selector per field, deliberately: this column owns the terminals, so a bare useSettings() would
   // remount nothing but re-render the whole subtree on every unrelated store write.
   const worktrees = useSettings((s) => s.cockpit.worktrees);
@@ -35,7 +36,6 @@ export function SlotColumn({ value, onSelect, onPin, onClose }: { value: string 
   const updateWorktree = useSettings((s) => s.updateWorktree);
   const renameScratch = useSettings((s) => s.renameScratch);
   const slots = useSettings((s) => s.slots);
-  const cockpitWorktreeId = useSettings((s) => s.cockpit.cockpitWorktreeId);
   const ongoing = worktrees.filter((w) => w.status === "ongoing");
   const activeId = value;
   const entity = resolveSlotEntity(activeId, worktrees, scratchTerminals, pendingWorktrees);
@@ -43,9 +43,8 @@ export function SlotColumn({ value, onSelect, onPin, onClose }: { value: string 
   // Delete/Wipe open a confirmation dialog (worktree only); state is local to each column instance.
   const [confirm, setConfirm] = useState<"delete" | "wipe" | null>(null);
 
-  // Close removes the whole column when the host provides onClose (the Worktrees view reflows); otherwise it
-  // just unassigns (Cockpit's single persistent column). Menu-driven removals funnel through here.
-  const close = () => { setMenuOpen(false); (onClose ?? (() => onSelect(null)))(); };
+  // Close removes the whole column (the Worktrees view reflows). Menu-driven removals funnel through here.
+  const close = () => { setMenuOpen(false); onClose(); };
 
   // Pause: kill the worktree's live processes and unassign the slot; keep model + dir + branch.
   // Also reset the pane set — a paused worktree comes back Claude-only (re-showing it must not
@@ -89,7 +88,7 @@ export function SlotColumn({ value, onSelect, onPin, onClose }: { value: string 
   // list is on screen, so this is a local snapshot rather than a store slice or a poll.
   const [livePtyIds, setLivePtyIds] = useState<string[]>([]);
   const refreshActivity = () => { void ptyLiveIds().then(setLivePtyIds).catch(() => setLivePtyIds([])); };
-  const displayedIds = [...slots.map((s) => s.id), cockpitWorktreeId];
+  const displayedIds = slots.map((s) => s.id);
   const activityIcon = (id: string) => ACTIVITY_ICON[activityOf(id, { displayedIds, livePtyIds })];
 
   // Picker rows: clear-action + (synthetic pending) ungrouped, then Worktrees / Scratch groups.
@@ -99,9 +98,7 @@ export function SlotColumn({ value, onSelect, onPin, onClose }: { value: string 
       // A pending id isn't in the worktree/scratch lists — synthetic disabled row so the trigger reads sensibly.
       ...(entity?.kind === "pending" ? [{ value: entity.pending.id, label: `${entity.pending.status}…`, disabled: true }] : []),
     ]},
-    // The repo basename rides as a `suffix` (rendered at a lighter weight) so each slot's origin is
-    // obvious at a glance without competing with the title.
-    { label: "Worktrees", options: ongoing.map((w) => ({ value: w.id, label: w.name, suffix: w.repoPath.split("/").pop(), icon: activityIcon(w.id) })) },
+    { label: "Worktrees", options: ongoing.map((w) => ({ ...worktreeOption(w), icon: activityIcon(w.id) })) },
     ...(scratchTerminals.length > 0
       ? [{ label: "Scratch", options: scratchTerminals.map((s) => ({ value: s.id, label: s.title, icon: activityIcon(s.id) })) }]
       : []),
@@ -137,10 +134,6 @@ export function SlotColumn({ value, onSelect, onPin, onClose }: { value: string 
               <div className="wt-col__menu-pop" onMouseLeave={() => setMenuOpen(false)}>
                 {/* Empty slot: only Close (removes the column). */}
                 {!entity && <button onClick={close}><CloseIcon />Close</button>}
-                {/* Pin sits above the teardown set: it adds an attachment (Cockpit column) + jumps there; unpin lives in Cockpit. */}
-                {entity?.kind === "worktree" && onPin && (
-                  <button onClick={() => { onPin(entity.worktree.id); setMenuOpen(false); }}><PinIcon />Cockpit</button>
-                )}
                 {/* Close ⊂ Pause ⊂ Delete ⊂ Wipe — each removes one more attached thing. Scratch has no git. */}
                 {entity && <button onClick={close}><CloseIcon />Close</button>}
                 {entity?.kind === "worktree" ? (
@@ -180,8 +173,7 @@ export function SlotColumn({ value, onSelect, onPin, onClose }: { value: string 
           worktree={entity.worktree}
           action={confirm}
           onClose={() => setConfirm(null)}
-          // removeWorktree (inside teardown) already clears the slot; onSelect(null) covers the
-          // Cockpit single-column case too. Any non-fatal warning was already shown in the dialog.
+          // removeWorktree (inside teardown) already clears the slot. Any non-fatal warning was already shown in the dialog.
           onDone={() => { setConfirm(null); close(); }}
         />
       )}

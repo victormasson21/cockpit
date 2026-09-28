@@ -40,7 +40,7 @@ export const useSettings = create<SettingsState>((...a) => {
       if (!s.cockpit.workspace) {
         return { ...base, slots: initSlots(s.cockpit.worktrees, mint), slotSeq: seq };
       }
-      const r = restoreWorkspace(s.cockpit.workspace, s.cockpit.worktrees, mint, s.cockpit.cockpitWorktreeId);
+      const r = restoreWorkspace(s.cockpit.workspace, s.cockpit.worktrees, mint);
       return {
         ...base, slotSeq: seq,
         slots: r.slots,

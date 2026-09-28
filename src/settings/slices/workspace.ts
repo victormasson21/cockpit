@@ -20,7 +20,6 @@ export interface WorkspaceSlice {
   setSlot: (key: string, id: string | null) => void;
   removeSlot: (key: string) => void;
   swapSlots: (keyA: string, keyB: string) => void;
-  setCockpitWorktree: (id: string | null) => void;
   placeNewEntity: (id: string, view: View) => void;
   scratchTerminals: ScratchTerminal[];
   scratchSeq: number;
@@ -77,7 +76,6 @@ export const createWorkspaceSlice: SettingsSlice<WorkspaceSlice> = (set, get) =>
     isLive: (id) => get().pendingWorktrees.some((p) => p.id === id),
     knownRepos: () => get().cockpit.knownRepos,
     contexts: () => get().cockpit.worktreeContexts,
-    cockpitPin: () => get().cockpit.cockpitWorktreeId,
     addPending: (prompt, view) => {
       const n = get().pendingSeq + 1;
       const id = `pending-${n}`;
@@ -92,7 +90,6 @@ export const createWorkspaceSlice: SettingsSlice<WorkspaceSlice> = (set, get) =>
     clearSlots: (id) => setSession((st) => ({ slots: clearEntity(st.slots, id) })),
     addWorktree: (wt) => get().addWorktree(wt),
     armInitialPrompt: (id) => setSession((st) => ({ initialPromptPending: { ...st.initialPromptPending, [id]: true } })),
-    setCockpitPin: (id) => get().setCockpitWorktree(id),
     setError: (worktreeError) => set({ worktreeError }),
   };
 
@@ -119,17 +116,12 @@ export const createWorkspaceSlice: SettingsSlice<WorkspaceSlice> = (set, get) =>
     // Swap two adjacent columns' positions (the on-divider swap button). Keys move with their slots, so
     // the terminals reorder without remounting.
     swapSlots: (keyA, keyB) => setSession((st) => ({ slots: swapSlotsFn(st.slots, keyA, keyB) })),
-    // Persisted Cockpit-view right-column slot (omit from JSON when cleared).
-    setCockpitWorktree: (id) => get().setCockpit((c) => ({ ...c, cockpitWorktreeId: id ?? undefined })),
     // View-dependent placement of a newly-created worktree/scratch/pending. Worktrees reflows the
-    // shared slots (placeEntity); Cockpit sets its own persisted column and only fills a free shared
-    // slot (fillEntity — no eviction).
-    placeNewEntity: (id, view) => {
-      if (view === "cockpit") get().setCockpitWorktree(id);
-      setSession((st) => withMint(st, (m) => (view === "cockpit" ? fillEntity(st.slots, id, m) : placeEntity(st.slots, id, m))));
-    },
+    // shared slots (placeEntity); Cockpit only fills a free shared slot (fillEntity — no eviction).
+    placeNewEntity: (id, view) =>
+      setSession((st) => withMint(st, (m) => (view === "cockpit" ? fillEntity(st.slots, id, m) : placeEntity(st.slots, id, m)))),
     // Scratch terminals are single-shell entities that persist via the workspace block (pruned to the
-    // ones still referenced by a slot/pin at save time); a monotonic seq keeps ids/titles unique.
+    // ones still referenced by a slot at save time); a monotonic seq keeps ids/titles unique.
     // Creation only — placement into a slot is placeNewEntity's job (view-dependent).
     addScratch: () => {
       const n = get().scratchSeq + 1;
@@ -137,10 +129,8 @@ export const createWorkspaceSlice: SettingsSlice<WorkspaceSlice> = (set, get) =>
       setSession((st) => ({ scratchSeq: n, scratchTerminals: [...st.scratchTerminals, { id, title: `Scratch ${n}` }] }));
       return id;
     },
-    removeScratch: (id) => {
-      get().setCockpit((c) => ({ ...c, cockpitWorktreeId: c.cockpitWorktreeId === id ? undefined : c.cockpitWorktreeId }));
-      setSession((st) => ({ scratchTerminals: st.scratchTerminals.filter((s) => s.id !== id), slots: clearEntity(st.slots, id) }));
-    },
+    removeScratch: (id) =>
+      setSession((st) => ({ scratchTerminals: st.scratchTerminals.filter((s) => s.id !== id), slots: clearEntity(st.slots, id) })),
     renameScratch: (id, title) =>
       setSession((st) => ({ scratchTerminals: st.scratchTerminals.map((s) => (s.id === id ? { ...s, title } : s)) })),
     clearWorktreeError: () => set({ worktreeError: null }),

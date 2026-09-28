@@ -224,9 +224,6 @@ pub struct CockpitConfig {
     pub active_todo_list: Option<String>,
     #[serde(default, rename = "worktreeContexts", skip_serializing_if = "std::collections::HashMap::is_empty")]
     pub worktree_contexts: std::collections::HashMap<String, String>,
-    // The Cockpit view's single right-column worktree slot (persisted; the Worktrees-view slots persist too, in the sibling `workspace` block).
-    #[serde(rename = "cockpitWorktreeId", default, skip_serializing_if = "Option::is_none")]
-    pub cockpit_worktree_id: Option<String>,
     // The previous session's arrangement (slots / scratch / pane sets). An Option, not a defaulted bare
     // Workspace struct: absent means "pre-feature file, seed the slots the old way", while Some with
     // empty slots means "the user really had every column closed".
@@ -258,7 +255,6 @@ impl Default for CockpitConfig {
             todo_lists: vec![],
             active_todo_list: None,
             worktree_contexts: std::collections::HashMap::new(),
-            cockpit_worktree_id: None,
             workspace: None,
             preferences: Preferences { theme: "system".into(), default_view: "main".into(), panes: 3, font_scale: 1.0, background: None },
         }
@@ -510,20 +506,6 @@ mod tests {
         let item = TodoItem { id: "t1".into(), text: "x".into(), state: "todo".into(), list_id: None };
         let back = serde_json::to_string(&item).expect("serialize");
         assert!(!back.contains("listId"), "expected listId omitted, got {back}");
-    }
-
-    #[test]
-    fn cockpit_without_cockpit_worktree_id_still_loads() {
-        let json = r#"{"version":1,"tiles":[],"worktrees":[],"preferences":{"theme":"system","defaultView":"main"}}"#;
-        let cfg: CockpitConfig = serde_json::from_str(json).unwrap();
-        assert_eq!(cfg.cockpit_worktree_id, None);
-    }
-
-    #[test]
-    fn cockpit_worktree_id_round_trips() {
-        let json = r#"{"version":1,"tiles":[],"worktrees":[],"cockpitWorktreeId":"wt-3","preferences":{"theme":"system","defaultView":"main"}}"#;
-        let cfg: CockpitConfig = serde_json::from_str(json).unwrap();
-        assert_eq!(cfg.cockpit_worktree_id.as_deref(), Some("wt-3"));
     }
 
     // Back-compat: pre-prompt cockpit.json worktrees load; None is omitted; Some round-trips.

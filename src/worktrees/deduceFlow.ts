@@ -24,7 +24,6 @@ export interface DeduceFlowSession {
   isLive(pendingId: string): boolean;
   knownRepos(): KnownRepo[];
   contexts(): Record<string, string> | undefined;
-  cockpitPin(): string | undefined;
   // writes
   addPending(prompt: string, view: View): string; // mints the `pending-<n>` id and returns it
   setPendingStatus(pendingId: string, status: "deducing" | "creating"): void;
@@ -34,7 +33,6 @@ export interface DeduceFlowSession {
   clearSlots(id: string): void;
   addWorktree(worktree: Worktree): void;
   armInitialPrompt(worktreeId: string): void;
-  setCockpitPin(id: string | null): void;
   setError(error: { prompt: string; message: string }): void;
 }
 
@@ -109,13 +107,11 @@ function panePrompt(prompt: string, source: WorktreeSource, contexts: Record<str
   return ctx ? `${ctx}\n\n${prompt}` : prompt;
 }
 
-// Success: swap the pending id for the real one across BOTH slot surfaces (the shared columns and the
-// Cockpit pin), arm the claude pane's one-shot prompt send, then drop the pending entity. No awaits
-// in here, so the intermediate state is never observable.
+// Success: swap the pending id for the real one in its column, arm the claude pane's one-shot prompt
+// send, then drop the pending entity. No awaits in here, so the intermediate state is never observable.
 function commit(pendingId: string, worktreeId: string, session: DeduceFlowSession): void {
   session.swapSlotId(pendingId, worktreeId);
   session.armInitialPrompt(worktreeId);
-  if (session.cockpitPin() === pendingId) session.setCockpitPin(worktreeId);
   session.dropPending(pendingId);
 }
 
@@ -123,6 +119,5 @@ function commit(pendingId: string, worktreeId: string, session: DeduceFlowSessio
 function rollback(pendingId: string, prompt: string, message: string, session: DeduceFlowSession): void {
   session.dropPending(pendingId);
   session.clearSlots(pendingId);
-  if (session.cockpitPin() === pendingId) session.setCockpitPin(null);
   session.setError({ prompt, message });
 }

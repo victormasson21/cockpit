@@ -32,8 +32,8 @@ The heart — terminals + worktrees — is done. The product arc from here is th
 
 4. **Live worktree & Claude signals (provider).** Substantial, mostly-backend chunk that can slot in whenever it earns priority: detect Claude "**Attention**" from PTY output (currently a styled stub), git **ahead/behind** (stub), and **CI** status (stub chip). Drives the column status dot, the ahead/behind badge, and the CI chip with real data; unlocks the DONE/PAUSED Claude pane states. Provider-flavoured enough to be its own cycle.
 
-> ✅ **Cockpit Diff tab — done & merged.** Centre-column `Home | Diff` tabs in the Cockpit view;
-> Diff shows the right-column worktree's branch-vs-base diff (`git diff --merge-base <base>`, base
+> ✅ **Cockpit Diff tab — done & merged.** Centre-column Diff tab in the Cockpit view;
+> Diff shows the picked worktree's branch-vs-base diff (`git diff --merge-base <base>`, base
 > derived live from `origin/HEAD`) as a numstat stat-list with lazily-expanded colorized hunks.
 > Moved to `CLAUDE.md` "Status". Spec: `docs/superpowers/specs/2026-07-03-cockpit-diff-tab-design.md`.
 

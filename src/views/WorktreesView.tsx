@@ -6,7 +6,7 @@ import { SLOT_COUNT } from "./slots";
 import { PlusIcon, SwapIcon } from "./icons";
 import "./WorktreesView.css";
 
-export function WorktreesView({ onPin }: { onPin: (id: string) => void }) {
+export function WorktreesView() {
   const slots = useSettings((s) => s.slots);
   const setSlot = useSettings((s) => s.setSlot);
   const removeSlot = useSettings((s) => s.removeSlot);
@@ -23,7 +23,6 @@ export function WorktreesView({ onPin }: { onPin: (id: string) => void }) {
             value={slot.id}
             onSelect={(id) => setSlot(slot.key, id)}
             onClose={() => removeSlot(slot.key)}
-            onPin={onPin}
           />
         ))}
         {/* Swap button per boundary where BOTH flanking tiles are assigned — sits on the divider (columns

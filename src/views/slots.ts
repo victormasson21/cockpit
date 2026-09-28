@@ -45,8 +45,8 @@ export function placeEntity(slots: Slots, id: string, mintKey: () => string): Sl
 }
 
 // fillEntity: like placeEntity — including the already-shown no-op — but NEVER evicts: fill an empty slot
-// or append when there's room, else leave slots untouched. Used by Cockpit-view create (the Cockpit column
-// is its own separate slot).
+// or append when there's room, else leave slots untouched. Used by Cockpit-view create (the user isn't
+// looking at these columns, so nothing they arranged gets evicted).
 export function fillEntity(slots: Slots, id: string, mintKey: () => string): Slots {
   if (slots.some((s) => s.id === id)) return slots;
   const empty = slots.findIndex((s) => s.id === null);

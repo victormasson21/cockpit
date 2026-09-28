@@ -46,15 +46,6 @@ describe("removeWorktree detaches everything keyed to the worktree", () => {
     expect(useSettings.getState().cockpit.worktrees).toHaveLength(0);
   });
 
-  it("clears it from the cockpit pin too", () => {
-    resetStore({
-      cockpit: { ...structuredClone(baseCockpit), worktrees: [sampleWt], cockpitWorktreeId: "wt-1" },
-      slots: [{ key: "k1", id: "wt-1" }],
-    });
-    useSettings.getState().removeWorktree("wt-1");
-    expect(useSettings.getState().cockpit.cockpitWorktreeId).toBeUndefined();
-  });
-
   it("sweeps the session flags and the pane set", () => {
     resetStore({
       cockpit: { ...structuredClone(baseCockpit), worktrees: [sampleWt] },

@@ -9,7 +9,7 @@ export type Activity = "displayed" | "running" | "paused";
 // both mean nothing of yours is burning CPU.
 export function activityOf(
   entityId: string,
-  { displayedIds, livePtyIds }: { displayedIds: (string | null | undefined)[]; livePtyIds: string[] },
+  { displayedIds, livePtyIds }: { displayedIds: (string | null)[]; livePtyIds: string[] },
 ): Activity {
   if (displayedIds.includes(entityId)) return "displayed";
   // Prefix match on the id format's separator, so "wt-1" never matches "wt-10:claude".

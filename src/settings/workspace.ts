@@ -14,12 +14,11 @@ export type WorkspaceSession = {
 };
 
 // Session state → the persisted block. Slot `key`s are React reconciliation identity, so only ids travel.
-// Scratch terminals are pruned to the ones still referenced (by a slot, or the Cockpit pin) — otherwise
-// a scratch closed via removeSlot (which only clears the slot, not the entity) would persist forever and
-// the picker's "Scratch" group would grow every launch.
-export function workspaceSnapshot(s: WorkspaceSession, cockpitWorktreeId?: string): WorkspaceState {
+// Scratch terminals are pruned to the ones still referenced by a slot — otherwise a scratch closed via
+// removeSlot (which only clears the slot, not the entity) would persist forever and the picker's
+// "Scratch" group would grow every launch.
+export function workspaceSnapshot(s: WorkspaceSession): WorkspaceState {
   const referenced = new Set(s.slots.map((slot) => slot.id).filter((id): id is string => !!id));
-  if (cockpitWorktreeId) referenced.add(cockpitWorktreeId);
   return {
     slots: s.slots.map((slot) => slot.id),
     scratch: s.scratchTerminals.filter((t) => referenced.has(t.id)),
@@ -29,10 +28,9 @@ export function workspaceSnapshot(s: WorkspaceSession, cockpitWorktreeId?: strin
 }
 
 // Compose the block into the config being written. Called at save time so the in-memory cockpit never
-// carries a second copy of the session state that could drift out of sync. `cockpit` already carries the
-// Cockpit-view pin, so it's threaded into the snapshot from here rather than widening WorkspaceSession.
+// carries a second copy of the session state that could drift out of sync.
 export function withWorkspace(cockpit: CockpitConfig, s: WorkspaceSession): CockpitConfig {
-  return { ...cockpit, workspace: workspaceSnapshot(s, cockpit.cockpitWorktreeId) };
+  return { ...cockpit, workspace: workspaceSnapshot(s) };
 }
 
 // Highest n across `scratch-<n>` ids; guards against a hand-edited seq minting a colliding id.
@@ -50,7 +48,6 @@ export function restoreWorkspace(
   ws: WorkspaceState,
   worktrees: Worktree[],
   mintKey: () => string,
-  cockpitWorktreeId?: string,
 ): WorkspaceSession & { restoredWorktrees: Record<string, true> } {
   const scratchTerminals = ws.scratch ?? [];
   const scratchIds = new Set(scratchTerminals.map((s) => s.id));
@@ -62,9 +59,9 @@ export function restoreWorkspace(
   const worktreePanes = Object.fromEntries(
     Object.entries(ws.panes ?? {}).filter(([id]) => worktreeIds.has(id)),
   );
-  // Restored = every worktree the arrangement brings back, wherever it shows (slot, Cockpit pin, or
-  // just a live pane set) — a Claude-only worktree has no `panes` entry, so slots must be included.
-  const restored = [...slots.map((s) => s.id), ...Object.keys(worktreePanes), cockpitWorktreeId]
+  // Restored = every worktree the arrangement brings back, wherever it shows (a slot, or just a live
+  // pane set) — a Claude-only worktree has no `panes` entry, so slots must be included.
+  const restored = [...slots.map((s) => s.id), ...Object.keys(worktreePanes)]
     .filter((id): id is string => !!id && worktreeIds.has(id));
   return {
     slots,

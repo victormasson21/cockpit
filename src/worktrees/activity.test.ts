@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { activityOf } from "./activity";
 
-const at = (id: string, displayedIds: (string | null | undefined)[], livePtyIds: string[]) =>
+const at = (id: string, displayedIds: (string | null)[], livePtyIds: string[]) =>
   activityOf(id, { displayedIds, livePtyIds });
 
 describe("activityOf", () => {
@@ -30,8 +30,8 @@ describe("activityOf", () => {
     expect(at("wt-1", [], ["wt-10:claude"])).toBe("paused");
   });
 
-  it("ignores empty slots and an unassigned cockpit pin", () => {
-    expect(at("wt-1", [null, undefined], [])).toBe("paused");
+  it("ignores empty slots", () => {
+    expect(at("wt-1", [null], [])).toBe("paused");
   });
 
   it("treats a never-opened entity as paused", () => {

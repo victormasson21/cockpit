@@ -51,11 +51,7 @@ export const createConfigSlice: SettingsSlice<ConfigSlice> = (set, get) => {
       })),
     // Cross-slice on purpose: dropping the model must also detach everything keyed by its id.
     removeWorktree: (id) => {
-      get().setCockpit((c) => ({
-        ...c,
-        worktrees: c.worktrees.filter((w) => w.id !== id),
-        cockpitWorktreeId: c.cockpitWorktreeId === id ? undefined : c.cockpitWorktreeId,
-      }));
+      get().setCockpit((c) => ({ ...c, worktrees: c.worktrees.filter((w) => w.id !== id) }));
       setSession((st) => ({ slots: clearEntity(st.slots, id) }));
       get().clearInitialPrompt(id); // sweep the one-shot flag if the pane never consumed it
       get().clearRestored(id); // the worktree is gone; nothing to resume

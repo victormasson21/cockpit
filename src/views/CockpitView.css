@@ -1,29 +1,19 @@
-/* CockpitView.css — three-column layout: fixed-width left tiles column · flex center (Home|Diff tabs) · fixed-width right worktree column. */
+/* CockpitView.css — three-column layout: fixed-width left tiles column · flex centre (Diff tab) · fixed-width right To Do column. */
 .cockpit-view { display: flex; gap: 12px; padding: 12px; height: 100%; box-sizing: border-box; }
-.cockpit-view__tiles { width: 400px; flex: 0 0 400px; display: flex; flex-direction: column; gap: 10px; }
+.cockpit-view__tiles, .cockpit-view__todo { width: 400px; flex: 0 0 400px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.cockpit-view__todo { width: 520px; flex-basis: 520px; overflow: auto; }
 .cockpit-view__tiles-label { font-size: var(--fs-xs); letter-spacing: 0.08em; color: var(--tx-3); }
 
-/* center column: a tab bar over either the Home widgets or the Diff view (both flex-fill the remaining height).
-   min-width is a floor, not 0: the worktree column is the one that shrinks when the window gets narrow (it
-   holds its --wt-col-w basis otherwise), so without a floor here the centre would collapse to nothing. */
+/* centre column: a tab bar (with the Diff worktree picker at its right end) over the Diff view, which
+   flex-fills the remaining height. */
 .cockpit-view__main { flex: 1; min-width: 320px; display: flex; flex-direction: column; min-height: 0; gap: var(--space-3); }
-.cockpit-view__tabs { display: flex; gap: var(--space-4); border-bottom: 1px solid var(--bdr); flex: 0 0 auto; }
+.cockpit-view__tabs { display: flex; align-items: center; gap: var(--space-4); border-bottom: 1px solid var(--bdr); flex: 0 0 auto; }
+.cockpit-view__tabs > .dd { margin-left: auto; }
 .cockpit-view__tab { background: none; border: none; color: var(--tx-2); cursor: pointer; padding: 6px 2px; margin-bottom: -1px; font-size: var(--fs-lg); border-bottom: 2px solid transparent; transition: color 200ms ease-out; }
 .cockpit-view__tab:hover { color: var(--tx); }
 .cockpit-view__tab--active { color: var(--tx-hi); border-bottom-color: var(--accent); font-weight: 600; }
 
-/* Home widgets: the To Do list sits at the top of the centre, sized to its contents (align-items overrides the default stretch). */
-.cockpit-view__center { flex: 1; min-height: 0; display: flex; gap: var(--space-3); align-items: flex-start; overflow: auto; }
-.cockpit-view__center > * { flex: 1; }
 .cockpit-view__diff-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--tx-3); font-size: var(--fs-md); }
-
-/* Same width as one worktree tile in the Worktrees view (--wt-col-w) so switching views never re-fits the
-   terminals — a narrower column here rewrapped Claude's TUI and made it hard to read.
-   min-width: 0 is load-bearing: a freshly-mounted xterm is 80 cols (~588px) wide before FitAddon runs,
-   and the default min-width:auto would let that inflate the column past its basis on mount
-   (visible shrink-back as fit converges). */
-.cockpit-view__worktree { flex: 0 1 var(--wt-col-w); min-width: 0; display: flex; flex-direction: column; min-height: 0; }
-.cockpit-view__worktree > * { flex: 1; min-height: 0; }
 
 /* Diff view: refresh/asof bar, scrollable stat-list, expandable colorized hunks. Lives in the center column. */
 .wt-diff { flex: 1; min-height: 0; display: flex; flex-direction: column; }

@@ -19,7 +19,6 @@ interface FakeState {
   slots: (string | null)[];
   worktrees: Worktree[];
   armed: string[];
-  pin: string | undefined;
   error: { prompt: string; message: string } | null;
   knownRepos: KnownRepo[];
   contexts: Record<string, string> | undefined;
@@ -30,14 +29,13 @@ interface FakeState {
 function fakeSession(overrides: Partial<FakeState> = {}) {
   const state: FakeState = {
     pending: [], seq: 0, slots: [], worktrees: [], armed: [],
-    pin: undefined, error: null, knownRepos: [{ path: "/a" }], contexts: undefined, calls: [],
+    error: null, knownRepos: [{ path: "/a" }], contexts: undefined, calls: [],
     ...overrides,
   };
   const session: DeduceFlowSession = {
     isLive: (id) => state.pending.some((p) => p.id === id),
     knownRepos: () => state.knownRepos,
     contexts: () => state.contexts,
-    cockpitPin: () => state.pin,
     addPending: (prompt, view) => {
       state.seq += 1;
       const id = `pending-${state.seq}`;
@@ -61,7 +59,6 @@ function fakeSession(overrides: Partial<FakeState> = {}) {
     clearSlots: (id) => { state.slots = state.slots.filter((s) => s !== id); state.calls.push(`clear:${id}`); },
     addWorktree: (wt) => { state.worktrees.push(wt); state.calls.push("addWorktree"); },
     armInitialPrompt: (id) => { state.armed.push(id); state.calls.push(`arm:${id}`); },
-    setCockpitPin: (id) => { state.pin = id ?? undefined; state.calls.push(`pin:${id}`); },
     setError: (e) => { state.error = e; state.calls.push("setError"); },
   };
   return { session, state };
@@ -111,19 +108,6 @@ describe("startDeduceFlow", () => {
     await startDeduceFlow({ prompt: "p", view: "worktrees", source: "manual" }, { session, ...okDeps() });
     const order = state.calls.filter((c) => /^(addWorktree|swap:|dropPending:pending-1$)/.test(c));
     expect(order).toEqual(["addWorktree", `swap:pending-1->${state.worktrees[0].id}`, "dropPending:pending-1"]);
-  });
-
-  it("success on the cockpit view: repins the real id", async () => {
-    const { session, state } = fakeSession({ pin: "pending-1" });
-    await startDeduceFlow({ prompt: "p", view: "cockpit", source: "manual" }, { session, ...okDeps() });
-    expect(state.pin).toBe(state.worktrees[0].id);
-    expect(state.pending).toEqual([]);
-  });
-
-  it("leaves an unrelated cockpit pin alone", async () => {
-    const { session, state } = fakeSession({ pin: "wt-other" });
-    await startDeduceFlow({ prompt: "p", view: "worktrees", source: "manual" }, { session, ...okDeps() });
-    expect(state.pin).toBe("wt-other");
   });
 
   it("prepends the per-source context to the pane prompt; deduce still gets the bare input", async () => {
@@ -199,15 +183,6 @@ describe("startDeduceFlow", () => {
     expect(state.worktrees).toHaveLength(0);
     expect(state.pending).toEqual([]);
     expect(state.error?.message).toContain("invalid reference");
-  });
-
-  it("failure on the cockpit view: clears the pin it placed", async () => {
-    const { session, state } = fakeSession({ pin: "pending-1" });
-    await startDeduceFlow(
-      { prompt: "p", view: "cockpit", source: "manual" },
-      { session, deduce: deduceFails("nope"), create: vi.fn<CreateFn>() },
-    );
-    expect(state.pin).toBeUndefined();
   });
 
   it("mid-flight discard before deduce resolves: nothing is created", async () => {

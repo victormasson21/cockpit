@@ -107,9 +107,10 @@ and every push is confirmed.
   **dockview was removed** (it fought the fixed, designed layouts; see
   `docs/superpowers/specs/2026-06-23-worktrees-view-and-theme-design.md`). Zustand for the
   live store. Vitest (frontend) + `cargo test` (Rust).
-- **Two views (`src/views/`):** `Cockpit` (themed placeholder — Worktrees replaced the old
-  Main view) and `Worktrees` (the MVP: 3 fixed column slots, each a `WorktreeColumn` showing one
-  running worktree). The active view + the
+- **Two views (`src/views/`):** `Cockpit` (left tiles column · centre Diff tab with its own
+  session-only worktree picker · right To Do column — the pinned worktree column and its
+  `cockpitWorktreeId` config field were removed 2026-09-28) and `Worktrees` (the MVP: 3 fixed
+  column slots, each a `WorktreeColumn` showing one running worktree). The active view + the
   per-column **slot→worktree assignment** are **session-only** store state (not persisted; on
   load the first 3 ongoing worktrees auto-fill the slots). Each `WorktreePane` reuses the
   unchanged `useTerminal` hook and adds a chevron collapse (open panes flex-fill). Panes are
