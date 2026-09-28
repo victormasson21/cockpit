@@ -50,6 +50,10 @@ describe("attentionLabel", () => {
   it("falls back to the raw ptyId when the entity is already gone", () => {
     expect(attentionLabel("wt-gone:claude", worktrees, scratch)).toBe("wt-gone:claude");
   });
+
+  it("names the notepad's claude pane Notepad — it is not a worktree or a scratch", () => {
+    expect(attentionLabel("notepad:claude", worktrees, scratch)).toBe("Notepad");
+  });
 });
 
 // A recording stand-in for the three OS-facing calls, so the decision logic is tested without mocking

@@ -6,3 +6,6 @@ export const makePtyId = (worktreeId: string, role: string) => `${worktreeId}:${
 // host is excluded (dev server output must not trigger it).
 export const isAttentionRole = (role: string) =>
   role === "claude" || role === "shell" || role.startsWith("shell-");
+
+// The Notepad tab's claude pane entity id: not a worktree, not a scratch, one fixed pane.
+export const NOTEPAD_ID = "notepad";

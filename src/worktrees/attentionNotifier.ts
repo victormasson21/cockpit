@@ -5,6 +5,7 @@ import { isPermissionGranted, requestPermission, sendNotification } from "@tauri
 import { useSettings } from "../settings/store";
 import type { ScratchTerminal } from "../views/slots";
 import type { Worktree } from "../settings/types";
+import { NOTEPAD_ID } from "./ptyId";
 
 // Which panes were marked since the last snapshot. Presence, not truth, is the signal: a pane that is
 // already marked bells repeatedly while Claude waits, and only the first bell deserves a notification.
@@ -22,6 +23,7 @@ export function attentionLabel(
   const sep = ptyId.indexOf(":");
   const entityId = ptyId.slice(0, sep);
   const role = ptyId.slice(sep + 1);
+  if (entityId === NOTEPAD_ID) return "Notepad";
   const name = worktrees.find((w) => w.id === entityId)?.name
     ?? scratch.find((s) => s.id === entityId)?.title;
   if (!name) return ptyId; // the worktree was removed between the bell and this lookup

@@ -1,6 +1,6 @@
 // claudeCmd.test.ts — shell-escaping + one-shot autostart selection for the claude pane.
 import { describe, it, expect } from "vitest";
-import { claudeAutostart, cdCmd, claudePaneAutostart, isClaudeCommand } from "./claudeCmd";
+import { claudeAutostart, cdCmd, claudePaneAutostart, isClaudeCommand, notepadAutostart, NOTEPAD_SYSTEM_PROMPT, NOTEPAD_ALLOWED_TOOLS } from "./claudeCmd";
 
 describe("claudeAutostart", () => {
   it("wraps a plain prompt in single quotes", () => {
@@ -54,5 +54,20 @@ describe("claudePaneAutostart", () => {
   it("defaults to plain claude when the pane is not restored", () => {
     expect(claudePaneAutostart(undefined, false, false)).toBe("claude");
     expect(claudePaneAutostart(undefined, false)).toBe("claude");
+  });
+});
+
+describe("notepadAutostart", () => {
+  it("launches claude with the notepad system prompt and Edit scoped to the note", () => {
+    expect(notepadAutostart()).toBe(
+      `claude --append-system-prompt '${NOTEPAD_SYSTEM_PROMPT}' --allowedTools '${NOTEPAD_ALLOWED_TOOLS}'`,
+    );
+  });
+  it("keeps the system prompt free of single quotes, so the quoting above is exact", () => {
+    expect(NOTEPAD_SYSTEM_PROMPT).not.toContain("'");
+  });
+  it("names the note file in both the prompt and the tool scope", () => {
+    expect(NOTEPAD_SYSTEM_PROMPT).toContain("note.md");
+    expect(NOTEPAD_ALLOWED_TOOLS).toBe("Edit(note.md)");
   });
 });
