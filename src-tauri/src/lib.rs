@@ -5,6 +5,7 @@ mod editor;
 mod git;
 mod github;
 mod keychain;
+mod notepad;
 mod pr_reviews;
 mod pty;
 mod settings;
@@ -27,6 +28,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::load_settings,
             commands::save_settings,
+            notepad::note_read,
+            notepad::note_write,
+            notepad::note_dir,
             pty::pty_ensure,
             pty::pty_attach,
             pty::pty_write,

@@ -257,6 +257,16 @@ and every push is confirmed.
   notifications at all (not a bundle — test the packaged `.app`), and ad-hoc signature churn between
   builds does not reset the grant.
   Spec: `docs/superpowers/specs/2026-09-08-attention-desktop-notifications-design.md`.
+- **Notepad tab (2026-09-28):** the Cockpit centre's default tab. The note **is** a file,
+  `<settings dir>/notepad/note.md` (`src-tauri/src/notepad.rs`: `note_read` with mtime, atomic `note_write`,
+  `note_dir`); nothing in `cockpit.json`. `NotepadView` saves on a 500 ms debounce and polls the mtime every
+  1 s; `shouldReload` (pure) reloads only when the file is newer AND the editor has no unsaved typing — the
+  user's text always wins. `+ Claude` flushes the note, then opens a `WorktreePane` (`notepad:claude`, cwd = the
+  note dir) via `notepadAutostart()`: `claude --append-system-prompt … --allowedTools 'Edit(note.md)'`; the
+  pane-open flag lives in `CockpitView` so a tab switch does not forget it. Code colouring is a `<pre>` mirror
+  (`CodeOverlay`) under the transparent-text textarea, fed by the language-agnostic `tokenize` in
+  `highlight.ts`; colour applies inside ``` fences, or to the whole note when `looksLikeCode` scores it.
+  Spec: `docs/superpowers/specs/2026-09-28-notepad-tab-design.md`.
 
 ## Status
 

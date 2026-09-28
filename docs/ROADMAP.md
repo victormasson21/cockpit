@@ -55,6 +55,12 @@ The heart — terminals + worktrees — is done. The product arc from here is th
 - **Run button when the dev server exits.** The host pane stays after the process ends (restart re-runs it); consider auto-detecting exit and re-enabling a fresh Run affordance.
 - **Branch picker quality-of-life.** Search/filter for repos with many branches; optionally show last-author alongside the relative date.
 
+### Notepad
+- **Restore the claude pane across restarts** (`claude --continue` in the notepad dir; the `restoredWorktrees` idiom applies).
+- **Several notes with a picker**; note history via git in the notepad directory.
+- **"Send selection to Claude"** — write the selection into the pane's PTY instead of typing a request.
+- **Language-specific grammars or Prism** if colour-only proves insufficient (same `Token[]` interface).
+
 ### Scratch terminals
 - **Rename a scratch terminal.** Editable title instead of the auto `Scratch <n>`.
 

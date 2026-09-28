@@ -1,4 +1,4 @@
-// CockpitView.tsx — dashboard view: left TILES column (Slack / PR reviews / Timer) + centre (Diff tab) + right To Do column.
+// CockpitView.tsx — dashboard view: left TILES column (Slack / PR reviews / Timer) + centre (Notepad | Diff tabs) + right To Do column.
 import { useState } from "react";
 import "./CockpitView.css";
 import { SlackTile } from "../tiles/slack/SlackTile";
@@ -6,16 +6,29 @@ import { PrReviewsTile } from "../tiles/pr/PrReviewsTile";
 import { TodoTile } from "../tiles/todo/TodoTile";
 import { TimerTile } from "../tiles/timer/TimerTile";
 import { DiffView } from "./worktree-column/DiffView";
+import { NotepadView } from "./notepad/NotepadView";
 import { Dropdown } from "./Dropdown";
 import { worktreeOption } from "./worktreeOption";
 import { useSettings } from "../settings/store";
 
-export function CockpitView({ onOpenSettings }: { onOpenSettings: () => void }) {
+type Tab = "notepad" | "diff";
+
+export function CockpitView({ onOpenSettings, notepadClaudeDir, setNotepadClaudeDir }: {
+  onOpenSettings: () => void;
+  // Owned by App: the notepad's claude pane must outlive both a tab switch and a view switch.
+  notepadClaudeDir: string | null;
+  setNotepadClaudeDir: (dir: string | null) => void;
+}) {
   const worktrees = useSettings((s) => s.cockpit.worktrees);
+  const [tab, setTab] = useState<Tab>("notepad"); // session-only; Notepad is the home tab
   // The Diff tab's worktree is picked here and lives only for the session.
   const [diffWorktreeId, setDiffWorktreeId] = useState<string | null>(null);
   const worktree = worktrees.find((w) => w.id === diffWorktreeId) ?? null;
   const pickerGroups = [{ options: worktrees.filter((w) => w.status === "ongoing").map(worktreeOption) }];
+
+  const tabButton = (id: Tab, label: string) => (
+    <button className={`cockpit-view__tab ${tab === id ? "cockpit-view__tab--active" : ""}`} onClick={() => setTab(id)}>{label}</button>
+  );
 
   return (
     <div className="cockpit-view">
@@ -27,10 +40,15 @@ export function CockpitView({ onOpenSettings }: { onOpenSettings: () => void }) 
       </aside>
       <div className="cockpit-view__main">
         <nav className="cockpit-view__tabs">
-          <button className="cockpit-view__tab cockpit-view__tab--active">Diff</button>
-          <Dropdown value={diffWorktreeId} onChange={setDiffWorktreeId} groups={pickerGroups} placeholder="Select a worktree…" variant="form" />
+          {tabButton("notepad", "Notepad")}
+          {tabButton("diff", "Diff")}
+          {tab === "diff" && (
+            <Dropdown value={diffWorktreeId} onChange={setDiffWorktreeId} groups={pickerGroups} placeholder="Select a worktree…" variant="form" />
+          )}
         </nav>
-        {worktree ? (
+        {tab === "notepad" ? (
+          <NotepadView claudeDir={notepadClaudeDir} onOpenClaude={setNotepadClaudeDir} onCloseClaude={() => setNotepadClaudeDir(null)} />
+        ) : worktree ? (
           // Re-keyed by id so switching worktree refetches from scratch.
           <DiffView key={worktree.id} worktree={worktree} />
         ) : (
