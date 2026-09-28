@@ -925,3 +925,12 @@ diff stay solid. Checked headlessly in WebKit and Chromium against Aurora. 563 J
 
 ✅ **Copy cc became Copy cd (2026-09-25).** The chip is relabelled "Copy cd" and copies `cd '<worktreePath>'` without
 `&& claude`; `claudeInDirCmd` became `cdCmd`. 563 JS tests green; tsc + Vite clean.
+
+✅ **Pinned Cockpit worktree column removed (2026-09-28).** The Cockpit view's right column, the `cockpitWorktreeId`
+config field (TS + Rust), `setCockpitWorktree`, the deduce flow's repin/clear steps, the workspace snapshot's
+pin-referenced pruning, the slot-column "Cockpit" gear-menu row and `PinIcon` are gone. Creating from the Cockpit
+view still fills a free Worktrees slot without evicting one. The **To Do tile now sits in that right column**
+(400px, like the tiles column); the Home tab went with it, leaving the Diff tab alone in the centre tab bar until
+the text-analysis tab lands. The Diff tab picks its worktree through its own `Dropdown` (session-only, `form`
+variant, at the right end of the tab bar); `worktreeOption` (`src/views/worktreeOption.ts`) is the picker row
+shared with the slot column. Checked headlessly in WebKit. 557 JS tests + 154 Rust tests green; tsc + Vite clean.

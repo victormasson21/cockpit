@@ -41,18 +41,6 @@ describe("workspaceSnapshot", () => {
     expect(snap.scratch).toEqual([]);
   });
 
-  it("keeps a scratch terminal referenced only by the Cockpit-view pin", () => {
-    const snap = workspaceSnapshot(
-      {
-        slots: [{ key: "k1", id: "wt-1" }],
-        scratchTerminals: [{ id: "scratch-1", title: "Scratch 1" }],
-        scratchSeq: 1,
-        worktreePanes: {},
-      },
-      "scratch-1",
-    );
-    expect(snap.scratch).toEqual([{ id: "scratch-1", title: "Scratch 1" }]);
-  });
 });
 
 describe("withWorkspace", () => {
@@ -62,17 +50,6 @@ describe("withWorkspace", () => {
     expect(out.workspace).toEqual({ slots: ["wt-1"], scratch: [], scratchSeq: 0, panes: {} });
     expect(out.version).toBe(1);
     expect(baseCockpit.workspace).toBeUndefined();
-  });
-
-  it("reads the Cockpit-view pin off the cockpit config so a pinned scratch survives pruning", () => {
-    const session = {
-      slots: [{ key: "k1", id: null }],
-      scratchTerminals: [{ id: "scratch-1", title: "Scratch 1" }],
-      scratchSeq: 1,
-      worktreePanes: {},
-    };
-    const out = withWorkspace({ ...baseCockpit, cockpitWorktreeId: "scratch-1" }, session);
-    expect(out.workspace?.scratch).toEqual([{ id: "scratch-1", title: "Scratch 1" }]);
   });
 });
 
@@ -118,12 +95,12 @@ describe("restoreWorkspace", () => {
     expect(Object.keys(r.worktreePanes)).toEqual(["wt-1"]);
   });
 
-  it("marks every restored worktree — slot ids, pane keys and the cockpit pin", () => {
+  it("marks every restored worktree — slot ids and pane keys", () => {
     const r = restoreWorkspace(
       { ...ws, slots: ["wt-1"], panes: { "wt-2": paneSet } },
-      [wt("wt-1"), wt("wt-2"), wt("wt-3")], minter(), "wt-3",
+      [wt("wt-1"), wt("wt-2"), wt("wt-3")], minter(),
     );
-    expect(r.restoredWorktrees).toEqual({ "wt-1": true, "wt-2": true, "wt-3": true });
+    expect(r.restoredWorktrees).toEqual({ "wt-1": true, "wt-2": true });
   });
 
   it("never marks a scratch id (only worktrees have a claude pane)", () => {

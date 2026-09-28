@@ -44,11 +44,10 @@ describe("column slots", () => {
 describe("placeNewEntity — view-dependent placement", () => {
   beforeEach(() => resetStore());
 
-  it("on the worktrees view fills the first empty slot; cockpit untouched", () => {
+  it("on the worktrees view fills the first empty slot", () => {
     resetStore({ slots: [{ key: "k1", id: "wt-1" }, { key: "k2", id: null }], slotSeq: 2 });
     useSettings.getState().placeNewEntity("wt-2", "worktrees");
     expect(slotIds()).toEqual(["wt-1", "wt-2"]);
-    expect(useSettings.getState().cockpit.cockpitWorktreeId).toBeUndefined();
   });
 
   it("on the worktrees view appends a column when there is room", () => {
@@ -63,25 +62,16 @@ describe("placeNewEntity — view-dependent placement", () => {
     expect(slotIds()).toEqual(["a", "b", "d"]);
   });
 
-  it("on the cockpit view sets the cockpit slot and fills a free Worktrees slot", () => {
+  it("on the cockpit view fills a free Worktrees slot", () => {
     resetStore({ slots: [{ key: "k1", id: "wt-1" }], slotSeq: 1 });
     useSettings.getState().placeNewEntity("wt-9", "cockpit");
-    expect(useSettings.getState().cockpit.cockpitWorktreeId).toBe("wt-9");
     expect(slotIds()).toEqual(["wt-1", "wt-9"]);
   });
 
   it("on the cockpit view leaves the Worktrees view unchanged when full (no eviction)", () => {
     resetStore({ slots: [{ key: "k1", id: "a" }, { key: "k2", id: "b" }, { key: "k3", id: "c" }], slotSeq: 3 });
     useSettings.getState().placeNewEntity("wt-9", "cockpit");
-    expect(useSettings.getState().cockpit.cockpitWorktreeId).toBe("wt-9");
     expect(slotIds()).toEqual(["a", "b", "c"]);
-  });
-
-  it("setCockpitWorktree sets and clears the persisted pin", () => {
-    useSettings.getState().setCockpitWorktree("wt-5");
-    expect(useSettings.getState().cockpit.cockpitWorktreeId).toBe("wt-5");
-    useSettings.getState().setCockpitWorktree(null);
-    expect(useSettings.getState().cockpit.cockpitWorktreeId).toBeUndefined();
   });
 });
 
@@ -96,15 +86,13 @@ describe("scratch terminals", () => {
     expect(st.slots).toEqual([]); // placement is placeNewEntity's job
   });
 
-  it("removeScratch drops the entity and splices its slot (and the cockpit pin)", () => {
+  it("removeScratch drops the entity and splices its slot", () => {
     const id = useSettings.getState().addScratch();
     useSettings.getState().placeNewEntity(id, "worktrees");
-    useSettings.getState().setCockpitWorktree(id);
     useSettings.getState().removeScratch(id);
     const st = useSettings.getState();
     expect(st.scratchTerminals).toEqual([]);
     expect(st.slots).toEqual([]);
-    expect(st.cockpit.cockpitWorktreeId).toBeUndefined();
   });
 
   it("renameScratch overwrites the matching terminal's title only", () => {
@@ -206,12 +194,11 @@ describe("startDeduceWorktree — wiring to the real store", () => {
     vi.mocked(deduceWorktree).mockResolvedValue(deduced);
     vi.mocked(createWorktree).mockResolvedValue("/wt/fix-login");
     useSettings.getState().startDeduceWorktree("fix the login bug", "cockpit", "pr-review");
-    // Placed synchronously, on both slot surfaces, before the chain awaits anything.
+    // Placed synchronously, before the chain awaits anything.
     expect(useSettings.getState().pendingWorktrees).toEqual([
       { id: "pending-1", prompt: "fix the login bug", status: "deducing", view: "cockpit" },
     ]);
     expect(slotIds()).toEqual(["pending-1"]);
-    expect(useSettings.getState().cockpit.cockpitWorktreeId).toBe("pending-1");
 
     await flush();
 
@@ -221,7 +208,6 @@ describe("startDeduceWorktree — wiring to the real store", () => {
     expect(wt.id).toMatch(/^wt-/);
     expect(wt.worktreePath).toBe("/wt/fix-login");
     expect(slotIds()).toEqual([wt.id]); // swapped in place, same column
-    expect(st.cockpit.cockpitWorktreeId).toBe(wt.id);
     expect(st.initialPromptPending[wt.id]).toBe(true);
     expect(wt.prompt).toBe("use the /code-review tool to review this PR\n\nfix the login bug");
     expect(deduceWorktree).toHaveBeenCalledWith("fix the login bug", ["/a"]); // deduce got the bare input

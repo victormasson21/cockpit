@@ -74,7 +74,6 @@ export interface CockpitConfig {
   todoLists: TodoList[];
   activeTodoList?: string;
   worktreeContexts?: Record<string, string>;
-  cockpitWorktreeId?: string;
   workspace?: WorkspaceState;
   preferences: Preferences;
 }

@@ -1,8 +1,8 @@
 // storeState.ts — the settings store's combined state type, composed from its slices.
 // Every slice is typed over the WHOLE state, not just its own members: a few actions are genuinely
-// cross-slice (removeWorktree drops a model AND clears the slot/flags/panes; setCockpitWorktree is a
-// workspace concern stored in the config), and they reach each other through get(). That's why this is
-// one store with slice files rather than several stores — see the plan for 2026-08-03.
+// cross-slice (removeWorktree drops a model AND clears the slot/flags/panes), and they reach each other
+// through get(). That's why this is one store with slice files rather than several stores — see the plan
+// for 2026-08-03.
 import type { StateCreator } from "zustand";
 import type { ConfigSlice } from "./slices/config";
 import type { IntegrationsSlice } from "./slices/integrations";
