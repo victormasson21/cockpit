@@ -19,7 +19,8 @@
 /* status roles: in-progress = warn, done = ok (glyph tint mirrors the section meaning) */
 .todo__row--in_progress .todo__glyph { color: var(--warn); }
 .todo__row--done .todo__glyph { color: var(--ok); }
-.todo__text { flex: 1; min-width: 0; color: var(--tx); cursor: text; }
+/* overflow-wrap: anywhere — an unbroken URL must wrap inside the text box, or it paints over the Add/✕ buttons. */
+.todo__text { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--tx); cursor: text; }
 /* Inherits bg/border/radius/padding/font from the global `input` baseline (tokens.css); only layout here. */
 .todo__edit { flex: 1; min-width: 0; }
 .todo__row--done .todo__text { text-decoration: line-through; color: var(--tx-3); }

@@ -1,7 +1,7 @@
 /* CockpitView.css — three-column layout: fixed-width left tiles column · flex centre (Diff tab) · fixed-width right To Do column. */
 .cockpit-view { display: flex; gap: 12px; padding: 12px; height: 100%; box-sizing: border-box; }
 .cockpit-view__tiles, .cockpit-view__todo { width: 400px; flex: 0 0 400px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
-.cockpit-view__todo { overflow: auto; }
+.cockpit-view__todo { width: 520px; flex-basis: 520px; overflow: auto; }
 .cockpit-view__tiles-label { font-size: var(--fs-xs); letter-spacing: 0.08em; color: var(--tx-3); }
 
 /* centre column: a tab bar (with the Diff worktree picker at its right end) over the Diff view, which
