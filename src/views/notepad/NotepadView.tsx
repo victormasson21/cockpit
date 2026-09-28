@@ -7,7 +7,7 @@ import { notepadAutostart } from "../../worktrees/claudeCmd";
 import { NOTEPAD_ID } from "../../worktrees/ptyId";
 import { killPanes } from "../../worktrees/paneLifecycle";
 import { WorktreePane } from "../worktree-column/WorktreePane";
-import { CodeOverlay } from "./CodeOverlay";
+import { CodeOverlay, syncScroll } from "./CodeOverlay";
 import { PlusIcon } from "../icons";
 import "../worktree-column/WorktreeColumn.css";
 import "./notepad.css";
@@ -21,7 +21,6 @@ export function NotepadView({ claudeDir, onOpenClaude, onCloseClaude }: {
   onCloseClaude: () => void;
 }) {
   const [text, setText] = useState("");
-  const [scroll, setScroll] = useState({ top: 0, left: 0 }); // mirrored onto the overlay
   // Refs, not state, for what the poll and the debounced save read: they must see the latest values
   // without re-arming the interval or the timer on every keystroke.
   const textRef = useRef(text);
@@ -30,6 +29,7 @@ export function NotepadView({ claudeDir, onOpenClaude, onCloseClaude }: {
   const knownMtimeRef = useRef(0);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const editorRef = useRef<HTMLTextAreaElement>(null);
+  const overlayRef = useRef<HTMLPreElement>(null);
 
   // Write what the editor holds now. Dirty clears only if nothing was typed during the write.
   const save = useCallback(async () => {
@@ -79,9 +79,11 @@ export function NotepadView({ claudeDir, onOpenClaude, onCloseClaude }: {
   // A tab switch unmounts the view; unsaved typing must not die with it.
   useEffect(() => () => { if (dirtyRef.current) void save(); }, [save]);
 
-  // The file must exist before Claude reads it, so the (possibly empty) editor is flushed first.
+  // The file must exist before Claude reads it: flush unsaved typing, or write the empty note when the
+  // file has never existed (mtime 0). A clean editor with a file on disk saves nothing — a save there
+  // could overwrite a Claude edit the poll has not seen yet.
   const openClaude = async () => {
-    await save();
+    if (dirtyRef.current || knownMtimeRef.current === 0) await save();
     onOpenClaude(await noteDir());
   };
   const closeClaude = async () => {
@@ -93,21 +95,20 @@ export function NotepadView({ claudeDir, onOpenClaude, onCloseClaude }: {
     <div className="notepad">
       {/* Overlay first, textarea (positioned) after: caret and selection paint over the coloured glyphs. */}
       <div className="notepad__editor-wrap">
-        <CodeOverlay text={text} scrollTop={scroll.top} scrollLeft={scroll.left} />
+        <CodeOverlay ref={overlayRef} editorRef={editorRef} text={text} />
         <textarea
           ref={editorRef} className="notepad__text notepad__editor" value={text} placeholder="Paste or type…" spellCheck={false}
           onChange={(e) => onChange(e.target.value)} onBlur={() => { if (dirtyRef.current) void save(); }}
-          onScroll={(e) => setScroll({ top: e.currentTarget.scrollTop, left: e.currentTarget.scrollLeft })}
+          onScroll={(e) => syncScroll(overlayRef.current, e.currentTarget)}
         />
       </div>
+      {/* A direct flex child, so the pane's own open/closed flex rules decide how much column it takes. */}
       {claudeDir && (
-        <div className="notepad__pane">
-          <WorktreePane
-            title="Claude Code" icon={<span className="wt-ico wt-ico--claude" aria-hidden />}
-            worktreeId={NOTEPAD_ID} role="claude" cwd={claudeDir} autostartCmd={notepadAutostart()}
-            onClose={() => void closeClaude()}
-          />
-        </div>
+        <WorktreePane
+          title="Claude Code" icon={<span className="wt-ico wt-ico--claude" aria-hidden />}
+          worktreeId={NOTEPAD_ID} role="claude" cwd={claudeDir} autostartCmd={notepadAutostart()}
+          onClose={() => void closeClaude()}
+        />
       )}
       <div className="wt-col__actions notepad__actions">
         <button

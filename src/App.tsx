@@ -45,6 +45,9 @@ function App() {
   const addEmptySlot = useSettings((s) => s.addEmptySlot);
   const setDefaultView = useSettings((s) => s.setDefaultView);
   const [view, setView] = useState<View>("worktrees");
+  // The notepad's claude pane: session-only, held here because CockpitView unmounts on a view switch
+  // while the PTY keeps running; a forgotten pane would still bell with nothing on screen.
+  const [notepadClaudeDir, setNotepadClaudeDir] = useState<string | null>(null);
   // Every deliberate view switch also persists it: reopening the app lands where you left off.
   // (The load effect below intentionally uses the raw setter — restoring is not a switch.)
   const changeView = (v: View) => { setView(v); setDefaultView(v); };
@@ -177,7 +180,7 @@ function App() {
         </div>
       </header>
       <main className="app__body">
-        {view === "cockpit" && <CockpitView onOpenSettings={() => setSettingsOpen(true)} />}
+        {view === "cockpit" && <CockpitView onOpenSettings={() => setSettingsOpen(true)} notepadClaudeDir={notepadClaudeDir} setNotepadClaudeDir={setNotepadClaudeDir} />}
         {view === "worktrees" && <WorktreesView />}
       </main>
       {creating && <NewWorktreeModal view={view} onClose={() => { setCreating(false); clearWorktreeError(); }} />}

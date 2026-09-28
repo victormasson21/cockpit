@@ -13,15 +13,18 @@ import { useSettings } from "../settings/store";
 
 type Tab = "notepad" | "diff";
 
-export function CockpitView({ onOpenSettings }: { onOpenSettings: () => void }) {
+export function CockpitView({ onOpenSettings, notepadClaudeDir, setNotepadClaudeDir }: {
+  onOpenSettings: () => void;
+  // Owned by App: the notepad's claude pane must outlive both a tab switch and a view switch.
+  notepadClaudeDir: string | null;
+  setNotepadClaudeDir: (dir: string | null) => void;
+}) {
   const worktrees = useSettings((s) => s.cockpit.worktrees);
   const [tab, setTab] = useState<Tab>("notepad"); // session-only; Notepad is the home tab
   // The Diff tab's worktree is picked here and lives only for the session.
   const [diffWorktreeId, setDiffWorktreeId] = useState<string | null>(null);
   const worktree = worktrees.find((w) => w.id === diffWorktreeId) ?? null;
   const pickerGroups = [{ options: worktrees.filter((w) => w.status === "ongoing").map(worktreeOption) }];
-  // Lifted out of NotepadView so switching tabs (which unmounts it) does not forget a running pane.
-  const [notepadClaudeDir, setNotepadClaudeDir] = useState<string | null>(null);
 
   const tabButton = (id: Tab, label: string) => (
     <button className={`cockpit-view__tab ${tab === id ? "cockpit-view__tab--active" : ""}`} onClick={() => setTab(id)}>{label}</button>

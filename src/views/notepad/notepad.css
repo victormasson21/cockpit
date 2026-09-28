@@ -11,12 +11,15 @@
   white-space: pre-wrap; overflow-wrap: anywhere;
 }
 .notepad__editor-wrap > .notepad__editor { position: relative; resize: none; background: transparent; color: transparent; caret-color: var(--tx); border-color: var(--bdr); }
-.notepad__editor-wrap > .notepad__editor::selection { background: rgba(143, 182, 224, 0.25); }
+/* The textarea's own text is transparent, so the selection tint is what shows over the overlay glyphs. */
+.notepad__editor-wrap > .notepad__editor::selection { background: color-mix(in srgb, var(--accent) 25%, transparent); }
+/* No scrollbar on the textarea: a classic (non-overlay) one narrows its content box and shifts the wrap
+   points away from the overlay's. Trackpad/wheel scrolling still works. */
+.notepad__editor-wrap > .notepad__editor::-webkit-scrollbar { display: none; }
 .notepad__editor-wrap > .notepad__overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; color: var(--tx); }
 .hl-comment { color: var(--tx-3); }
 .hl-string { color: var(--ok); }
 .hl-number { color: var(--warn); }
 .hl-keyword { color: var(--accent); }
 .hl-punct { color: var(--tx-2); }
-.notepad__pane { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .notepad__actions { padding: 0; }

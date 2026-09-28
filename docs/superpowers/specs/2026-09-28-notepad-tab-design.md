@@ -61,8 +61,9 @@ should be readable — coloured, not linted.
 - **Passes are messages.** The session stays open; "another pass, tighter" is typed into the
   pane. Edits the user made in the editor between passes reach Claude because it re-reads the
   file.
-- Close on the pane respawns a bare shell (existing behaviour); a second `+ Claude` while the
-  pane exists is a no-op. The pane is **not** restored across restarts in this iteration (see
+- Close on the pane kills the process and removes the pane (the host/extra-shell behaviour, not the
+  worktree claude pane's respawn-bare), since `+ Claude` recreates it in one click; the button is
+  disabled while the pane exists. The pane is **not** restored across restarts in this iteration (see
   Deferred).
 
 ### Two-way sync (the one new mechanism)
@@ -95,7 +96,8 @@ visible — with no dependency and no claim of per-language accuracy.
   synced to the textarea's. Colour lives only in the mirror. `--mono` on both is what makes the
   glyphs coincide.
 - **One generic tokenizer** (`tokenize`, pure, tested), no per-language grammars. Token classes:
-  `comment` (`//`, `#`, `/* */`, `--`, `<!-- -->`), `string` (`'`, `"`, `` ` ``, with escapes),
+  `comment` (`//` not after `:`, `#` not before a word char or `[`, `/* */` — no `--`, which would
+  dim every CLI flag, and no `<!-- -->`), `string` (`'`, `"`, `` ` ``, with escapes),
   `number`, `keyword` (one shared list: the control-flow and declaration words common to
   TypeScript, Rust, Python, Bash, Kotlin, Go — `if else for while return fn function def let
   const var class import from export use pub struct impl match async await try catch …`),
@@ -108,8 +110,8 @@ visible — with no dependency and no claim of per-language accuracy.
   (share of lines ending in `;`, `{`, `}`, `:` or starting with indentation and a keyword,
   shebang, a fence-less `import`/`fn`/`def` at column 0). The score threshold is a named
   constant.
-- **Cost guard:** tokenising runs on the debounced text (not per keystroke) and is skipped above
-  200 KB — the overlay then renders plain text.
+- **Cost guard:** tokenising runs on React's deferred value of the text, so a keystroke's own render
+  never waits for it, and is skipped above 200 KB — the overlay then renders plain text.
 
 **What this deliberately does not do:** nested template literals, regex literals, JSX,
 heredocs, language detection beyond "code or not". If that bar ever matters, Prism (MIT, ~2 KB
@@ -128,8 +130,9 @@ core, one small file per language, no runtime deps) replaces `tokenize` behind t
 | `CodeOverlay` | `src/views/notepad/CodeOverlay.tsx` | the mirror `<pre>` |
 | tab wiring | `src/views/CockpitView.tsx` | `tab: "notepad" \| "diff"`, default `notepad` |
 
-Store: **no new slice.** The note is on disk; the pane's existence is component state in
-`NotepadView` (session-only, like a scratch pane's chrome). The attention slice needs nothing —
+Store: **no new slice.** The note is on disk; the pane's existence is session-only React state held
+in `App` (not `NotepadView`, which unmounts on a tab switch, nor `CockpitView`, which unmounts on a
+view switch — the PTY outlives both, so the flag must too). The attention slice needs nothing —
 it is keyed by pty id.
 
 ## Scope of effect
