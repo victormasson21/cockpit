@@ -934,3 +934,11 @@ view still fills a free Worktrees slot without evicting one. The **To Do tile no
 the text-analysis tab lands. The Diff tab picks its worktree through its own `Dropdown` (session-only, `form`
 variant, at the right end of the tab bar); `worktreeOption` (`src/views/worktreeOption.ts`) is the picker row
 shared with the slot column. Checked headlessly in WebKit. 557 JS tests + 154 Rust tests green; tsc + Vite clean.
+
+✅ **Notepad tab (2026-09-28).** New default Cockpit centre tab: a mono editor over `notepad/note.md` in the
+settings dir, a `+ Claude` pane that edits that file in place over several passes (system prompt via
+`notepadAutostart`, cwd = the note dir), a 1 s mtime poll with a reload-only-when-clean rule, and colour-only code
+highlighting through a mirror overlay (`highlight.ts` tokenizer: comments/strings/numbers/shared keywords/punct;
+fences first, whole-note when it scores as code; plain above 200 KB). Spec + plan under `docs/superpowers/`.
+Checked headlessly in WebKit (tab, pane, overlay metrics). 592 JS tests + 158 Rust tests green; tsc + Vite clean.
+Packaged-app smoke pending: pin the `--allowedTools` spelling.

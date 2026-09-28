@@ -1,7 +1,7 @@
 # Notepad tab — design
 
 **Date:** 2026-09-28
-**Status:** approved design, not yet built (branch `feature/text-analysis-space`)
+**Status:** implemented on `feature/text-analysis-space` (2026-09-28)
 
 ## Problem
 
