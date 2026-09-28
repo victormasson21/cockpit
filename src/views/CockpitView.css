@@ -1,4 +1,4 @@
-/* CockpitView.css — three-column layout: fixed-width left tiles column · flex centre (Diff tab) · fixed-width right To Do column. */
+/* CockpitView.css — three-column layout: fixed-width left tiles column · flex centre (Notepad | Diff tabs) · fixed-width right To Do column. */
 .cockpit-view { display: flex; gap: 12px; padding: 12px; height: 100%; box-sizing: border-box; }
 .cockpit-view__tiles, .cockpit-view__todo { width: 400px; flex: 0 0 400px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
 .cockpit-view__todo { width: 520px; flex-basis: 520px; overflow: auto; }
