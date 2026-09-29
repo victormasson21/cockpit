@@ -7,11 +7,15 @@
 /* centre column: a tab bar (with the Diff worktree picker at its right end) over the Diff view, which
    flex-fills the remaining height. */
 .cockpit-view__main { flex: 1; min-width: 320px; display: flex; flex-direction: column; min-height: 0; gap: var(--space-3); }
-.cockpit-view__tabs { display: flex; align-items: center; gap: var(--space-4); border-bottom: 1px solid var(--bdr); flex: 0 0 auto; }
+.cockpit-view__tabs { display: flex; align-items: center; gap: var(--space-2); flex: 0 0 auto; }
 .cockpit-view__tabs > .dd { margin-left: auto; }
-.cockpit-view__tab { background: none; border: none; color: var(--tx-2); cursor: pointer; padding: 6px 2px; margin-bottom: -1px; font-size: var(--fs-lg); border-bottom: 2px solid transparent; transition: color 200ms ease-out; }
-.cockpit-view__tab:hover { color: var(--tx); }
-.cockpit-view__tab--active { color: var(--tx-hi); border-bottom-color: var(--accent); font-weight: 600; }
+/* Tabs read as buttons: outlined at rest, contained in the accent when selected (same shape as .wt-col__action). */
+.cockpit-view__tab {
+  background: none; border: 1px solid var(--bdr); border-radius: var(--r-sm); color: var(--tx-2); cursor: pointer;
+  padding: 4px 14px; font-size: var(--fs-lg); transition: color 200ms ease-out, background-color 200ms ease-out;
+}
+.cockpit-view__tab:hover { color: var(--tx); background: var(--hover); }
+.cockpit-view__tab--active, .cockpit-view__tab--active:hover { color: var(--on-accent); background: var(--accent); border-color: var(--accent); font-weight: 600; }
 
 .cockpit-view__diff-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--tx-3); font-size: var(--fs-md); }
 
