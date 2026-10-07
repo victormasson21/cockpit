@@ -4,7 +4,8 @@ import { useSettings } from "../../settings/store";
 import { makePtyId } from "../../worktrees/ptyId";
 import { resolveSlotEntity } from "../slots";
 import { isPrimaryTree } from "../../worktrees/model";
-import { GearIcon, CloseIcon, PauseIcon, BinIcon, GhostIcon, PlayIcon } from "../icons";
+import { canRelocate } from "../../worktrees/relocate";
+import { GearIcon, CloseIcon, PauseIcon, BinIcon, GhostIcon, PlayIcon, FolderIcon } from "../icons";
 import { Dropdown } from "../Dropdown";
 import type { DropdownGroup } from "../dropdownModel";
 import { worktreeOption } from "../worktreeOption";
@@ -12,6 +13,7 @@ import { WorktreeBody } from "./WorktreeBody";
 import { ScratchBody } from "./ScratchBody";
 import { PendingBody } from "./PendingBody";
 import { TeardownConfirm } from "./TeardownConfirm";
+import { RelocateDialog } from "./RelocateDialog";
 import { killPanes, liveRoles } from "../../worktrees/paneLifecycle";
 import { ptyLiveIds } from "../../worktrees/ptyPane";
 import { activityOf, type Activity } from "../../worktrees/activity";
@@ -42,6 +44,7 @@ export function SlotColumn({ value, onSelect, onClose }: { value: string | null;
   const [menuOpen, setMenuOpen] = useState(false);
   // Delete/Wipe open a confirmation dialog (worktree only); state is local to each column instance.
   const [confirm, setConfirm] = useState<"delete" | "wipe" | null>(null);
+  const [relocating, setRelocating] = useState(false);
 
   // Close removes the whole column (the Worktrees view reflows). Menu-driven removals funnel through here.
   const close = () => { setMenuOpen(false); onClose(); };
@@ -139,6 +142,9 @@ export function SlotColumn({ value, onSelect, onClose }: { value: string | null;
                 {entity?.kind === "worktree" ? (
                   <>
                     <button onClick={pauseActive}><PauseIcon />Pause</button>
+                    {canRelocate(entity.worktree) && (
+                      <button onClick={() => { setRelocating(true); setMenuOpen(false); }}><FolderIcon />Move to repo…</button>
+                    )}
                     {primary ? (
                       <button className="wt-col__danger" onClick={forget}><BinIcon />Forget</button>
                     ) : (
@@ -176,6 +182,9 @@ export function SlotColumn({ value, onSelect, onClose }: { value: string | null;
           // removeWorktree (inside teardown) already clears the slot. Any non-fatal warning was already shown in the dialog.
           onDone={() => { setConfirm(null); close(); }}
         />
+      )}
+      {relocating && entity?.kind === "worktree" && (
+        <RelocateDialog worktree={entity.worktree} onClose={() => setRelocating(false)} />
       )}
     </div>
   );

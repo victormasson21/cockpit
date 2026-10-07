@@ -97,3 +97,28 @@ describe("teardownWorktree", () => {
     expect(removeWorktreeGit).toHaveBeenCalledWith("/r", "/wt", true);
   });
 });
+
+describe("teardownWorktree on a relocated worktree", () => {
+  const MOVED = { ...WT, relocatedFrom: { repoPath: "/old", worktreePath: "/old-wt", branch: "feat/x" } };
+
+  it("delete also force-removes the earlier checkout and keeps its branch", async () => {
+    const warning = await teardownWorktree(MOVED, { wipe: false, force: false }, deps().deps);
+    expect(removeWorktreeGit).toHaveBeenNthCalledWith(2, "/old", "/old-wt", true);
+    expect(deleteBranch).not.toHaveBeenCalled();
+    expect(warning).toBeNull();
+  });
+
+  it("wipe deletes the branch in both repos", async () => {
+    await teardownWorktree(MOVED, { wipe: true, force: false }, deps().deps);
+    expect(deleteBranch).toHaveBeenNthCalledWith(1, "/r", "feat/x");
+    expect(deleteBranch).toHaveBeenNthCalledWith(2, "/old", "feat/x");
+  });
+
+  it("an earlier-checkout failure is a warning, never a reason to keep the model", async () => {
+    vi.mocked(removeWorktreeGit).mockResolvedValueOnce().mockRejectedValueOnce("gone wrong");
+    const { removeModel, deps: d } = deps();
+    const warning = await teardownWorktree(MOVED, { wipe: false, force: false }, d);
+    expect(warning).toContain("/old-wt");
+    expect(removeModel).toHaveBeenCalledExactlyOnceWith("wt-1");
+  });
+});

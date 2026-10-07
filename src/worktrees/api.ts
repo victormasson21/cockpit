@@ -44,6 +44,9 @@ export const discoverRepos = (paths: readonly string[]) =>
 // the user changes outside cockpit, so the model's creation-time snapshot cannot be trusted.
 export const currentBranch = (repoPath: string) => invoke<string>("current_branch", { repoPath });
 
+// The repo's default branch — the base for a branch cockpit creates on a relocation.
+export const defaultBranch = (repoPath: string) => invoke<string>("default_branch", { repoPath });
+
 // One local branch row for the existing-branch picker (mirrors Rust BranchInfo).
 // checkedOut flags a branch git won't let us worktree-add (already checked out somewhere); primaryTree is
 // the one exception — the branch the repo's OWN working tree holds, which the picker opens in place.

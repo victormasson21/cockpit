@@ -77,6 +77,8 @@ export function WorktreeBody({ worktree }: { worktree: Worktree }) {
   const host = resolveHost(worktree, knownRepos);
   const startCmd = host.startCmd;
   const cdLine = cdCmd(worktree.worktreePath);
+  // After a move to another repo, Claude stays where it started: its conversation is stored per directory.
+  const moved = worktree.relocatedFrom;
   return (
     // Re-keyed by id upstream so switching the picker remounts panes (detach old, attach new) without killing PTYs.
     <div className="wt-col__body">
@@ -109,8 +111,8 @@ export function WorktreeBody({ worktree }: { worktree: Worktree }) {
         {/* attention highlight (border/glow + badge) is owned by WorktreePane via the live store. */}
         <WorktreePane
           title="Claude Code" icon={<span className="wt-ico wt-ico--claude" aria-hidden />}
-          worktreeId={worktree.id} role="claude" cwd={worktree.worktreePath}
-          autostartCmd={claudePaneAutostart(worktree.prompt, promptPending, restored)}
+          worktreeId={worktree.id} role="claude" cwd={moved?.worktreePath ?? worktree.worktreePath}
+          autostartCmd={claudePaneAutostart(worktree.prompt, promptPending, restored, moved && worktree.worktreePath)}
           onEnsured={() => {
             // Both one-shots are consumed by the first ensure: a later restart runs plain `claude`.
             useSettings.getState().clearInitialPrompt(worktree.id);

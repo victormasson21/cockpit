@@ -49,6 +49,7 @@ pub fn run() {
             worktree::branch_roots,
             editor::open_in_editor,
             worktree::current_branch,
+            worktree::default_branch,
             github::worktree_pr,
             deduce::deduce_worktree,
             slack::slack_set_credentials,

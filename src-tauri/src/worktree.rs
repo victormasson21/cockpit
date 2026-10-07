@@ -329,6 +329,12 @@ pub fn current_branch(repo_path: String) -> Result<String, String> {
     git::run(&repo_path, ["rev-parse", "--abbrev-ref", "HEAD"]).map(|out| out.trim().to_string())
 }
 
+// The base a new branch starts from when cockpit picks it (a relocation into another repo).
+#[tauri::command(async)]
+pub fn default_branch(repo_path: String) -> Result<String, String> {
+    resolve_base("", &repo_path)
+}
+
 // Resolve the base ref to diff against: an explicit base wins; else the repo default branch;
 // else an error the UI shows inline (we won't guess a base).
 fn resolve_base(base: &str, repo_path: &str) -> Result<String, String> {

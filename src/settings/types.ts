@@ -55,7 +55,9 @@ export interface Worktree {
   links: WorktreeLink[];
   status: WorktreeStatus;
   prompt?: string; // the deduce prompt that created this worktree (auto-sent to Claude once; kept copyable)
+  relocatedFrom?: WorktreeLocation; // where it lived before a move to another repo; the Claude pane stays there
 }
+export interface WorktreeLocation { repoPath: string; worktreePath: string; branch: string }
 
 // The previous session's arrangement (mirrors the Rust Workspace struct). `slots` holds entity ids in
 // column order; null = a shown-but-empty column. Absent from the config entirely on a pre-feature file.

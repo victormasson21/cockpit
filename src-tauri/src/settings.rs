@@ -75,6 +75,20 @@ pub struct Worktree {
     // The deduce prompt that created this worktree (auto-sent to Claude once; kept copyable). Absent for manual/checkout worktrees.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prompt: Option<String>,
+    // Where the worktree lived before a move to another repo. The Claude pane keeps running there (its
+    // conversation is stored per directory), and teardown removes it alongside the current location.
+    #[serde(rename = "relocatedFrom", default, skip_serializing_if = "Option::is_none")]
+    pub relocated_from: Option<WorktreeLocation>,
+}
+
+// A worktree's git location: the repo it belongs to, its checkout dir, and its branch.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct WorktreeLocation {
+    #[serde(rename = "repoPath")]
+    pub repo_path: String,
+    #[serde(rename = "worktreePath")]
+    pub worktree_path: String,
+    pub branch: String,
 }
 
 // Per-integration persisted config (non-secret only). Slack secrets live in Keychain, never here.
@@ -538,6 +552,20 @@ mod tests {
         let with = Worktree { prompt: Some("fix the login bug".into()), ..wt };
         let back: Worktree = serde_json::from_str(&serde_json::to_string(&with).unwrap()).unwrap();
         assert_eq!(back.prompt.as_deref(), Some("fix the login bug"));
+    }
+
+    #[test]
+    fn worktree_relocated_from_optional_and_round_trips() {
+        let json = r#"{"id":"wt-1","name":"n","repoPath":"/r","branch":"b","worktreePath":"/w","host":{"startCmd":"","address":""},"links":[],"status":"ongoing"}"#;
+        let wt: Worktree = serde_json::from_str(json).unwrap();
+        assert_eq!(wt.relocated_from, None);
+        assert!(!serde_json::to_string(&wt).unwrap().contains("relocatedFrom"));
+        let from = WorktreeLocation { repo_path: "/a".into(), worktree_path: "/wa".into(), branch: "b".into() };
+        let moved = Worktree { relocated_from: Some(from.clone()), ..wt };
+        let text = serde_json::to_string(&moved).unwrap();
+        assert!(text.contains(r#""relocatedFrom":{"repoPath":"/a","worktreePath":"/wa","branch":"b"}"#));
+        let back: Worktree = serde_json::from_str(&text).unwrap();
+        assert_eq!(back.relocated_from, Some(from));
     }
 
     // Pre-feature files have no workspace block at all: that ABSENCE is what selects the old

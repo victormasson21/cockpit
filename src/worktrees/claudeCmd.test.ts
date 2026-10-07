@@ -55,6 +55,11 @@ describe("claudePaneAutostart", () => {
     expect(claudePaneAutostart(undefined, false, false)).toBe("claude");
     expect(claudePaneAutostart(undefined, false)).toBe("claude");
   });
+  it("puts a relocated worktree's checkout last on every invocation, after any prompt", () => {
+    expect(claudePaneAutostart(undefined, false, false, "/w")).toBe("claude --add-dir '/w'");
+    expect(claudePaneAutostart(undefined, false, true, "/w")).toBe("claude --continue --add-dir '/w' || claude --add-dir '/w'");
+    expect(claudePaneAutostart("fix it", true, false, "/w")).toBe("claude 'fix it' --add-dir '/w'");
+  });
 });
 
 describe("notepadAutostart", () => {

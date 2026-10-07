@@ -14,17 +14,20 @@ export function cdCmd(dir: string): string {
 
 export const isClaudeCommand = (text: string): boolean => /^claude(\s|$)/.test(text.trim());
 
-// Resume this worktree's last conversation when the pane came back from a previous session. `|| claude`
-// covers `--continue` exiting non-zero because there is nothing to continue (claude was never used
-// here), which would otherwise leave the pane on a bare shell showing an error.
-export const CONTINUE_CMD = "claude --continue || claude";
-
 // Autostart for the claude pane, in precedence order: a pending one-shot deduce prompt, then resuming a
-// restored pane, then a plain session.
-export function claudePaneAutostart(prompt: string | undefined, pending: boolean, restored = false): string {
-  if (pending && prompt) return claudeAutostart(prompt);
-  return restored ? CONTINUE_CMD : "claude";
+// restored pane, then a plain session. `addDir` (a relocated worktree's new checkout) goes last on every
+// invocation: --add-dir is variadic and would swallow a prompt placed after it.
+export function claudePaneAutostart(prompt: string | undefined, pending: boolean, restored = false, addDir?: string): string {
+  const withDir = (cmd: string) => (addDir ? `${cmd} --add-dir ${shellQuote(addDir)}` : cmd);
+  if (pending && prompt) return withDir(claudeAutostart(prompt));
+  // Resume this worktree's last conversation when the pane came back from a previous session. `|| claude`
+  // covers `--continue` exiting non-zero because there is nothing to continue (claude was never used
+  // here), which would otherwise leave the pane on a bare shell showing an error.
+  return restored ? `${withDir("claude --continue")} || ${withDir("claude")}` : withDir("claude");
 }
+
+// Typed into a live claude session after a relocation, without Enter: the user submits it when Claude is idle.
+export const addDirCommand = (dir: string): string => `/add-dir ${dir}`;
 
 export const NOTE_NAME = "note";
 export const NOTE_FILE = `${NOTE_NAME}.md`;
