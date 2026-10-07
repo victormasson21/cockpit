@@ -26,7 +26,8 @@ export function claudePaneAutostart(prompt: string | undefined, pending: boolean
   return restored ? CONTINUE_CMD : "claude";
 }
 
-export const NOTE_FILE = "note.md";
+export const NOTE_NAME = "note";
+export const NOTE_FILE = `${NOTE_NAME}.md`;
 
 // What the notepad's claude session is told about its job. The note is the deliverable; the terminal is
 // for instructions. No single quotes in here: the launch wraps it in them verbatim.
