@@ -1,0 +1,6 @@
+/* notepad-tile.css — the notepad tile takes only the column's spare height; past that its editor scrolls. */
+.notepad-tile { flex: 1 1 0; min-height: 140px; }
+.notepad-tile .tile__body { flex: 1; padding: var(--space-2); }
+/* Title button and input inherit the tile title's look; .tile__title sets the type. */
+.notepad-tile button.notepad-tile__title { background: none; border: none; padding: 0; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: text; }
+.notepad-tile input.notepad-tile__title-edit { width: 100%; padding: 0 var(--space-1); font: inherit; letter-spacing: inherit; text-transform: inherit; }

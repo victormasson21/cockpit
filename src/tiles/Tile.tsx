@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import "./Tile.css";
 
 export function Tile({ title, icon, actions, className, children }: {
-  title: string;
+  title: ReactNode;
   icon?: ReactNode;
   actions?: ReactNode;
   className?: string;

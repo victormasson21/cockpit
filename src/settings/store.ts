@@ -1,5 +1,5 @@
 // store.ts — the single in-session source of truth for settings. This file is the assembly point: it
-// composes the per-concern slices (config, zoom, todos, integrations, workspace) into one store, and
+// composes the per-concern slices (config, zoom, todos, notes, integrations, workspace) into one store, and
 // owns `init`, which is the one action that hydrates every slice at once.
 //
 // One store rather than several, deliberately: the persisted `workspace` block is composed from session
@@ -9,6 +9,7 @@
 import { create } from "zustand";
 import { createConfigSlice } from "./slices/config";
 import { createIntegrationsSlice } from "./slices/integrations";
+import { createNotesSlice } from "./slices/notes";
 import { createTodosSlice } from "./slices/todos";
 import { createWorkspaceSlice } from "./slices/workspace";
 import { clampZoom, createZoomSlice } from "./slices/zoom";
@@ -24,6 +25,7 @@ export const useSettings = create<SettingsState>((...a) => {
     ...createConfigSlice(...a),
     ...createZoomSlice(...a),
     ...createTodosSlice(...a),
+    ...createNotesSlice(...a),
     ...createIntegrationsSlice(...a),
     ...createWorkspaceSlice(...a),
 

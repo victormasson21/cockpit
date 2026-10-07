@@ -1,10 +1,12 @@
-// CockpitView.tsx — dashboard view: left TILES column (Slack / PR reviews / Timer) + centre (Notepad | Diff tabs) + right To Do column.
+// CockpitView.tsx — dashboard view: left TILES column (Slack / PR reviews / notepads / Timer) + centre (Notepad | Diff tabs) + right To Do column.
 import { useState } from "react";
 import "./CockpitView.css";
 import { SlackTile } from "../tiles/slack/SlackTile";
 import { PrReviewsTile } from "../tiles/pr/PrReviewsTile";
 import { TodoTile } from "../tiles/todo/TodoTile";
 import { TimerTile } from "../tiles/timer/TimerTile";
+import { NotepadTile } from "../tiles/notepad/NotepadTile";
+import { notesOf } from "../settings/slices/notes";
 import { DiffView } from "./worktree-column/DiffView";
 import { NotepadView } from "./notepad/NotepadView";
 import { Dropdown } from "./Dropdown";
@@ -20,6 +22,7 @@ export function CockpitView({ onOpenSettings, notepadClaudeDir, setNotepadClaude
   setNotepadClaudeDir: (dir: string | null) => void;
 }) {
   const worktrees = useSettings((s) => s.cockpit.worktrees);
+  const notes = notesOf(useSettings((s) => s.cockpit.notes));
   const [tab, setTab] = useState<Tab>("notepad"); // session-only; Notepad is the home tab
   // The Diff tab's worktree is picked here and lives only for the session.
   const [diffWorktreeId, setDiffWorktreeId] = useState<string | null>(null);
@@ -36,6 +39,7 @@ export function CockpitView({ onOpenSettings, notepadClaudeDir, setNotepadClaude
         <div className="cockpit-view__tiles-label">TILES</div>
         <SlackTile onOpenSettings={onOpenSettings} />
         <PrReviewsTile onOpenSettings={onOpenSettings} />
+        {notes.map((n) => <NotepadTile key={n.id} note={n} />)}
         <TimerTile />
       </aside>
       <div className="cockpit-view__main">

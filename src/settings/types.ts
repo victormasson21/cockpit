@@ -42,6 +42,8 @@ export interface TodoList { id: string; name: string }
 // `listId` is optional: absent (or dangling) resolves to the first list via listIdOf() in
 // tiles/todo/todo.ts, so a pre-tabs cockpit.json loads with no migration.
 export interface TodoItem { id: string; text: string; state: TodoState; listId?: string }
+// A notepad tile in the Cockpit tiles column: its file is <id>.md under the notepad dir.
+export interface NoteTile { id: string; title: string }
 export type WorktreeStatus = "ongoing" | "completed";
 export interface Worktree {
   id: string;
@@ -73,6 +75,7 @@ export interface CockpitConfig {
   todos: TodoItem[];
   todoLists: TodoList[];
   activeTodoList?: string;
+  notes?: NoteTile[]; // absent/empty resolves to DEFAULT_NOTE via notesOf()
   worktreeContexts?: Record<string, string>;
   workspace?: WorkspaceState;
   preferences: Preferences;

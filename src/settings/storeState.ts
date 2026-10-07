@@ -6,6 +6,7 @@
 import type { StateCreator } from "zustand";
 import type { ConfigSlice } from "./slices/config";
 import type { IntegrationsSlice } from "./slices/integrations";
+import type { NotesSlice } from "./slices/notes";
 import type { TodosSlice } from "./slices/todos";
 import type { WorkspaceSlice } from "./slices/workspace";
 import type { ZoomSlice } from "./slices/zoom";
@@ -21,6 +22,7 @@ export type SettingsState =
   & ConfigSlice
   & ZoomSlice
   & TodosSlice
+  & NotesSlice
   & IntegrationsSlice
   & WorkspaceSlice
   & HydrateSlice;

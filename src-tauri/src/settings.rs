@@ -140,6 +140,13 @@ pub struct TodoItem {
     pub list_id: Option<String>,
 }
 
+// A notepad tile in the Cockpit tiles column: its file is <id>.md under the notepad dir.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct NoteTile {
+    pub id: String,
+    pub title: String,
+}
+
 // User-facing display preferences (theme + which view opens on launch + visible Worktrees panes).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Preferences {
@@ -222,6 +229,9 @@ pub struct CockpitConfig {
     pub todo_lists: Vec<TodoList>,
     #[serde(rename = "activeTodoList", default, skip_serializing_if = "Option::is_none")]
     pub active_todo_list: Option<String>,
+    // Empty means the frontend's synthesised default note, as todo_lists does for "General".
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub notes: Vec<NoteTile>,
     #[serde(default, rename = "worktreeContexts", skip_serializing_if = "std::collections::HashMap::is_empty")]
     pub worktree_contexts: std::collections::HashMap<String, String>,
     // The previous session's arrangement (slots / scratch / pane sets). An Option, not a defaulted bare
@@ -254,6 +264,7 @@ impl Default for CockpitConfig {
             todos: vec![],
             todo_lists: vec![],
             active_todo_list: None,
+            notes: vec![],
             worktree_contexts: std::collections::HashMap::new(),
             workspace: None,
             preferences: Preferences { theme: "system".into(), default_view: "main".into(), panes: 3, font_scale: 1.0, background: None },
@@ -482,6 +493,15 @@ mod tests {
         assert!(cfg.todo_lists.is_empty());
         assert_eq!(cfg.active_todo_list, None);
         assert_eq!(cfg.todos[0].list_id, None);
+    }
+
+    #[test]
+    fn notes_round_trip_and_are_omitted_when_empty() {
+        let json = r#"{"version":1,"tiles":[],"notes":[{"id":"note-1","title":"Ideas"}],"preferences":{"theme":"system","defaultView":"main"}}"#;
+        let cfg: CockpitConfig = serde_json::from_str(json).expect("config should load");
+        assert_eq!(cfg.notes, vec![NoteTile { id: "note-1".into(), title: "Ideas".into() }]);
+        assert!(serde_json::to_string(&cfg).unwrap().contains(r#""notes":[{"id":"note-1","title":"Ideas"}]"#));
+        assert!(!serde_json::to_string(&CockpitConfig::default()).unwrap().contains(r#""notes":"#));
     }
 
     #[test]
