@@ -31,6 +31,7 @@ export interface WorkspaceSlice {
   pendingWorktrees: PendingWorktree[];
   pendingSeq: number;
   startDeduceWorktree: (prompt: string, view: View, source?: WorktreeSource) => void;
+  cancelPendingWorktree: (id: string) => void;
   // Last failed deduce/create (prompt + message); App watches it to reopen the modal prefilled.
   worktreeError: { prompt: string; message: string } | null;
   clearWorktreeError: () => void;
@@ -138,6 +139,11 @@ export const createWorkspaceSlice: SettingsSlice<WorkspaceSlice> = (set, get) =>
     // rejects, so nothing is swallowed).
     startDeduceWorktree: (prompt, view, source = "manual") => {
       void startDeduceFlow({ prompt, view, source }, { session: deduceSession, deduce: deduceWorktree, create: createWorktree });
+    },
+    // Cancel = the tile leaves; the running chain sees isLive=false at its next guard and abandons quietly.
+    cancelPendingWorktree: (id) => {
+      deduceSession.dropPending(id);
+      deduceSession.clearSlots(id);
     },
     // Attention highlight: a pane bells -> mark; the user types in it -> clear.
     markAttention: (ptyId) => set((st) => ({ attention: { ...st.attention, [ptyId]: true } })),

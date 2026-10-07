@@ -213,4 +213,19 @@ describe("startDeduceWorktree — wiring to the real store", () => {
     expect(deduceWorktree).toHaveBeenCalledWith("fix the login bug", ["/a"]); // deduce got the bare input
     expect(st.worktreeError).toBeNull();
   });
+
+  it("cancelPendingWorktree drops the tile and abandons the chain before create", async () => {
+    vi.mocked(deduceWorktree).mockResolvedValue(deduced);
+    useSettings.getState().startDeduceWorktree("fix the login bug", "worktrees");
+    useSettings.getState().cancelPendingWorktree("pending-1");
+
+    await flush();
+
+    const st = useSettings.getState();
+    expect(st.pendingWorktrees).toEqual([]);
+    expect(slotIds()).toEqual([]);
+    expect(createWorktree).not.toHaveBeenCalled();
+    expect(st.cockpit.worktrees).toEqual([]);
+    expect(st.worktreeError).toBeNull();
+  });
 });
