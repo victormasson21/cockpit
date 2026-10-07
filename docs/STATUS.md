@@ -942,3 +942,8 @@ highlighting through a mirror overlay (`highlight.ts` tokenizer: comments/string
 fences first, whole-note when it scores as code; plain above 200 KB). Spec + plan under `docs/superpowers/`.
 Checked headlessly in WebKit (tab, pane, overlay metrics). 592 JS tests + 158 Rust tests green; tsc + Vite clean.
 Packaged-app smoke pending: pin the `--allowedTools` spelling.
+
+✅ **Cancel a pending deduce (2026-10-07).** The pending tile (`PendingBody`) has a Cancel button →
+`cancelPendingWorktree` drops the tile and its column; `deduceFlow`'s `isLive` guard abandons the chain. The
+`claude -p` subprocess is not killed (runs to completion/timeout, result discarded); a cancel during "creating…"
+can orphan a git worktree, the same trade-off the flow already accepts. 593 JS tests green; tsc + Vite clean.
