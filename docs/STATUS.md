@@ -954,3 +954,13 @@ The Notepad tab's sync logic moved into `useNoteFile(name)` + `NoteEditor` (refa
 title}]` in `cockpit.json`; empty resolves to `note-1` "Notes" (`notesOf`, same rule as the To Do tabs). Click
 the title to rename. The tile takes only spare column height and its editor scrolls. No Claude button.
 Checked headlessly in WebKit (layout, scroll, rename, write target). 596 JS + 160 Rust tests green; tsc + Vite clean.
+
+✅ **Move a worktree to another repo (2026-10-07).** Gear → "Move to repo…" (`RelocateDialog`) checks the
+branch out in the picked known repo (`relocate.ts`: existing branch if free, else new from the new
+`default_branch` command; refused if checked out elsewhere), then repoints the model and records the old
+location in the persisted `relocatedFrom`. Claude is not restarted: its pane keeps `relocatedFrom.worktreePath`
+as cwd (conversations are stored per directory, so restore's `--continue` still finds it), every claude launch
+gets `--add-dir <new>`, and `/add-dir <new>` is typed into the live session without Enter. Info popup, Diff,
+Run/Add, Copy cd and `+ PR` follow the model. Delete/Wipe also force-removes the earlier checkout (Wipe deletes
+both branches; failures there are warnings). One move per worktree, never a primary tree. Checked headlessly
+(dialog → create spec, `/add-dir` write, saved model, no Claude re-ensure). 607 JS + 162 Rust tests green.
