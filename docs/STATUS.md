@@ -947,3 +947,10 @@ Packaged-app smoke pending: pin the `--allowedTools` spelling.
 `cancelPendingWorktree` drops the tile and its column; `deduceFlow`'s `isLive` guard abandons the chain. The
 `claude -p` subprocess is not killed (runs to completion/timeout, result discarded); a cancel during "creating…"
 can orphan a git worktree, the same trade-off the flow already accepts. 593 JS tests green; tsc + Vite clean.
+
+✅ **Notepad tile (2026-10-07).** A second notepad sits in the Cockpit tiles column between PR Reviews and Timer.
+The Notepad tab's sync logic moved into `useNoteFile(name)` + `NoteEditor` (refactor commit first), and the
+`note_read`/`note_write` commands now take a `[a-z0-9-]` name → `<name>.md`. Tiles persist as `notes: [{id,
+title}]` in `cockpit.json`; empty resolves to `note-1` "Notes" (`notesOf`, same rule as the To Do tabs). Click
+the title to rename. The tile takes only spare column height and its editor scrolls. No Claude button.
+Checked headlessly in WebKit (layout, scroll, rename, write target). 596 JS + 160 Rust tests green; tsc + Vite clean.
