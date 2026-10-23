@@ -95,3 +95,7 @@ export const openInEditor = (name: string, paths: readonly string[]) =>
 export interface WorktreePr { number: number; url: string }
 export const worktreePr = (worktreePath: string) =>
   invoke<WorktreePr | null>("worktree_pr", { worktreePath });
+
+// The id of the newest Claude Code conversation started in `cwd`; null when Claude never ran there.
+export const latestClaudeSession = (cwd: string) =>
+  invoke<string | null>("latest_claude_session", { cwd });

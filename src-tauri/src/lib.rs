@@ -1,4 +1,5 @@
 mod auth;
+mod claude_session;
 mod commands;
 mod deduce;
 mod editor;
@@ -51,6 +52,7 @@ pub fn run() {
             worktree::current_branch,
             worktree::default_branch,
             github::worktree_pr,
+            claude_session::latest_claude_session,
             deduce::deduce_worktree,
             slack::slack_set_credentials,
             slack::slack_set_watched,

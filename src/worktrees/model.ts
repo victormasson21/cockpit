@@ -1,6 +1,7 @@
 // model.ts — pure helpers for worktree domain data (creation defaults + immutable link editing + deduction link). No IO.
 import type { HostConfig, KnownRepo, Worktree, WorktreeLink } from "../settings/types";
 import type { DeducedWorktree, BranchSpec, WorktreePr } from "./api";
+import { resumeCommand } from "./claudeCmd";
 
 // Build a worktree model from resolved fields, applying defaults (ongoing, no links).
 export function makeWorktree(
@@ -73,6 +74,14 @@ export function sourceLinkFrom(d: DeducedWorktree): WorktreeLink | null {
 export function prLinkToAdd(links: WorktreeLink[], pr: WorktreePr): WorktreeLink | null {
   if (links.some((l) => l.url === pr.url)) return null;
   return { label: `PR #${pr.number}`, url: pr.url };
+}
+
+// Build the link that resumes a Claude conversation, or null if that exact command is already linked (dedupe).
+// Resuming keeps the session id, so only a fresh conversation adds a second link.
+export function claudeLinkToAdd(links: WorktreeLink[], sessionId: string): WorktreeLink | null {
+  const url = resumeCommand(sessionId);
+  if (links.some((l) => l.url === url)) return null;
+  return { label: "Claude", url };
 }
 
 // Default editable-field values for a fresh new-worktree form (single source for init + reset).

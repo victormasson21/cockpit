@@ -1,6 +1,6 @@
 // model.test.ts — pure worktree helpers (existing link reducers + source link construction from a deduction).
 import { describe, it, expect } from "vitest";
-import { makeWorktree, isPrimaryTree, editorRoots, addLink, updateLink, removeLink, sourceLinkFrom, prLinkToAdd, branchSpecFrom, FORM_DEFAULTS, resolveHost, claudeCwd } from "./model";
+import { makeWorktree, isPrimaryTree, editorRoots, addLink, updateLink, removeLink, sourceLinkFrom, prLinkToAdd, claudeLinkToAdd, branchSpecFrom, FORM_DEFAULTS, resolveHost, claudeCwd } from "./model";
 import type { DeducedWorktree } from "./api";
 import type { KnownRepo, Worktree } from "../settings/types";
 
@@ -69,6 +69,18 @@ describe("prLinkToAdd", () => {
   });
   it("returns null when a link with the same url already exists", () => {
     expect(prLinkToAdd([{ label: "old", url: pr.url }], pr)).toBeNull();
+  });
+});
+
+describe("claudeLinkToAdd", () => {
+  const id = "be83c1b6-b9d7-4e0c-9498-16af432a9082";
+  const url = `claude --resume ${id}`;
+  it("builds a Claude resume link when that session isn't linked yet", () => {
+    expect(claudeLinkToAdd([], id)).toEqual({ label: "Claude", url });
+    expect(claudeLinkToAdd([{ label: "Claude", url: "claude --resume 1b0250d1" }], id)).toEqual({ label: "Claude", url });
+  });
+  it("returns null when the same session is already linked", () => {
+    expect(claudeLinkToAdd([{ label: "mine", url }], id)).toBeNull();
   });
 });
 

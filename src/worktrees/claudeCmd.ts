@@ -12,7 +12,9 @@ export function cdCmd(dir: string): string {
   return `cd ${shellQuote(dir)}`;
 }
 
-export const isClaudeCommand = (text: string): boolean => /^claude(\s|$)/.test(text.trim());
+export const resumeCommand = (sessionId: string): string => `claude --resume ${sessionId}`;
+
+export const isClaudeCommand =(text: string): boolean => /^claude(\s|$)/.test(text.trim());
 
 // Autostart for the claude pane, in precedence order: a pending one-shot deduce prompt, then resuming a
 // restored pane, then a plain session. `addDir` (a relocated worktree's new checkout) goes last on every

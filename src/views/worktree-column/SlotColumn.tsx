@@ -3,7 +3,8 @@ import { useState, type ReactNode } from "react";
 import { useSettings } from "../../settings/store";
 import { makePtyId } from "../../worktrees/ptyId";
 import { resolveSlotEntity } from "../slots";
-import { isPrimaryTree } from "../../worktrees/model";
+import { isPrimaryTree, claudeCwd, claudeLinkToAdd, addLink } from "../../worktrees/model";
+import { latestClaudeSession } from "../../worktrees/api";
 import { canRelocate } from "../../worktrees/relocate";
 import { GearIcon, CloseIcon, PauseIcon, BinIcon, GhostIcon, PlayIcon, FolderIcon } from "../icons";
 import { Dropdown } from "../Dropdown";
@@ -51,13 +52,18 @@ export function SlotColumn({ value, onSelect, onClose }: { value: string | null;
 
   // Pause: kill the worktree's live processes and unassign the slot; keep model + dir + branch.
   // Also reset the pane set — a paused worktree comes back Claude-only (re-showing it must not
-  // silently re-run the dev server).
+  // silently re-run the dev server). The ended conversation is linked so it can be resumed; a failed
+  // lookup only costs the link, never the pause.
   const pauseActive = async () => {
     if (entity?.kind !== "worktree") return;
     setMenuOpen(false);
-    const id = entity.worktree.id;
-    await killPanes(id, liveRoles(id));
-    useSettings.getState().resetWorktreePanes(id);
+    const wt = entity.worktree;
+    await killPanes(wt.id, liveRoles(wt.id));
+    useSettings.getState().resetWorktreePanes(wt.id);
+    const sessionId = await latestClaudeSession(claudeCwd(wt))
+      .catch((e) => { console.error("claude session lookup failed", e); return null; });
+    const link = sessionId ? claudeLinkToAdd(wt.links, sessionId) : null;
+    if (link) updateWorktree(wt.id, { links: addLink(wt.links, link) });
     close();
   };
 
