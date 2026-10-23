@@ -964,3 +964,12 @@ gets `--add-dir <new>`, and `/add-dir <new>` is typed into the live session with
 Run/Add, Copy cd and `+ PR` follow the model. Delete/Wipe also force-removes the earlier checkout (Wipe deletes
 both branches; failures there are warnings). One move per worktree, never a primary tree. Checked headlessly
 (dialog → create spec, `/add-dir` write, saved model, no Claude re-ensure). 607 JS + 162 Rust tests green.
+
+✅ **Pause links the Claude conversation (2026-10-23).** Gear → Pause now also adds a `Claude` link,
+`claude --resume <id>`, unless that exact command is already linked. The id comes from the new
+`latest_claude_session` command (`claude_session.rs`): the newest `*.jsonl` in
+`~/.claude/projects/<cwd with every non-alphanumeric → ->/`, looked up in `claudeCwd` (the earlier checkout
+after a move). The encoding is Claude Code's undocumented convention, pinned by tests against real folder
+names. Resuming keeps the session id (`--fork-session` is opt-in), so links build up only for fresh
+conversations (`/clear`, Restart/Close, or re-opening without the link). A failed lookup skips the link, never
+the pause. 611 JS + 165 Rust tests green; tsc + Vite + cargo clean.
