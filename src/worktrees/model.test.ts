@@ -1,6 +1,6 @@
 // model.test.ts — pure worktree helpers (existing link reducers + source link construction from a deduction).
 import { describe, it, expect } from "vitest";
-import { makeWorktree, isPrimaryTree, editorRoots, addLink, updateLink, removeLink, sourceLinkFrom, prLinkToAdd, branchSpecFrom, FORM_DEFAULTS, resolveHost } from "./model";
+import { makeWorktree, isPrimaryTree, editorRoots, addLink, updateLink, removeLink, sourceLinkFrom, prLinkToAdd, branchSpecFrom, FORM_DEFAULTS, resolveHost, claudeCwd } from "./model";
 import type { DeducedWorktree } from "./api";
 import type { KnownRepo, Worktree } from "../settings/types";
 
@@ -146,6 +146,20 @@ describe("isPrimaryTree", () => {
   });
   it("rejects a managed worktree created under the cockpit root", () => {
     expect(isPrimaryTree(wt("/Users/me/CockpitWorktrees/repo/fix-login"))).toBe(false);
+  });
+});
+
+describe("claudeCwd", () => {
+  const wt = makeWorktree({
+    id: "wt-1", name: "n", repoPath: "/repo", branch: "b", worktreePath: "/wt/new",
+    host: { startCmd: "", address: "" },
+  });
+
+  it("runs Claude in the worktree itself", () => {
+    expect(claudeCwd(wt)).toBe("/wt/new");
+  });
+  it("keeps Claude in the earlier checkout after a move to another repo", () => {
+    expect(claudeCwd({ ...wt, relocatedFrom: { repoPath: "/old", worktreePath: "/wt/old", branch: "b" } })).toBe("/wt/old");
   });
 });
 

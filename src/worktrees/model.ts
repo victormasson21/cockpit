@@ -16,6 +16,12 @@ export function isPrimaryTree(worktree: Worktree): boolean {
   return worktree.worktreePath === worktree.repoPath;
 }
 
+// Where the worktree's Claude runs. After a move to another repo it stays in the earlier checkout, since
+// Claude stores its conversations per directory.
+export function claudeCwd(worktree: Worktree): string {
+  return worktree.relocatedFrom?.worktreePath ?? worktree.worktreePath;
+}
+
 // The host config to actually use, falling back per field to the repo's saved default.
 // `worktree.host` is only ever a snapshot taken at creation (deduce/checkout) and no UI edits it afterwards,
 // so a default saved after a worktree existed would otherwise never reach it — the Run button stayed dead
