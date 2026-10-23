@@ -42,9 +42,11 @@ export interface WorkspaceSlice {
   // Session-only "send the deduce prompt on the claude pane's first spawn" flags, by worktree id.
   initialPromptPending: Record<string, true>;
   clearInitialPrompt: (id: string) => void;
-  // Session-only "this worktree came back from the previous session" flags, by worktree id. Read by the
-  // claude pane to resume the conversation; cleared on its first spawn. Not persisted.
+  // Session-only "this worktree's conversation should come back" flags, by worktree id: set for the previous
+  // session's worktrees on launch and by Pause. Read by the claude pane to resume the conversation; cleared on
+  // its first spawn. Not persisted.
   restoredWorktrees: Record<string, true>;
+  markRestored: (id: string) => void;
   clearRestored: (id: string) => void;
   // Dynamic pane set per worktree (claude + Run host + Add shells), restored from the persisted
   // workspace block on launch. The Rust PTY registry still dies with the app, so a restored pane is a
@@ -161,6 +163,8 @@ export const createWorkspaceSlice: SettingsSlice<WorkspaceSlice> = (set, get) =>
         const { [id]: _, ...rest } = st.initialPromptPending;
         return { initialPromptPending: rest };
       }),
+    markRestored: (id) =>
+      set((st) => (st.restoredWorktrees[id] ? st : { restoredWorktrees: { ...st.restoredWorktrees, [id]: true } })),
     // No-op (same object) when absent, so clearing an unflagged worktree never triggers a re-render.
     clearRestored: (id) =>
       set((st) => {

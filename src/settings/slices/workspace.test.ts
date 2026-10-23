@@ -127,6 +127,15 @@ describe("session-only flag maps", () => {
     expect(useSettings.getState().initialPromptPending).toBe(before);
   });
 
+  it("markRestored flags a worktree and no-ops when it is already flagged", () => {
+    resetStore({ restoredWorktrees: { "wt-1": true } });
+    const before = useSettings.getState().restoredWorktrees;
+    useSettings.getState().markRestored("wt-1");
+    expect(useSettings.getState().restoredWorktrees).toBe(before); // referentially unchanged
+    useSettings.getState().markRestored("wt-2");
+    expect(useSettings.getState().restoredWorktrees).toEqual({ "wt-1": true, "wt-2": true });
+  });
+
   it("clearRestored drops one flag and no-ops on an unflagged id", () => {
     resetStore({ restoredWorktrees: { "wt-1": true } });
     const before = useSettings.getState().restoredWorktrees;

@@ -52,14 +52,15 @@ export function SlotColumn({ value, onSelect, onClose }: { value: string | null;
 
   // Pause: kill the worktree's live processes and unassign the slot; keep model + dir + branch.
   // Also reset the pane set — a paused worktree comes back Claude-only (re-showing it must not
-  // silently re-run the dev server). The ended conversation is linked so it can be resumed; a failed
-  // lookup only costs the link, never the pause.
+  // silently re-run the dev server) that resumes its conversation on re-open. The ended conversation is
+  // also linked; a failed lookup only costs the link, never the pause.
   const pauseActive = async () => {
     if (entity?.kind !== "worktree") return;
     setMenuOpen(false);
     const wt = entity.worktree;
     await killPanes(wt.id, liveRoles(wt.id));
     useSettings.getState().resetWorktreePanes(wt.id);
+    useSettings.getState().markRestored(wt.id);
     const sessionId = await latestClaudeSession(claudeCwd(wt))
       .catch((e) => { console.error("claude session lookup failed", e); return null; });
     const link = sessionId ? claudeLinkToAdd(wt.links, sessionId) : null;
