@@ -973,3 +973,8 @@ after a move). The encoding is Claude Code's undocumented convention, pinned by 
 names. Resuming keeps the session id (`--fork-session` is opt-in), so links build up only for fresh
 conversations (`/clear`, Restart/Close, or re-opening without the link). A failed lookup skips the link, never
 the pause. 611 JS + 165 Rust tests green; tsc + Vite + cargo clean.
+
+✅ **Re-opening a paused worktree resumes Claude (2026-10-23).** Pause now also sets the session-only
+`restoredWorktrees` flag (new `markRestored`), so the Claude pane's first spawn on re-open runs the same
+`claude --continue || claude` as a restart-restore. The flag is not persisted: pause → quit → relaunch still
+opens a fresh session (the Claude link covers that). 612 JS tests green; tsc + Vite clean.
