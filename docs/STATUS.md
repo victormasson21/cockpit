@@ -978,3 +978,9 @@ the pause. 611 JS + 165 Rust tests green; tsc + Vite + cargo clean.
 `restoredWorktrees` flag (new `markRestored`), so the Claude pane's first spawn on re-open runs the same
 `claude --continue || claude` as a restart-restore. The flag is not persisted: pause → quit → relaunch still
 opens a fresh session (the Claude link covers that). 612 JS tests green; tsc + Vite clean.
+
+✅ **Terminals use xterm's DOM renderer (2026-10-23).** The WebGL addon (0.19.0, still in 0.20 beta) drew an
+opaque rectangle behind every dim/italic cell: those attributes live in the cell's bg word, so `bg !== 0` fires
+a background rect, filled with the theme background at forced alpha 1 — `#00000000` became solid black behind
+Claude's dim status-line text. `@xterm/addon-webgl` is removed; the DOM renderer honours the transparent theme.
+Revisit (patch the addon instead) if 5–6 streaming panes feel sluggish.

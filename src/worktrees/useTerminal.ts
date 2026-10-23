@@ -3,7 +3,6 @@ import { useEffect, useRef } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
-import { WebglAddon } from "@xterm/addon-webgl";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { type UnlistenFn } from "@tauri-apps/api/event";
@@ -95,15 +94,8 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured, ru
     term.loadAddon(unicode11);
     term.unicode.activeVersion = "11";
     term.open(containerRef.current!);
-    // GPU renderer for smooth streaming/spinner redraws across many live panes. Best-effort:
-    // on context loss (or if WebGL is unavailable) dispose so xterm falls back to the DOM renderer.
-    try {
-      const webgl = new WebglAddon();
-      webgl.onContextLoss(() => webgl.dispose());
-      term.loadAddon(webgl);
-    } catch {
-      /* WebGL unavailable in this webview — xterm keeps its DOM renderer */
-    }
+    // DOM renderer on purpose: the WebGL addon (0.19) paints dim/italic cells' default background opaque,
+    // so a transparent theme shows black blocks behind them. Revisit if 5–6 streaming panes lag.
     // Cmd+click URLs Claude prints (PRs, docs, localhost previews) → open in the real browser.
     term.loadAddon(new WebLinksAddon((_event, uri) => { void openUrl(uri); }));
     fit.fit();
