@@ -984,3 +984,8 @@ opaque rectangle behind every dim/italic cell: those attributes live in the cell
 a background rect, filled with the theme background at forced alpha 1 — `#00000000` became solid black behind
 Claude's dim status-line text. `@xterm/addon-webgl` is removed; the DOM renderer honours the transparent theme.
 Revisit (patch the addon instead) if 5–6 streaming panes feel sluggish.
+
+✅ **Window drags again (2026-10-28).** The overlay titlebar (Deep Slate) makes the header a
+`data-tauri-drag-region`, which invokes `plugin:window|start_dragging`. `core:default` does not grant it, so
+every drag was refused. Added `core:window:allow-start-dragging` to the default capability. Resize was never
+disabled (`is_resizable()` returned true).
