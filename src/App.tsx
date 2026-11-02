@@ -16,6 +16,7 @@ import { BackgroundLayer } from "./background/BackgroundLayer";
 import { NewWorktreeModal } from "./views/NewWorktreeModal";
 import { SettingsModal } from "./views/SettingsModal";
 import { GearIcon } from "./views/icons";
+import { Logo } from "./views/Logo";
 import { HeaderTimer } from "./tiles/timer/HeaderTimer";
 import { useTimer } from "./tiles/timer/timerStore";
 import "./App.css";
@@ -162,7 +163,7 @@ function App() {
       {/* data-tauri-drag-region: empty header areas drag the window (overlay titlebar); buttons still click. */}
       <header className="app__header" data-tauri-drag-region>
         <div className="app__brand">
-          <span className="app__logo" aria-hidden />
+          <Logo size={18} className="app__logo" />
           <span className="app__name">canopy</span>
           <span className="app__version">{versionLabel(version, import.meta.env.DEV)}</span>
         </div>

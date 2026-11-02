@@ -994,3 +994,7 @@ disabled (`is_resizable()` returned true).
 header wordmark, one Settings hint, README. The bundle identifier `com.cockpit.app` stays, because it keys the
 config dir, the Slack Keychain entry and the notification grant. The Cockpit view, `cockpit.json`,
 `~/CockpitWorktrees` and the repo keep their names. The bundle is now `canopy.app`.
+
+✅ **New tree logo (2026-11-02).** Dark-blue app icon (`src-tauri/icons/`, finished `.icns` from the
+designer), `public/cockpit-mark.svg` favicon, and a `Logo` component (`src/views/Logo.tsx`) in the header that
+switches to the simplified mark at 20px and below. The worktree `tree.svg` glyph is unchanged.
