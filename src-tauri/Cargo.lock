@@ -384,6 +384,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "canopy"
+version = "0.2.20"
+dependencies = [
+ "keyring",
+ "portable-pty",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-notification",
+ "tauri-plugin-opener",
+ "tempfile",
+ "tiny_http",
+ "ureq",
+ "urlencoding",
+ "wait-timeout",
+]
+
+[[package]]
 name = "cargo-platform"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -476,26 +496,6 @@ name = "chunked_transfer"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e4de3bc4ea267985becf712dc6d9eed8b04c953b3fcfb339ebc87acd9804901"
-
-[[package]]
-name = "cockpit"
-version = "0.2.20"
-dependencies = [
- "keyring",
- "portable-pty",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-notification",
- "tauri-plugin-opener",
- "tempfile",
- "tiny_http",
- "ureq",
- "urlencoding",
- "wait-timeout",
-]
 
 [[package]]
 name = "combine"
