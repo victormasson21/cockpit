@@ -246,7 +246,7 @@ and every push is confirmed.
   Spec/plan: `docs/superpowers/{specs,plans}/2026-07-08-themed-dropdown*`.
 
 - **Desktop notifications for the attention signal (2026-09-08):** a bell in a Claude/scratch pane
-  already sets the session-only `attention` flag (glow + "Check me out" badge). It now also raises a
+  already sets the session-only `attention` flag (glow + "Input required" badge). It now also raises a
   macOS notification naming the worktree and bounces the Dock, but **only while cockpit is unfocused** —
   the on-screen glow covers the focused case. `src/worktrees/attentionNotifier.ts` **subscribes** to the
   store rather than being called from `markAttention`, so `workspace.ts` is untouched and the slice stays

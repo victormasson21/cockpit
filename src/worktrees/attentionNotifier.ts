@@ -37,7 +37,7 @@ export interface AttentionPorts {
   bounce: () => Promise<void>;
 }
 
-const NOTIFICATION_TITLE = "Check me out"; // matches the in-app badge, so the two read as one signal
+const NOTIFICATION_TITLE = "Input required"; // matches the in-app badge, so the two read as one signal
 
 // Announce panes that just started waiting. Silent while cockpit is focused: the pane is already
 // glowing on screen, and a banner for something you are looking at is noise.

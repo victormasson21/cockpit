@@ -61,7 +61,7 @@ function App() {
   }, []);
 
   // Desktop notification when a background pane bells. Primed here so the OS permission prompt does not
-  // land on the user's first real "Check me out".
+  // land on the user's first real "Input required".
   useEffect(() => {
     void primeNotifications();
     return startAttentionNotifier();

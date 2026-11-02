@@ -67,12 +67,12 @@ function ports() {
 }
 
 describe("notifyAttention", () => {
-  it("sends one Check me out notification per newly marked pane", async () => {
+  it("sends one Input required notification per newly marked pane", async () => {
     const p = ports();
     await notifyAttention(["auth0-provisioning", "notes"], p, true);
     expect(p.notify.mock.calls).toEqual([
-      ["Check me out", "auth0-provisioning"],
-      ["Check me out", "notes"],
+      ["Input required", "auth0-provisioning"],
+      ["Input required", "notes"],
     ]);
   });
 
@@ -125,7 +125,7 @@ describe("startAttentionNotifier", () => {
     stop = startAttentionNotifier(p);
     useSettings.getState().markAttention("wt-1:claude");
     await flush();
-    expect(p.notify).toHaveBeenCalledWith("Check me out", "auth0-provisioning");
+    expect(p.notify).toHaveBeenCalledWith("Input required", "auth0-provisioning");
   });
 
   it("does not notify again while the same pane stays marked", async () => {
