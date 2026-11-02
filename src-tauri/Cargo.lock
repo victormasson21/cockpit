@@ -385,7 +385,7 @@ dependencies = [
 
 [[package]]
 name = "canopy"
-version = "0.2.20"
+version = "0.2.21"
 dependencies = [
  "keyring",
  "portable-pty",

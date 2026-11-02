@@ -1,6 +1,6 @@
 [package]
 name = "canopy"
-version = "0.2.20"
+version = "0.2.21"
 description = "A macOS dev workspace: live terminals in tiles connected to git worktrees, with integration panels"
 authors = ["you"]
 edition = "2021"
