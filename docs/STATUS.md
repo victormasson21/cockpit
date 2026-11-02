@@ -998,3 +998,7 @@ config dir, the Slack Keychain entry and the notification grant. The Cockpit vie
 ✅ **New tree logo (2026-11-02).** Dark-blue app icon (`src-tauri/icons/`, finished `.icns` from the
 designer), `public/cockpit-mark.svg` favicon, and a `Logo` component (`src/views/Logo.tsx`) in the header that
 switches to the simplified mark at 20px and below. The worktree `tree.svg` glyph is unchanged.
+
+✅ **Notes tile renders markdown (2026-11-02).** The left-column note shows its markdown rendered
+(`markdown-to-jsx` 9.10.3, raw HTML kept as text, links open in the browser) and swaps to the editor on
+click, back on blur. The Notepad tab is unchanged. Adds ~29 KB gzip to the bundle.

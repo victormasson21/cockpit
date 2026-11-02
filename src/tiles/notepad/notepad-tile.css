@@ -4,3 +4,26 @@
 /* Title button and input inherit the tile title's look; .tile__title sets the type. */
 .notepad-tile button.notepad-tile__title { background: none; border: none; padding: 0; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: text; }
 .notepad-tile input.notepad-tile__title-edit { width: 100%; padding: 0 var(--space-1); font: inherit; letter-spacing: inherit; text-transform: inherit; }
+
+/* The edit wrapper only exists to catch the editor's blur; it must not add a box to the flex column. */
+.notepad-tile__edit { display: contents; }
+/* Rendered note: the editor's panel and padding, so switching modes does not shift the tile. */
+.notepad-tile__view {
+  flex: 1; min-height: 0; overflow-y: auto; cursor: text;
+  padding: var(--space-3); background: var(--term-panel); border: 1px solid transparent; border-radius: var(--r-sm);
+  font-size: var(--fs-md); line-height: 1.5; color: var(--tx); overflow-wrap: anywhere;
+}
+.notepad-tile__placeholder { color: var(--tx-3); }
+.notepad-tile__view > :first-child { margin-top: 0; }
+.notepad-tile__view > :last-child { margin-bottom: 0; }
+.notepad-tile__view :is(p, ul, ol, pre, blockquote, table) { margin: 0 0 var(--space-2); }
+.notepad-tile__view :is(h1, h2, h3, h4) { margin: var(--space-3) 0 var(--space-1); line-height: 1.25; color: var(--tx-hi); }
+.notepad-tile__view h1 { font-size: var(--fs-xl); }
+.notepad-tile__view h2 { font-size: var(--fs-lg); }
+.notepad-tile__view :is(h3, h4) { font-size: var(--fs-md); }
+.notepad-tile__view :is(ul, ol) { padding-left: var(--space-4); }
+.notepad-tile__view a { color: var(--accent); }
+.notepad-tile__view code { font-family: var(--mono); font-size: 0.92em; }
+.notepad-tile__view pre { padding: var(--space-2); background: var(--term); border-radius: var(--r-sm); overflow-x: auto; }
+.notepad-tile__view blockquote { padding-left: var(--space-2); border-left: 2px solid var(--bdr); color: var(--tx-2); }
+.notepad-tile__view hr { border: none; border-top: 1px solid var(--divider); }
