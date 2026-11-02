@@ -989,3 +989,8 @@ Revisit (patch the addon instead) if 5–6 streaming panes feel sluggish.
 `data-tauri-drag-region`, which invokes `plugin:window|start_dragging`. `core:default` does not grant it, so
 every drag was refused. Added `core:window:allow-start-dragging` to the default capability. Resize was never
 disabled (`is_resizable()` returned true).
+
+✅ **Renamed to canopy (2026-11-02).** Only the visible name moved: `productName`, window title, page title,
+header wordmark, one Settings hint, README. The bundle identifier `com.cockpit.app` stays, because it keys the
+config dir, the Slack Keychain entry and the notification grant. The Cockpit view, `cockpit.json`,
+`~/CockpitWorktrees` and the repo keep their names. The bundle is now `canopy.app`.

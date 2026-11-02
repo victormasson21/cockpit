@@ -1,10 +1,13 @@
-# Cockpit
+# Canopy
 
 A macOS desktop **dev cockpit**: a workspace that runs several live terminals in
 organised tiles (and connected git worktrees), with side panels that pull in the
 tools you'd otherwise app-switch to — Slack first, then Linear, GitHub, Calendar.
 
-Working name: **cockpit** (easy to change).
+Name: **canopy** (renamed from cockpit 2026-11-02). Only the visible name changed: the bundle
+identifier `com.cockpit.app`, `cockpit.json`, `CockpitConfig`, `~/CockpitWorktrees`, the repo and the
+**Cockpit view** keep the old name on purpose — the identifier keys the config dir, the Slack Keychain
+entry and the notification grant.
 
 ---
 

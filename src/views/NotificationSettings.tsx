@@ -17,7 +17,7 @@ export function NotificationSettings() {
       </label>
       <p className="appearance__hint">
         Sends a desktop notification and bounces the Dock icon when a Claude pane bells — the same
-        signal as the “Check me out” badge. Only while cockpit is in the background.
+        signal as the “Check me out” badge. Only while canopy is in the background.
       </p>
     </div>
   );

@@ -1,4 +1,4 @@
-# Cockpit
+# Canopy
 
 A macOS desktop **dev cockpit**: a workspace that runs several live terminals in
 organised tiles (connected to git worktrees), with side panels that pull in the
@@ -11,7 +11,7 @@ The terminals are the heart; integrations are panels around them.
 - **Worktrees view** — three column slots, each running one git worktree with its
   own terminals (host / git / claude). Create a new worktree from a natural-language
   prompt, or check out an existing branch. Scratch login-shell terminals too.
-- **Smart new-worktree** — describe what you want to work on; Cockpit deduces the
+- **Smart new-worktree** — describe what you want to work on; Canopy deduces the
   repo, branch, start command and dev URL. Paste a **Linear ticket**, **GitHub
   PR/issue**, or **Slack permalink** and it resolves the source and stages a link.
 - **Worktree teardown** — a gear menu on each slot offers four cumulative actions:
@@ -39,9 +39,9 @@ sessions):
 ```
 
 Claude then writes a bell (`\x07`) when it needs you (permission prompts / input needed);
-Cockpit highlights that pane. Note Claude rings after a short idle interval, not the
+Canopy highlights that pane. Note Claude rings after a short idle interval, not the
 instant a prompt appears — so expect a brief delay. Without this setting (default
-`"auto"`), Claude sends no bell in Cockpit's terminal and no pane will highlight.
+`"auto"`), Claude sends no bell in Canopy's terminal and no pane will highlight.
 
 ## Slack tile setup
 
@@ -50,8 +50,8 @@ the token is stored in the macOS Keychain). One-time setup:
 
 1. Create a Slack app at [api.slack.com/apps](https://api.slack.com/apps).
 2. Add the **User Token Scopes** the tile needs (read channels/messages) and a redirect
-   URL of `http://localhost:9000/callback` (Cockpit's loopback OAuth uses ports 9000–9009).
-3. In Cockpit, open **Settings → Connections**, paste the app's client id/secret, then
+   URL of `http://localhost:9000/callback` (Canopy's loopback OAuth uses ports 9000–9009).
+3. In Canopy, open **Settings → Connections**, paste the app's client id/secret, then
    **Connect** to run the OAuth round-trip and pick the channels to watch.
 
 ## Stack
@@ -124,6 +124,6 @@ choosing a background never starts network activity you didn't ask for. Its trai
 
 ## Current state
 
-![Cockpit — Cockpit view](docs/assets/cockpit-view.png)
+![Canopy — Cockpit view](docs/assets/cockpit-view.png)
 
-![Cockpit — current state](docs/assets/current-state.png)
+![Canopy — current state](docs/assets/current-state.png)
