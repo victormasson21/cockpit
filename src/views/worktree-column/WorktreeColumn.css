@@ -110,6 +110,7 @@
 /* shrink the shared masked glyphs (15.6px by default) to sit level with --fs-xs text, and match its tint */
 .wt-info__row .wt-ico { width: 12px; height: 12px; background: var(--tx-3); }
 .wt-info__row svg { width: 12px; height: 12px; flex: 0 0 auto; }
+.wt-info__logo * { fill: var(--tx-3); }
 .wt-col__panes { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--space-2); padding: 0 var(--space-3) var(--space-2); }
 
 /* bottom action bar: Run (start the dev server) + Add (extra shell), 50/50 width. */

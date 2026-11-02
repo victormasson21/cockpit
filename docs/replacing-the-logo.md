@@ -6,8 +6,9 @@ dark-blue plate for the app icon) is displayed in **three** places:
 1. **In-app** — `src/views/Logo.tsx`, an inline SVG with fixed brand colours and a `size` prop
    (default 24). At 20px and below it draws the simplified mark (plain trunk, no sprouts or root
    flare). It is every tree icon in the UI: header (18px), worktree slot (17px), the "Add" worktree
-   button (14px) and the ⓘ popup's directory row (12px). The slot's attention state paints every
-   fill `--bad` via CSS (`.wt-col__logo--attention`).
+   button (14px) and the ⓘ popup's directory row (12px). CSS repaints every fill to one colour where
+   needed: `--bad` for the slot's attention state (`.wt-col__logo--attention`), `--tx-3` grey in the
+   ⓘ popup to match its sibling icons (`.wt-info__logo`).
 2. **Favicon** — `public/cockpit-mark.svg`, referenced from `index.html`.
 3. **App/dock icons** — `src-tauri/icons/*`. `tauri.conf.json` `bundle.icon` lists `32x32.png`,
    `128x128.png`, `128x128@2x.png`, `icon.icns`, `icon.ico`. `icon.png` (1024×1024, plate included)

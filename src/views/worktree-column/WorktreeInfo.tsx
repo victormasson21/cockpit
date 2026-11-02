@@ -14,7 +14,7 @@ export function WorktreeInfo({ worktree }: { worktree: Worktree }) {
       <div className="wt-info__pop">
         <span className="wt-info__row"><FolderIcon />{worktree.repoPath.split("/").pop()}</span>
         <span className="wt-info__row"><span className="wt-ico wt-ico--branch" aria-hidden />{worktree.branch}</span>
-        <span className="wt-info__row"><Logo size={12} />{worktree.worktreePath.split("/").pop()}</span>
+        <span className="wt-info__row"><Logo size={12} className="wt-info__logo" />{worktree.worktreePath.split("/").pop()}</span>
       </div>
     </span>
   );
