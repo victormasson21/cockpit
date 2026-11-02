@@ -1,9 +1,10 @@
-// CreateWorktreeButton.tsx — the app-wide "turn this item into a worktree" affordance (tree glyph).
+// CreateWorktreeButton.tsx — the app-wide "turn this item into a worktree" affordance (the logo).
 // On click it resolves the item's input (sync or async) and kicks off the shared deduce→create flow.
 import { useState } from "react";
 import type { MouseEvent } from "react";
 import { useSettings } from "../settings/store";
 import type { WorktreeSource } from "../worktrees/worktreeContext";
+import { Logo } from "./Logo";
 import "./CreateWorktreeButton.css";
 
 type View = "cockpit" | "worktrees";
@@ -33,7 +34,7 @@ export function CreateWorktreeButton({
   };
   return (
     <button className="create-wt-btn" aria-label={title} title={title} disabled={busy} onClick={onClick}>
-      <span className="create-wt-btn__ico" aria-hidden />
+      <Logo size={14} className="create-wt-btn__ico" />
       <span className="create-wt-btn__label">Add</span>
     </button>
   );

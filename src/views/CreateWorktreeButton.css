@@ -1,4 +1,4 @@
-/* CreateWorktreeButton — "[tree] Add" pill: roomy hit area, tree glyph tinted to accent on hover. */
+/* CreateWorktreeButton — "[logo] Add" pill: roomy hit area, label and border tinted to accent on hover. */
 .create-wt-btn {
   display: inline-flex; align-items: center; gap: var(--space-1);
   padding: 4px 12px; border-radius: 12px;
@@ -8,9 +8,4 @@
 .create-wt-btn:hover { color: var(--accent); border-color: var(--accent); }
 .create-wt-btn:disabled { opacity: 0.5; cursor: default; }
 .create-wt-btn__label { line-height: 1; }
-/* Alpha-only glyph tinted via background-color + mask (same idiom as .wt-col__icon). */
-.create-wt-btn__ico {
-  width: 14px; height: 14px; flex: 0 0 auto; display: block; background-color: currentColor;
-  -webkit-mask: url("../assets/icons/tree.svg") center / contain no-repeat;
-  mask: url("../assets/icons/tree.svg") center / contain no-repeat;
-}
+.create-wt-btn__ico { flex: 0 0 auto; display: block; }

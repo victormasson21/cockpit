@@ -2,6 +2,7 @@
 // worktree's repo / branch / directory on three rows (previously an always-visible details row).
 import type { Worktree } from "../../settings/types";
 import { InfoIcon, FolderIcon } from "../icons";
+import { Logo } from "../Logo";
 
 // Reveal is CSS-only (`.wt-info:hover`/`:focus-within` in WorktreeColumn.css) — hover needs no state,
 // so there is nothing to toggle, close, or clean up. The trigger is a real <button> purely so
@@ -13,7 +14,7 @@ export function WorktreeInfo({ worktree }: { worktree: Worktree }) {
       <div className="wt-info__pop">
         <span className="wt-info__row"><FolderIcon />{worktree.repoPath.split("/").pop()}</span>
         <span className="wt-info__row"><span className="wt-ico wt-ico--branch" aria-hidden />{worktree.branch}</span>
-        <span className="wt-info__row"><span className="wt-ico wt-ico--tree" aria-hidden />{worktree.worktreePath.split("/").pop()}</span>
+        <span className="wt-info__row"><Logo size={12} />{worktree.worktreePath.split("/").pop()}</span>
       </div>
     </span>
   );

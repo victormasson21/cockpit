@@ -3,17 +3,15 @@
 The logo (since 2026-11-02: the tree mark, green `#5AC488` crown with one coral `#D9836F` circle, on a
 dark-blue plate for the app icon) is displayed in **three** places:
 
-1. **Header + worktree slot icon** — `src/views/Logo.tsx`, an inline SVG with fixed brand colours and
-   a `size` prop (default 24). At 20px and below it draws the simplified mark (plain trunk, no sprouts
-   or root flare). The header uses it at 18px, the slot column at 17px; the slot's attention state
-   paints every fill `--bad` via CSS (`.wt-col__logo--attention`).
+1. **In-app** — `src/views/Logo.tsx`, an inline SVG with fixed brand colours and a `size` prop
+   (default 24). At 20px and below it draws the simplified mark (plain trunk, no sprouts or root
+   flare). It is every tree icon in the UI: header (18px), worktree slot (17px), the "Add" worktree
+   button (14px) and the ⓘ popup's directory row (12px). The slot's attention state paints every
+   fill `--bad` via CSS (`.wt-col__logo--attention`).
 2. **Favicon** — `public/cockpit-mark.svg`, referenced from `index.html`.
 3. **App/dock icons** — `src-tauri/icons/*`. `tauri.conf.json` `bundle.icon` lists `32x32.png`,
    `128x128.png`, `128x128@2x.png`, `icon.icns`, `icon.ico`. `icon.png` (1024×1024, plate included)
    is the master source for future regenerations.
-
-The monochrome `src/assets/icons/tree.svg` glyph is NOT the logo: it is the worktree icon in the
-pane and the create-worktree button, tinted per state.
 
 Procedure to swap in a new logo:
 
