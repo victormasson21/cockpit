@@ -8,6 +8,7 @@ import { latestClaudeSession } from "../../worktrees/api";
 import { canRelocate } from "../../worktrees/relocate";
 import { GearIcon, CloseIcon, PauseIcon, BinIcon, GhostIcon, PlayIcon, FolderIcon } from "../icons";
 import { Dropdown } from "../Dropdown";
+import { Logo } from "../Logo";
 import type { DropdownGroup } from "../dropdownModel";
 import { worktreeOption } from "../worktreeOption";
 import { WorktreeBody } from "./WorktreeBody";
@@ -19,6 +20,8 @@ import { killPanes, liveRoles } from "../../worktrees/paneLifecycle";
 import { ptyLiveIds } from "../../worktrees/ptyPane";
 import { activityOf, type Activity } from "../../worktrees/activity";
 import "./WorktreeColumn.css";
+
+const SLOT_ICON_PX = 17;
 
 // Runtime-activity glyphs for the picker rows. Same play glyph for displayed and running (dimmed),
 // since both mean "alive"; pause + dimmed means nothing is running.
@@ -92,7 +95,10 @@ export function SlotColumn({ value, onSelect, onClose }: { value: string | null;
   const attnPtyId = entity?.kind === "worktree" ? makePtyId(entity.worktree.id, "claude")
     : entity?.kind === "scratch" ? makePtyId(entity.scratch.id, "shell") : null;
   const attention = useSettings((s) => (attnPtyId ? Boolean(s.attention[attnPtyId]) : false));
-  const iconKind = entity?.kind === "scratch" ? "terminal" : "tree"; // scratch → terminal glyph; worktree & empty slots → tree.
+  // scratch → terminal glyph; worktree & empty slots → the logo, all coral while the slot needs attention.
+  const icon = entity?.kind === "scratch"
+    ? <span className={`wt-col__icon${attention ? " wt-col__icon--attention" : ""}`} aria-hidden />
+    : <Logo size={SLOT_ICON_PX} className={`wt-col__logo${attention ? " wt-col__logo--attention" : ""}`} />;
 
   // Which PTYs are alive, refreshed as the picker opens: the answer only has to be true while the
   // list is on screen, so this is a local snapshot rather than a store slice or a poll.
@@ -123,7 +129,7 @@ export function SlotColumn({ value, onSelect, onClose }: { value: string | null;
   // The switcher = identity glyph + worktree dropdown.
   const switcher = (
     <>
-      <span className={`wt-col__icon wt-col__icon--${iconKind}${attention ? " wt-col__icon--attention" : ""}`} aria-hidden />
+      {icon}
       <Dropdown
         value={activeId} onChange={(v) => onSelect(v || null)} groups={pickerGroups}
         placeholder="Select…" variant="heading" onRename={onRename} editValue={editValue}

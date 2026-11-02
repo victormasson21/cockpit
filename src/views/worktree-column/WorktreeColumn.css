@@ -6,17 +6,17 @@
 .wt-col:last-child { border-right: none; }
 
 .wt-col__header { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3); }
-/* glyph to the left of the picker; masked so the alpha-only icon tints with the theme. */
+/* scratch glyph to the left of the picker; masked so the alpha-only icon tints with the theme. */
 .wt-col__icon {
   width: 16.8px; height: 16.8px; flex: 0 0 auto;
   background: var(--tx-2);
-  -webkit-mask-position: center; mask-position: center;
-  -webkit-mask-size: contain; mask-size: contain;
-  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  -webkit-mask: url("../../assets/icons/terminal.png") center / contain no-repeat;
+  mask: url("../../assets/icons/terminal.png") center / contain no-repeat;
 }
-.wt-col__icon--tree { -webkit-mask-image: url("../../assets/icons/tree.svg"); mask-image: url("../../assets/icons/tree.svg"); }
-.wt-col__icon--terminal { -webkit-mask-image: url("../../assets/icons/terminal.png"); mask-image: url("../../assets/icons/terminal.png"); }
 .wt-col__icon--attention { background: var(--bad); }
+/* worktree logo: its own brand fills, overridden to one flat --bad while the slot needs attention */
+.wt-col__logo { flex: 0 0 auto; display: block; }
+.wt-col__logo--attention * { fill: var(--bad); }
 
 .wt-col__menu { position: relative; margin-left: auto; flex: 0 0 auto; }
 /* SVG-icon size (1em) on top of the shared .icon-btn baseline */
