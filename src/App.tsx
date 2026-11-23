@@ -44,6 +44,8 @@ function App() {
   const zoomOut = useSettings((s) => s.zoomOut);
   const resetZoom = useSettings((s) => s.resetZoom);
   const addEmptySlot = useSettings((s) => s.addEmptySlot);
+  const addScratch = useSettings((s) => s.addScratch);
+  const placeNewEntity = useSettings((s) => s.placeNewEntity);
   const setDefaultView = useSettings((s) => s.setDefaultView);
   const [view, setView] = useState<View>("worktrees");
   // The notepad's claude pane: session-only, held here because CockpitView unmounts on a view switch
@@ -176,6 +178,9 @@ function App() {
         </nav>
         <div className="app__actions">
           <HeaderTimer />
+          <button className="app__terminal" onClick={() => placeNewEntity(addScratch(), view)}>
+            <span className="wt-ico wt-ico--terminal" aria-hidden />Terminal
+          </button>
           <button className="app__new" onClick={() => setCreating(true)}>+ New</button>
           <button className="app__new app__new--icon" aria-label="settings" onClick={() => setSettingsOpen(true)}><GearIcon /></button>
         </div>
