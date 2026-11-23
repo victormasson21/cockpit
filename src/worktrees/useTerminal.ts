@@ -9,7 +9,7 @@ import { type UnlistenFn } from "@tauri-apps/api/event";
 import "@xterm/xterm/css/xterm.css";
 import { isAttentionRole } from "./ptyId";
 import { ptyPane, type PtyPane } from "./ptyPane";
-import { shouldInsertNewline, NEWLINE_ESCAPE } from "./keys";
+import { shouldInsertNewline, NEWLINE_ESCAPE, cursorMoveSequence } from "./keys";
 import { shouldFit } from "./fit";
 import { useSettings } from "../settings/store";
 
@@ -53,6 +53,8 @@ const TERM_THEME = {
   brightWhite: "#e7ebf2",  // bright text
 };
 
+const openLink = (_event: MouseEvent, uri: string) => { void openUrl(uri); };
+
 // Mount an xterm into a div and keep it attached to the (worktree, role) PTY for the component's lifetime.
 export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured, runCmd, onRan }: UseTerminalArgs) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -83,6 +85,7 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured, ru
       fontSize: termFontSize(useSettings.getState().fontScale),
       fontFamily: '"JetBrains Mono", ui-monospace, monospace',
       theme: TERM_THEME,
+      linkHandler: { activate: openLink },
     });
     termRef.current = term;
     const fit = new FitAddon();
@@ -97,7 +100,7 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured, ru
     // DOM renderer on purpose: the WebGL addon (0.19) paints dim/italic cells' default background opaque,
     // so a transparent theme shows black blocks behind them. Revisit if 5–6 streaming panes lag.
     // Cmd+click URLs Claude prints (PRs, docs, localhost previews) → open in the real browser.
-    term.loadAddon(new WebLinksAddon((_event, uri) => { void openUrl(uri); }));
+    term.loadAddon(new WebLinksAddon(openLink));
     fit.fit();
 
     let unlisten: UnlistenFn | undefined;
@@ -114,12 +117,11 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured, ru
     // Shift+Enter → insert a newline (Claude Code's backslash-escape) instead of submitting the prompt.
     // Returning false tells xterm we handled the key, so it does not also emit a submitting CR.
     term.attachCustomKeyEventHandler((e) => {
-      if (shouldInsertNewline(e)) {
-        if (armed) useSettings.getState().clearAttention(ptyId);
-        pane.write(NEWLINE_ESCAPE);
-        return false;
-      }
-      return true;
+      const sequence = shouldInsertNewline(e) ? NEWLINE_ESCAPE : cursorMoveSequence(e);
+      if (sequence === undefined) return true;
+      if (armed) useSettings.getState().clearAttention(ptyId);
+      pane.write(sequence);
+      return false;
     });
 
     // ensure the PTY exists, replay its scrollback, then live-stream new output.

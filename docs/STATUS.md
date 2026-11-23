@@ -1002,3 +1002,10 @@ switches to the simplified mark at 20px and below. The worktree `tree.svg` glyph
 ✅ **Notes tile renders markdown (2026-11-02).** The left-column note shows its markdown rendered
 (`markdown-to-jsx` 9.10.3, raw HTML kept as text, links open in the browser) and swaps to the editor on
 click, back on blur. The Notepad tab is unchanged. Adds ~29 KB gzip to the bundle.
+
+✅ **Terminal links and cursor shortcuts (2026-11-19).** Claude Code prints its links as OSC 8 hyperlinks.
+xterm's default handler for those calls `confirm()` and `window.open()`, which do nothing in the webview, so
+a click opened nothing. `useTerminal` now passes `linkHandler` and opens them with `openUrl`; every row of
+a wrapped link carries the full URL. Option+Left/Right moves by word (`ESC b` / `ESC f`) and Cmd+Left/Right
+moves to the line start or end (`Ctrl-A` / `Ctrl-E`), the same bytes VS Code sends (`cursorMoveSequence` in
+`keys.ts`). Plain-text URLs that a program hard-wraps stay clickable on the first row only.

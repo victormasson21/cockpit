@@ -9,3 +9,27 @@ export const NEWLINE_ESCAPE = "\\\r"; // '\' then CR
 export function shouldInsertNewline(e: { type: string; key: string; shiftKey: boolean }): boolean {
   return e.type === "keydown" && e.key === "Enter" && e.shiftKey;
 }
+
+const WORD_BACK = "\x1bb";
+const WORD_FORWARD = "\x1bf";
+const LINE_START = "\x01";
+const LINE_END = "\x05";
+
+const CURSOR_MOVES: Readonly<Record<string, { word: string; line: string } | undefined>> = {
+  ArrowLeft: { word: WORD_BACK, line: LINE_START },
+  ArrowRight: { word: WORD_FORWARD, line: LINE_END },
+};
+
+export function cursorMoveSequence(e: {
+  type: string;
+  key: string;
+  altKey: boolean;
+  metaKey: boolean;
+  ctrlKey: boolean;
+  shiftKey: boolean;
+}): string | undefined {
+  const move = CURSOR_MOVES[e.key];
+  const exactlyOneOfOptionOrCmd = e.altKey !== e.metaKey;
+  if (!move || e.type !== "keydown" || e.ctrlKey || e.shiftKey || !exactlyOneOfOptionOrCmd) return undefined;
+  return e.altKey ? move.word : move.line;
+}
