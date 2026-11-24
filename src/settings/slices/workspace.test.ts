@@ -10,6 +10,7 @@ vi.mock("../../worktrees/api", () => ({ deduceWorktree: vi.fn(), createWorktree:
 import { useSettings } from "../store";
 import { createWorktree, deduceWorktree, type DeducedWorktree } from "../../worktrees/api";
 import { baseCockpit, resetStore, slotIds } from "./fixtures";
+import { EMPTY_PANE_SET } from "../../worktrees/paneSet";
 
 describe("column slots", () => {
   beforeEach(() => resetStore());
@@ -179,6 +180,21 @@ describe("pane sets", () => {
     expect(useSettings.getState().worktreePanes).toBe(before);
     useSettings.getState().runHostPane("wt-1");
     useSettings.getState().resetWorktreePanes("wt-1");
+    expect(useSettings.getState().worktreePanes).toEqual({});
+  });
+
+  it("pauseWorktreePanes keeps only the Claude pane's title", () => {
+    const st = useSettings.getState();
+    st.addShellPane("wt-1");
+    st.renameWorktreePane("wt-1", "claude", "review");
+    st.renameWorktreePane("wt-1", "shell-1", "tests");
+    st.pauseWorktreePanes("wt-1");
+    expect(useSettings.getState().worktreePanes["wt-1"]).toEqual({ ...EMPTY_PANE_SET, titles: { claude: "review" } });
+  });
+
+  it("pauseWorktreePanes drops the entry when the Claude pane has no title", () => {
+    useSettings.getState().runHostPane("wt-1");
+    useSettings.getState().pauseWorktreePanes("wt-1");
     expect(useSettings.getState().worktreePanes).toEqual({});
   });
 });

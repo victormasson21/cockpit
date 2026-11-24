@@ -42,6 +42,11 @@ export function renamePane(set: WorktreePaneSet, role: string, raw: string): Wor
   return { ...set, titles: title ? { ...titles, [role]: title } : titles };
 }
 
+export function pausedPaneSet(set: WorktreePaneSet): WorktreePaneSet | null {
+  const claude = set.titles.claude;
+  return claude ? { ...EMPTY_PANE_SET, titles: { claude } } : null;
+}
+
 export function paneTitle(set: WorktreePaneSet, role: string, fallback: string): string {
   return set.titles[role] ?? fallback;
 }

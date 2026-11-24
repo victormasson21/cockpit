@@ -2,7 +2,7 @@
 import { describe, it, expect } from "vitest";
 import {
   EMPTY_PANE_SET, MAX_EXTRAS, paneRoles, runHost, addExtra, removePane,
-  isPaneOpen, togglePane, expandPane, renamePane, paneTitle, type WorktreePaneSet,
+  isPaneOpen, togglePane, expandPane, renamePane, paneTitle, pausedPaneSet, type WorktreePaneSet,
 } from "./paneSet";
 
 describe("paneRoles", () => {
@@ -80,6 +80,17 @@ describe("pane titles", () => {
     const set = renamePane(renamePane(EMPTY_PANE_SET, "claude", "review"), "claude", "   ");
     expect(set.titles).not.toHaveProperty("claude");
     expect(paneTitle(set, "claude", "Claude")).toBe("Claude");
+  });
+});
+
+describe("pausedPaneSet", () => {
+  it("returns to Claude only, keeping the Claude title", () => {
+    const set = renamePane(renamePane(addExtra(runHost(EMPTY_PANE_SET)), "claude", "review"), "host", "dev");
+    expect(pausedPaneSet(set)).toEqual({ ...EMPTY_PANE_SET, titles: { claude: "review" } });
+  });
+
+  it("is null when there is nothing to keep", () => {
+    expect(pausedPaneSet(addExtra(EMPTY_PANE_SET))).toBeNull();
   });
 });
 

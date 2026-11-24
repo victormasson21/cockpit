@@ -62,7 +62,7 @@ export function SlotColumn({ value, onSelect, onClose }: { value: string | null;
     setMenuOpen(false);
     const wt = entity.worktree;
     await killPanes(wt.id, liveRoles(wt.id));
-    useSettings.getState().resetWorktreePanes(wt.id);
+    useSettings.getState().pauseWorktreePanes(wt.id);
     useSettings.getState().markRestored(wt.id);
     const sessionId = await latestClaudeSession(claudeCwd(wt))
       .catch((e) => { console.error("claude session lookup failed", e); return null; });

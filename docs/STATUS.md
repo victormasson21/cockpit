@@ -1012,6 +1012,6 @@ moves to the line start or end (`Ctrl-A` / `Ctrl-E`), the same bytes VS Code sen
 
 ✅ **Editable pane titles (2026-11-24).** Click a worktree pane's title to rename it; Enter or blur saves,
 Escape cancels, a blank title restores the default (`Claude`, `localhost`, `Terminal`). Titles live in the
-pane set (`titles` in `WorktreePaneSet` and the Rust `PaneSet`), so they survive a restart; Pause and Close
-drop them with the rest of the pane state. Header buttons are tighter (`2px 4px`) to give the title room.
+pane set (`titles` in `WorktreePaneSet` and the Rust `PaneSet`), so they survive a restart and Pause
+(`pausedPaneSet` keeps the Claude pane's title); closing a pane or deleting the worktree drops them. Header buttons are tighter (`2px 4px`) to give the title room.
 Scratch and notepad panes keep a fixed title.
