@@ -1009,3 +1009,9 @@ a click opened nothing. `useTerminal` now passes `linkHandler` and opens them wi
 a wrapped link carries the full URL. Option+Left/Right moves by word (`ESC b` / `ESC f`) and Cmd+Left/Right
 moves to the line start or end (`Ctrl-A` / `Ctrl-E`), the same bytes VS Code sends (`cursorMoveSequence` in
 `keys.ts`). Plain-text URLs that a program hard-wraps stay clickable on the first row only.
+
+✅ **Editable pane titles (2026-11-24).** Click a worktree pane's title to rename it; Enter or blur saves,
+Escape cancels, a blank title restores the default (`Claude`, `localhost`, `Terminal`). Titles live in the
+pane set (`titles` in `WorktreePaneSet` and the Rust `PaneSet`), so they survive a restart; Pause and Close
+drop them with the rest of the pane state. Header buttons are tighter (`2px 4px`) to give the title room.
+Scratch and notepad panes keep a fixed title.

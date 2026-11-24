@@ -28,7 +28,19 @@
   background: var(--surface-panel); color: var(--tx-2);
   font-size: var(--fs-xs); user-select: none; border-bottom: 1px solid var(--divider);
 }
-.wt-pane__title { font-weight: 600; }
+.wt-pane__title { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wt-pane__header button.wt-pane__title--editable {
+  flex: 0 1 auto; padding: 1px 4px; margin-left: -4px;
+  background: none; border: none; border-radius: var(--r-sm);
+  color: inherit; font: inherit; font-weight: 600; cursor: text;
+}
+.wt-pane__header button.wt-pane__title--editable:hover { background: var(--hover); }
+.wt-pane .wt-pane__header input.wt-pane__title-edit {
+  flex: 1 1 auto; min-width: 0; padding: 0 3px; margin-left: -4px;
+  font-family: var(--ui); font-size: inherit; font-weight: 600;
+  color: var(--tx-hi); background: var(--bg-3);
+  border: 1px solid var(--bdr); border-radius: var(--r-sm);
+}
 
 /* per-pane leading icon: masked PNG glyph tinted with the theme (alpha-only source). */
 .wt-ico {
@@ -43,8 +55,9 @@
 .wt-ico--claude { -webkit-mask-image: url("../../assets/icons/claude-code.png"); mask-image: url("../../assets/icons/claude-code.png"); }
 .wt-ico--terminal { -webkit-mask-image: url("../../assets/icons/terminal.png"); mask-image: url("../../assets/icons/terminal.png"); }
 /* SVG-icon size (1em) + position deltas on top of the shared .icon-btn baseline.
-   Slim the vertical padding (keeping the wide horizontal click area) to keep the header narrow. */
-.wt-pane__restart, .wt-pane__close, .wt-pane__expand, .wt-pane__chevron { font-size: var(--fs-2xl); padding-top: 2px; padding-bottom: 2px; }
+   Slim padding on both axes keeps the header narrow and leaves room for the title. */
+.wt-pane__restart, .wt-pane__close, .wt-pane__expand, .wt-pane__chevron { font-size: var(--fs-2xl); }
+.wt-pane__header .icon-btn { padding: 2px 4px; }
 .wt-pane__restart { margin-left: auto; }
 .wt-pane__body { flex: 1; min-height: 0; padding: var(--space-1); background: var(--term-panel); }
 .wt-pane__body .xterm .xterm-viewport { background-color: transparent; }

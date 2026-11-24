@@ -8,7 +8,7 @@ import {
 } from "../../views/slots";
 import { createWorktree, deduceWorktree } from "../../worktrees/api";
 import { startDeduceFlow, type DeduceFlowSession } from "../../worktrees/deduceFlow";
-import { addExtra, EMPTY_PANE_SET, expandPane, removePane, runHost, togglePane, type WorktreePaneSet } from "../../worktrees/paneSet";
+import { addExtra, EMPTY_PANE_SET, expandPane, removePane, renamePane, runHost, togglePane, type WorktreePaneSet } from "../../worktrees/paneSet";
 import type { WorktreeSource } from "../../worktrees/worktreeContext";
 import type { SettingsSlice, View } from "../storeState";
 import { makeSetSession } from "./persist";
@@ -57,6 +57,7 @@ export interface WorkspaceSlice {
   removeWorktreePane: (id: string, role: string) => void;
   toggleWorktreePane: (id: string, role: string) => void;
   expandWorktreePane: (id: string, role: string) => void;
+  renameWorktreePane: (id: string, role: string, title: string) => void;
   resetWorktreePanes: (id: string) => void;
 }
 
@@ -183,6 +184,8 @@ export const createWorkspaceSlice: SettingsSlice<WorkspaceSlice> = (set, get) =>
       setSession((st) => ({ worktreePanes: { ...st.worktreePanes, [id]: togglePane(st.worktreePanes[id] ?? EMPTY_PANE_SET, role) } })),
     expandWorktreePane: (id, role) =>
       setSession((st) => ({ worktreePanes: { ...st.worktreePanes, [id]: expandPane(st.worktreePanes[id] ?? EMPTY_PANE_SET, role) } })),
+    renameWorktreePane: (id, role, title) =>
+      setSession((st) => ({ worktreePanes: { ...st.worktreePanes, [id]: renamePane(st.worktreePanes[id] ?? EMPTY_PANE_SET, role, title) } })),
     // No-op (same object) when absent, so resetting an untouched worktree never re-renders.
     resetWorktreePanes: (id) =>
       setSession((st) => {

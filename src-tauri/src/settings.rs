@@ -208,6 +208,8 @@ pub struct PaneSet {
     pub seq: u32,
     #[serde(default)]
     pub open: std::collections::HashMap<String, bool>,
+    #[serde(default)]
+    pub titles: std::collections::HashMap<String, String>,
 }
 
 // Session-restore state: which entity sits in which Worktrees column (None = a shown-but-empty column),
@@ -592,7 +594,7 @@ mod tests {
 
     #[test]
     fn workspace_round_trips_slots_scratch_and_panes() {
-        let json = r#"{"version":1,"tiles":[],"worktrees":[],"workspace":{"slots":["wt-1",null,"scratch-1"],"scratch":[{"id":"scratch-1","title":"Scratch 1"}],"scratchSeq":1,"panes":{"wt-1":{"host":true,"extras":["shell-1"],"seq":1,"open":{"claude":true,"shell-1":false}}}},"preferences":{"theme":"system","defaultView":"worktrees"}}"#;
+        let json = r#"{"version":1,"tiles":[],"worktrees":[],"workspace":{"slots":["wt-1",null,"scratch-1"],"scratch":[{"id":"scratch-1","title":"Scratch 1"}],"scratchSeq":1,"panes":{"wt-1":{"host":true,"extras":["shell-1"],"seq":1,"open":{"claude":true,"shell-1":false},"titles":{"claude":"review"}}}},"preferences":{"theme":"system","defaultView":"worktrees"}}"#;
         let cfg: CockpitConfig = serde_json::from_str(json).unwrap();
         let ws = cfg.workspace.unwrap();
         assert_eq!(ws.slots, vec![Some("wt-1".to_string()), None, Some("scratch-1".to_string())]);
@@ -603,5 +605,12 @@ mod tests {
         assert_eq!(panes.extras, vec!["shell-1"]);
         assert_eq!(panes.seq, 1);
         assert_eq!(panes.open["shell-1"], false);
+        assert_eq!(panes.titles["claude"], "review");
+    }
+
+    #[test]
+    fn pane_set_without_titles_loads_with_none() {
+        let panes: PaneSet = serde_json::from_str(r#"{"host":false,"extras":[],"seq":0,"open":{}}"#).unwrap();
+        assert!(panes.titles.is_empty());
     }
 }

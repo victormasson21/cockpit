@@ -51,7 +51,7 @@ describe("removeWorktree detaches everything keyed to the worktree", () => {
       cockpit: { ...structuredClone(baseCockpit), worktrees: [sampleWt] },
       initialPromptPending: { "wt-1": true },
       restoredWorktrees: { "wt-1": true },
-      worktreePanes: { "wt-1": { host: true, extras: [], seq: 0, open: {} } },
+      worktreePanes: { "wt-1": { host: true, extras: [], seq: 0, open: {}, titles: {} } },
     });
     useSettings.getState().removeWorktree("wt-1");
     const st = useSettings.getState();

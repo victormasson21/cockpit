@@ -6,10 +6,11 @@ export type WorktreePaneSet = {
   extras: string[]; // extra-shell roles ("shell-<n>"), max MAX_EXTRAS
   seq: number; // monotonic per worktree — a closed pane's role (and PTY scrollback) is never reused
   open: Record<string, boolean>; // collapse state per role; absent = open
+  titles: Record<string, string>;
 };
 
 export const MAX_EXTRAS = 2;
-export const EMPTY_PANE_SET: WorktreePaneSet = { host: false, extras: [], seq: 0, open: {} };
+export const EMPTY_PANE_SET: WorktreePaneSet = { host: false, extras: [], seq: 0, open: {}, titles: {} };
 
 // All live roles in render order: claude first, then host, then extras.
 export function paneRoles(set: WorktreePaneSet): string[] {
@@ -30,8 +31,19 @@ export function addExtra(set: WorktreePaneSet): WorktreePaneSet {
 // Close on host/extras: drop the pane and its collapse state (the claude pane can't be removed).
 export function removePane(set: WorktreePaneSet, role: string): WorktreePaneSet {
   const { [role]: _, ...open } = set.open;
-  if (role === "host") return { ...set, host: false, open };
-  return { ...set, extras: set.extras.filter((r) => r !== role), open };
+  const { [role]: __, ...titles } = set.titles;
+  if (role === "host") return { ...set, host: false, open, titles };
+  return { ...set, extras: set.extras.filter((r) => r !== role), open, titles };
+}
+
+export function renamePane(set: WorktreePaneSet, role: string, raw: string): WorktreePaneSet {
+  const { [role]: _, ...titles } = set.titles;
+  const title = raw.trim();
+  return { ...set, titles: title ? { ...titles, [role]: title } : titles };
+}
+
+export function paneTitle(set: WorktreePaneSet, role: string, fallback: string): string {
+  return set.titles[role] ?? fallback;
 }
 
 export function isPaneOpen(set: WorktreePaneSet, role: string): boolean {

@@ -18,10 +18,13 @@ type PaneChrome = {
   // Overrides the built-in close (kill + respawn bare). Removable panes (host/extras) pass a
   // handler that kills the PTY and removes the pane from the column instead.
   onClose?: () => void;
+  onRename?: (title: string) => void;
 };
 
-export function WorktreePane({ title, icon, badge, action, open: openProp, onToggle, onExpand, onClose, ...args }: UseTerminalArgs & PaneChrome) {
+export function WorktreePane({ title, icon, badge, action, open: openProp, onToggle, onExpand, onClose, onRename, ...args }: UseTerminalArgs & PaneChrome) {
   const { containerRef, restart, close } = useTerminal(args);
+  const [editing, setEditing] = useState(false);
+  const commitTitle = (raw: string) => { onRename?.(raw); setEditing(false); };
   // "Keystrokes land here": true while focus is inside this pane's terminal body. Local state, not
   // the store — unlike attention (a bell in a background pane is read by SlotColumn), focus has no
   // remote consumer and the DOM already guarantees at most one focused pane.
@@ -50,7 +53,23 @@ export function WorktreePane({ title, icon, badge, action, open: openProp, onTog
   return (
     <div className={`wt-pane ${open ? "wt-pane--open" : "wt-pane--closed"}${focused ? " wt-pane--focused" : ""}${needsAttention ? " wt-pane--attention" : ""}`}>
       <div className="wt-pane__header">
-        {icon}<span className="wt-pane__title">{title}</span>
+        {icon}
+        {editing ? (
+          <input
+            className="wt-pane__title-edit" autoFocus defaultValue={title}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commitTitle(e.currentTarget.value);
+              else if (e.key === "Escape") setEditing(false);
+            }}
+            onBlur={(e) => commitTitle(e.target.value)}
+          />
+        ) : onRename ? (
+          <button type="button" className="wt-pane__title wt-pane__title--editable" title="rename pane" onClick={() => setEditing(true)}>
+            {title}
+          </button>
+        ) : (
+          <span className="wt-pane__title">{title}</span>
+        )}
         {needsAttention && <span className="wt-attention">Input required</span>}
         {badge}
         {action}

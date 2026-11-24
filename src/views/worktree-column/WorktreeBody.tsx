@@ -11,7 +11,7 @@ import { cdCmd, claudePaneAutostart } from "../../worktrees/claudeCmd";
 import { resolveHost, isPrimaryTree, editorRoots, claudeCwd } from "../../worktrees/model";
 import { currentBranch, branchRoots, openInEditor } from "../../worktrees/api";
 import { closePane } from "../../worktrees/paneLifecycle";
-import { EMPTY_PANE_SET, MAX_EXTRAS, isPaneOpen } from "../../worktrees/paneSet";
+import { EMPTY_PANE_SET, MAX_EXTRAS, isPaneOpen, paneTitle } from "../../worktrees/paneSet";
 import { CopyIcon, PlayIcon, PlusIcon } from "../icons";
 
 export function WorktreeBody({ worktree }: { worktree: Worktree }) {
@@ -21,6 +21,7 @@ export function WorktreeBody({ worktree }: { worktree: Worktree }) {
   const addShellPane = useSettings((s) => s.addShellPane);
   const toggleWorktreePane = useSettings((s) => s.toggleWorktreePane);
   const expandWorktreePane = useSettings((s) => s.expandWorktreePane);
+  const renameWorktreePane = useSettings((s) => s.renameWorktreePane);
   const knownRepos = useSettings((s) => s.cockpit.knownRepos);
   const updateWorktree = useSettings((s) => s.updateWorktree);
   const [claudeRunCmd, setClaudeRunCmd] = useState<string>();
@@ -54,7 +55,9 @@ export function WorktreeBody({ worktree }: { worktree: Worktree }) {
     );
   };
 
-  const paneProps = (role: string) => ({
+  const paneProps = (role: string, defaultTitle: string) => ({
+    title: paneTitle(paneSet, role, defaultTitle),
+    onRename: (title: string) => renameWorktreePane(worktree.id, role, title),
     open: isPaneOpen(paneSet, role),
     onToggle: () => toggleWorktreePane(worktree.id, role),
     onExpand: () => expandWorktreePane(worktree.id, role),
@@ -109,7 +112,7 @@ export function WorktreeBody({ worktree }: { worktree: Worktree }) {
       <div className="wt-col__panes">
         {/* attention highlight (border/glow + badge) is owned by WorktreePane via the live store. */}
         <WorktreePane
-          title="Claude Code" icon={<span className="wt-ico wt-ico--claude" aria-hidden />}
+          icon={<span className="wt-ico wt-ico--claude" aria-hidden />}
           worktreeId={worktree.id} role="claude" cwd={claudeCwd(worktree)}
           autostartCmd={claudePaneAutostart(worktree.prompt, promptPending, restored, moved && worktree.worktreePath)}
           onEnsured={() => {
@@ -125,24 +128,24 @@ export function WorktreeBody({ worktree }: { worktree: Worktree }) {
           ) : undefined}
           runCmd={claudeRunCmd}
           onRan={() => setClaudeRunCmd(undefined)}
-          {...paneProps("claude")}
+          {...paneProps("claude", "Claude")}
         />
         {paneSet.host && (
           <WorktreePane
-            title="localhost" icon={<span className="wt-ico wt-ico--chrome" aria-hidden />}
+            icon={<span className="wt-ico wt-ico--chrome" aria-hidden />}
             worktreeId={worktree.id} role="host" cwd={worktree.worktreePath}
             autostartCmd={startCmd}
             onClose={() => close("host")}
-            {...paneProps("host")}
+            {...paneProps("host", "localhost")}
           />
         )}
         {paneSet.extras.map((role) => (
           <WorktreePane
             key={role}
-            title="terminal" icon={<span className="wt-ico wt-ico--terminal" aria-hidden />}
+            icon={<span className="wt-ico wt-ico--terminal" aria-hidden />}
             worktreeId={worktree.id} role={role} cwd={worktree.worktreePath}
             onClose={() => close(role)}
-            {...paneProps(role)}
+            {...paneProps(role, "Terminal")}
           />
         ))}
       </div>

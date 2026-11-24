@@ -47,7 +47,7 @@ describe("init — session restore", () => {
         slots: ["wt-3", null],
         scratch: [{ id: "scratch-1", title: "Scratch 1" }],
         scratchSeq: 1,
-        panes: { "wt-3": { host: true, extras: [], seq: 0, open: {} } },
+        panes: { "wt-3": { host: true, extras: [], seq: 0, open: {}, titles: {} } },
       },
     };
     useSettings.getState().init({ cockpit, layout: baseLayout });

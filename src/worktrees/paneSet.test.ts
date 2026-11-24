@@ -2,7 +2,7 @@
 import { describe, it, expect } from "vitest";
 import {
   EMPTY_PANE_SET, MAX_EXTRAS, paneRoles, runHost, addExtra, removePane,
-  isPaneOpen, togglePane, expandPane, type WorktreePaneSet,
+  isPaneOpen, togglePane, expandPane, renamePane, paneTitle, type WorktreePaneSet,
 } from "./paneSet";
 
 describe("paneRoles", () => {
@@ -58,6 +58,28 @@ describe("removePane", () => {
   it("removes one extra, keeps the other", () => {
     const set = removePane(addExtra(addExtra(EMPTY_PANE_SET)), "shell-1");
     expect(set.extras).toEqual(["shell-2"]);
+  });
+
+  it("forgets the removed pane's title", () => {
+    const set = removePane(renamePane(addExtra(EMPTY_PANE_SET), "shell-1", "tests"), "shell-1");
+    expect(set.titles).not.toHaveProperty("shell-1");
+  });
+});
+
+describe("pane titles", () => {
+  it("falls back to the default until renamed", () => {
+    expect(paneTitle(EMPTY_PANE_SET, "claude", "Claude")).toBe("Claude");
+  });
+
+  it("shows the trimmed custom title once renamed", () => {
+    const set = renamePane(EMPTY_PANE_SET, "claude", "  fix login bug ");
+    expect(paneTitle(set, "claude", "Claude")).toBe("fix login bug");
+  });
+
+  it("a blank rename restores the default", () => {
+    const set = renamePane(renamePane(EMPTY_PANE_SET, "claude", "review"), "claude", "   ");
+    expect(set.titles).not.toHaveProperty("claude");
+    expect(paneTitle(set, "claude", "Claude")).toBe("Claude");
   });
 });
 

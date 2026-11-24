@@ -9,7 +9,7 @@ const wt = (id: string): Worktree => ({
   host: { startCmd: "x", address: "y" }, links: [], status: "ongoing",
 });
 const minter = () => { let n = 0; return () => `k${++n}`; };
-const paneSet = { host: true, extras: ["shell-1"], seq: 1, open: { claude: true, host: true, "shell-1": false } };
+const paneSet = { host: true, extras: ["shell-1"], seq: 1, open: { claude: true, host: true, "shell-1": false }, titles: { claude: "review" } };
 const baseCockpit: CockpitConfig = {
   version: 1, tiles: [], worktrees: [], knownRepos: [], todos: [], todoLists: [],
   preferences: { theme: "system", defaultView: "worktrees" },
@@ -93,6 +93,12 @@ describe("restoreWorkspace", () => {
   it("prunes pane sets whose worktree is gone", () => {
     const r = restoreWorkspace({ ...ws, panes: { "wt-1": paneSet, "wt-gone": EMPTY_PANE_SET } }, [wt("wt-1")], minter());
     expect(Object.keys(r.worktreePanes)).toEqual(["wt-1"]);
+  });
+
+  it("fills fields a pane set saved before they existed", () => {
+    const legacy = { host: true, extras: [], seq: 0, open: {} } as unknown as typeof paneSet;
+    const r = restoreWorkspace({ ...ws, panes: { "wt-1": legacy } }, [wt("wt-1")], minter());
+    expect(r.worktreePanes["wt-1"]).toEqual({ ...legacy, titles: {} });
   });
 
   it("marks every restored worktree — slot ids and pane keys", () => {

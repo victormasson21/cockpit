@@ -3,7 +3,7 @@
 import type { CockpitConfig, WorkspaceState, Worktree } from "./types";
 import type { ScratchTerminal, Slots } from "../views/slots";
 import { SLOT_COUNT } from "../views/slots";
-import type { WorktreePaneSet } from "../worktrees/paneSet";
+import { EMPTY_PANE_SET, type WorktreePaneSet } from "../worktrees/paneSet";
 
 // The slice of store state the block is composed from (structurally satisfied by SettingsState).
 export type WorkspaceSession = {
@@ -57,7 +57,9 @@ export function restoreWorkspace(
     id: id && (worktreeIds.has(id) || scratchIds.has(id)) ? id : null,
   }));
   const worktreePanes = Object.fromEntries(
-    Object.entries(ws.panes ?? {}).filter(([id]) => worktreeIds.has(id)),
+    Object.entries(ws.panes ?? {})
+      .filter(([id]) => worktreeIds.has(id))
+      .map(([id, set]) => [id, { ...EMPTY_PANE_SET, ...set }]),
   );
   // Restored = every worktree the arrangement brings back, wherever it shows (a slot, or just a live
   // pane set) — a Claude-only worktree has no `panes` entry, so slots must be included.
