@@ -8,7 +8,8 @@
 
   --tx-hi:#2A2118; --tx:#3F352A; --tx-2:#65584A; --tx-3:#8A7C6B; --tx-4:#B3A796;
 
-  --accent:#4A82BD; --accent-strong:#3A70AA; --on-accent:#0E2135;
+  --accent:#C97B5A; --accent-strong:#B8694A; --on-accent:#2A2118;
+  --accent-soft:#EFCDB6; --accent-soft-bdr:#DDB297;
 
   --nav-active:#CC6A56;
   --btn-new:#4CB97C;
@@ -30,7 +31,4 @@
   --add-bg:rgba(76,150,90,.14); --add-mark:#3F8F52; --add-tx:#2E5E36;
   --del-bg:rgba(190,85,65,.14); --del-mark:#B4513E; --del-tx:#7A2F22;
   --hunk-tx:#3A6A9E; --hunk-bg:rgba(74,130,189,.10); --ctx-tx:#6F6458;
-
-  --pane-head:#F2D8C6;
-  --action-bg:#F2D8C6; --action-bdr:#E0B79C;
 }

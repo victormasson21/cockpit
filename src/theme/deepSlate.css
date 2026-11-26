@@ -13,6 +13,7 @@
 
   /* action / accent (steel blue) */
   --accent:#7CACE0; --accent-strong:#97C1EC; --on-accent:#0E2135;
+  --accent-soft:#234A66; --accent-soft-bdr:#345B7E;
 
   /* --- the two intentional 2b accents --- */
   --nav-active:#C15E4C;        /* active segmented-control tab fill (red) */

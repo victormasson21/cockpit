@@ -40,8 +40,7 @@
   --panel-opacity: 50%;
   --surface-panel: color-mix(in srgb, var(--surface) var(--panel-opacity), transparent);
   --term-panel: color-mix(in srgb, var(--term) var(--panel-opacity), transparent);
-  --pane-head: var(--surface-panel);
-  --action-bg: var(--surface); --action-bdr: var(--bdr);
+  --accent-soft-panel: color-mix(in srgb, var(--accent-soft) var(--panel-opacity), transparent);
 }
 
 * { box-sizing: border-box; }

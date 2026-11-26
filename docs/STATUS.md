@@ -1020,6 +1020,7 @@ Scratch and notepad panes keep a fixed title.
 Slate, unchanged) and Day (`src/theme/day.css`, the same token contract in light slate). The choice persists
 in the existing `preferences.theme` field: `light` = Day, `dark` and the old default `system` = Night.
 Day is warm beige all the way through: terminals get a light xterm palette (`DAY_TERM_THEME`, swapped live
-on toggle), and `--term`, the diff colours, pane headers (`--pane-head`) and the Run/Add buttons (`--action-*`,
-light terracotta) are tokens that Day overrides. Night keeps the old always-dark values. Theme-agnostic tokens
+on toggle), and `--term` and the diff colours are tokens that Day overrides. Day's `--accent` is terracotta
+(Start, Notepad/Diff tabs, primary buttons, focus), and the new `--accent-soft` role (light terracotta) fills pane
+headers and the Run/Add buttons; Night maps `--accent-soft` to its old surface colours, so it looks unchanged. Theme-agnostic tokens
 (fonts, radii, terminal and diff colours, panel mixes) moved from `deepSlate.css` to `tokens.css` first.

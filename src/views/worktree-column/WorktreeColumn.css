@@ -117,7 +117,7 @@
 .wt-col__actions { display: flex; gap: var(--space-2); padding: 0 var(--space-3) var(--space-3); }
 .wt-col__action {
   flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  background: var(--action-bg); color: var(--tx); border: 1px solid var(--action-bdr);
+  background: var(--accent-soft); color: var(--tx); border: 1px solid var(--accent-soft-bdr);
   border-radius: var(--r-sm); padding: 6px 0; font-size: var(--fs-md); cursor: pointer;
 }
 .wt-col__action:not(:disabled):hover { background: var(--hover); }
