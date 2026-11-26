@@ -16,6 +16,7 @@ import { BackgroundLayer } from "./background/BackgroundLayer";
 import { NewWorktreeModal } from "./views/NewWorktreeModal";
 import { SettingsModal } from "./views/SettingsModal";
 import { GearIcon } from "./views/icons";
+import { ThemeToggle } from "./views/ThemeToggle";
 import { Logo } from "./views/Logo";
 import { HeaderTimer } from "./tiles/timer/HeaderTimer";
 import { useTimer } from "./tiles/timer/timerStore";
@@ -182,6 +183,7 @@ function App() {
             <span className="wt-ico wt-ico--terminal" aria-hidden />Terminal
           </button>
           <button className="app__new" onClick={() => setCreating(true)}>+ New</button>
+          <ThemeToggle />
           <button className="app__new app__new--icon" aria-label="settings" onClick={() => setSettingsOpen(true)}><GearIcon /></button>
         </div>
       </header>

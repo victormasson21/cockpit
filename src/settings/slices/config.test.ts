@@ -109,4 +109,11 @@ describe("worktree contexts and the launch view", () => {
     useSettings.getState().setNotifyOnAttention(true);
     expect(useSettings.getState().cockpit.preferences.notifyOnAttention).toBe(true);
   });
+
+  it("setTheme persists the day/night choice", () => {
+    useSettings.getState().setTheme("light");
+    expect(useSettings.getState().cockpit.preferences.theme).toBe("light");
+    useSettings.getState().setTheme("dark");
+    expect(useSettings.getState().cockpit.preferences.theme).toBe("dark");
+  });
 });

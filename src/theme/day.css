@@ -1,0 +1,29 @@
+/* day.css — the light "Day" theme: the Deep Slate token contract in light slate. */
+:root[data-theme="day"] {
+  --bg-0:#E3EAF1; --bg-1:#EAF0F5; --bg-2:#F3F6F9; --bg-3:#DAE3EC;
+  --surface:#FFFFFF;
+
+  --bdr:#C2D0DD; --bdr-2:#9FB4C8; --divider:#D3DEE8; --bdr-soft:#B4C6D7;
+
+  --tx-hi:#0F2233; --tx:#263D52; --tx-2:#4D6479; --tx-3:#6F8599; --tx-4:#9AACBD;
+
+  --accent:#4A86C6; --accent-strong:#3A74B3; --on-accent:#0E2135;
+
+  --nav-active:#CC6A56;
+  --btn-new:#4CB97C;
+  --on-btn-new:#0E2135;
+
+  --info-tx:#2E679E; --info-bg:#DCE9F6; --info-bdr:#A9C6E4;
+
+  --ok:#2F9A5F;   --ok-bg:#DDF1E5;   --ok-tx:#1F6E43;
+  --warn:#B8892E; --warn-bg:#F6EBD2; --warn-tx:#7D5A16;
+  --bad:#C9604A;  --bad-bg:#F8E1DB;  --bad-tx:#9A3C2A;
+  --review:#3D8E95; --review-bg:#DCEFF0; --review-tx:#24666C; --review-bdr:#9CCBCF;
+
+  --hover: rgba(15,34,51,.06);
+
+  --overlay: rgba(15,34,51,.35);
+  --bad-rgb: 201,96,74;
+  --menu-shadow: 0 8px 24px rgba(15,34,51,.18);
+  --term-panel: var(--term);
+}

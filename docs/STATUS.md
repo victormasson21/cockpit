@@ -1015,3 +1015,10 @@ Escape cancels, a blank title restores the default (`Claude`, `localhost`, `Term
 pane set (`titles` in `WorktreePaneSet` and the Rust `PaneSet`), so they survive a restart and Pause
 (`pausedPaneSet` keeps the Claude pane's title); closing a pane or deleting the worktree drops them. Header buttons are tighter (`2px 4px`) to give the title room.
 Scratch and notepad panes keep a fixed title.
+
+✅ **Day/night mode (2026-11-26).** A sun/moon button in the header flips the chrome between Night (Deep
+Slate, unchanged) and Day (`src/theme/day.css`, the same token contract in light slate). The choice persists
+in the existing `preferences.theme` field: `light` = Day, `dark` and the old default `system` = Night.
+Terminals, the diff hunks and the notepad editor stay dark in both modes; Day makes the terminal panel
+opaque so a half-transparent dark pane does not turn grey over the light ground. Theme-agnostic tokens
+(fonts, radii, terminal and diff colours, panel mixes) moved from `deepSlate.css` to `tokens.css` first.

@@ -1,13 +1,23 @@
-// ThemeProvider.test.ts — applyTheme must brand the given root element with the active theme.
+// ThemeProvider.test.ts — the theme preference picks Day or Night, and applyTheme brands the root with it.
 import { describe, it, expect } from "vitest";
-import { applyTheme, THEME } from "./ThemeProvider";
+import { applyTheme, themeFor, DAY_THEME, NIGHT_THEME } from "./ThemeProvider";
+
+describe("themeFor", () => {
+  it("maps light to the day theme", () => {
+    expect(themeFor("light")).toBe(DAY_THEME);
+  });
+
+  it("keeps night for dark and system", () => {
+    expect(themeFor("dark")).toBe(NIGHT_THEME);
+    expect(themeFor("system")).toBe(NIGHT_THEME);
+  });
+});
 
 describe("applyTheme", () => {
-  it("sets data-theme to the active theme on the root element", () => {
+  it("sets data-theme to the given theme on the root element", () => {
     const calls: [string, string][] = [];
     const fakeRoot = { setAttribute: (k: string, v: string) => calls.push([k, v]) };
-    applyTheme(fakeRoot);
-    expect(THEME).toBe("deep-slate");
-    expect(calls).toEqual([["data-theme", "deep-slate"]]);
+    applyTheme(fakeRoot, DAY_THEME);
+    expect(calls).toEqual([["data-theme", "day"]]);
   });
 });

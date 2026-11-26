@@ -1,6 +1,6 @@
 // config.ts — the persisted cockpit.json config itself: the raw blocks, the one setCockpit writer every
 // other slice funnels through, the worktree model list, known repos, and the per-source deduce contexts.
-import type { CockpitConfig, HostConfig, LayoutConfig, Worktree } from "../types";
+import type { CockpitConfig, HostConfig, LayoutConfig, Preferences, Worktree } from "../types";
 import type { SettingsSlice, View } from "../storeState";
 import type { WorktreeSource } from "../../worktrees/worktreeContext";
 import { clearEntity } from "../../views/slots";
@@ -22,6 +22,7 @@ export interface ConfigSlice {
   setWorktreeContext: (source: WorktreeSource, text: string) => void;
   setDefaultView: (v: View) => void;
   setBackground: (id: string) => void;
+  setTheme: (theme: Preferences["theme"]) => void;
   setNotifyOnAttention: (on: boolean) => void;
 }
 
@@ -74,6 +75,7 @@ export const createConfigSlice: SettingsSlice<ConfigSlice> = (set, get) => {
     // The view you switch to becomes the view you launch into (defaultView has no other writer).
     setDefaultView: (v) => get().setCockpit((c) => ({ ...c, preferences: { ...c.preferences, defaultView: v } })),
     setBackground: (id) => get().setCockpit((c) => ({ ...c, preferences: { ...c.preferences, background: id } })),
+    setTheme: (theme) => get().setCockpit((c) => ({ ...c, preferences: { ...c.preferences, theme } })),
     setNotifyOnAttention: (on) =>
       get().setCockpit((c) => ({ ...c, preferences: { ...c.preferences, notifyOnAttention: on } })),
   };

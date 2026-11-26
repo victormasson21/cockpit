@@ -160,3 +160,20 @@ export function FolderIcon() {
     </svg>
   );
 }
+
+export function SunIcon() {
+  return (
+    <svg viewBox="0 0 16 16" {...base} aria-hidden="true">
+      <circle cx="8" cy="8" r="2.8" />
+      <path d="M8 1.5v1.4M8 13.1v1.4M1.5 8h1.4M13.1 8h1.4M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1" />
+    </svg>
+  );
+}
+
+export function MoonIcon() {
+  return (
+    <svg viewBox="0 0 16 16" {...base} aria-hidden="true">
+      <path d="M13.2 9.8A5.5 5.5 0 1 1 6.2 2.8a4.4 4.4 0 0 0 7 7z" />
+    </svg>
+  );
+}
