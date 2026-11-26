@@ -8,19 +8,19 @@
 
   --tx-hi:#2A2118; --tx:#3F352A; --tx-2:#65584A; --tx-3:#8A7C6B; --tx-4:#B3A796;
 
-  --accent:#C97B5A; --accent-strong:#B8694A; --on-accent:#2A2118;
-  --accent-soft:#EFCDB6; --accent-soft-bdr:#DDB297;
+  --accent:#B9694A; --accent-strong:#A65A3D; --on-accent:#2A2118;
+  --accent-soft:#E8BEA3; --accent-soft-bdr:#D6A587;
 
   --nav-active:#CC6A56;
   --btn-new:#4CB97C;
   --on-btn-new:#0E2135;
 
-  --info-tx:#2E679E; --info-bg:#E3EAF0; --info-bdr:#B5C7D8;
+  --info-tx:#8A4228; --info-bg:#F2D9C8; --info-bdr:#D6A587;
 
   --ok:#3E8F4E;   --ok-bg:#E2EFDD;   --ok-tx:#2B6B37;
   --warn:#B08128; --warn-bg:#F5E8CC; --warn-tx:#7A5714;
   --bad:#C25A44;  --bad-bg:#F7DDD3;  --bad-tx:#93391F;
-  --review:#3D8E8A; --review-bg:#DDEDEA; --review-tx:#25645F; --review-bdr:#A6CDC8;
+  --review:#B9694A; --review-bg:#F2D9C8; --review-tx:#8A4228; --review-bdr:#D6A587;
 
   --hover: rgba(60,45,25,.06);
 
