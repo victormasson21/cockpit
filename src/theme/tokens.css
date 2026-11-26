@@ -24,6 +24,21 @@
   /* One worktree tile's comfortable width — shared by the Worktrees view's single-column mode and the
      Cockpit view's right column so the same worktree's terminals never re-fit when you switch views. */
   --wt-col-w: 720px;
+
+  /* type + shape */
+  --ui: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+  --r: 13px;  --r-sm: 9px;
+
+  --term:#0E1F2D;
+  /* diff lines — live on the ALWAYS-DARK terminal body, constant regardless
+     of chrome theme, so keep these fixed */
+  --add-bg:rgba(79,155,110,.16); --add-mark:#56C486; --add-tx:#A9D8BC;
+  --del-bg:rgba(166,90,77,.20);  --del-mark:#C56F60; --del-tx:#E0B3AB;
+
+  --panel-opacity: 50%;
+  --surface-panel: color-mix(in srgb, var(--surface) var(--panel-opacity), transparent);
+  --term-panel: color-mix(in srgb, var(--term) var(--panel-opacity), transparent);
 }
 
 * { box-sizing: border-box; }
