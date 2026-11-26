@@ -35,10 +35,13 @@
      of chrome theme, so keep these fixed */
   --add-bg:rgba(79,155,110,.16); --add-mark:#56C486; --add-tx:#A9D8BC;
   --del-bg:rgba(166,90,77,.20);  --del-mark:#C56F60; --del-tx:#E0B3AB;
+  --hunk-tx:#8fb6e0; --hunk-bg:rgba(143,182,224,.08); --ctx-tx:#9aa3b2;
 
   --panel-opacity: 50%;
   --surface-panel: color-mix(in srgb, var(--surface) var(--panel-opacity), transparent);
   --term-panel: color-mix(in srgb, var(--term) var(--panel-opacity), transparent);
+  --pane-head: var(--surface-panel);
+  --action-bg: var(--surface); --action-bdr: var(--bdr);
 }
 
 * { box-sizing: border-box; }

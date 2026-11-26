@@ -1,29 +1,36 @@
-/* day.css — the light "Day" theme: the Deep Slate token contract in light slate. */
+/* day.css — the light "Day" theme: the Deep Slate token contract in warm beige. */
 :root[data-theme="day"] {
-  --bg-0:#E3EAF1; --bg-1:#EAF0F5; --bg-2:#F3F6F9; --bg-3:#DAE3EC;
-  --surface:#FFFFFF;
+  --bg-0:#EFE7DA; --bg-1:#F3ECE1; --bg-2:#F8F3EA; --bg-3:#E8DFCF;
+  --surface:#FFFBF4;
+  --term:#FBF7EF;
 
-  --bdr:#C2D0DD; --bdr-2:#9FB4C8; --divider:#D3DEE8; --bdr-soft:#B4C6D7;
+  --bdr:#D9CCB7; --bdr-2:#BFAE94; --divider:#E4D9C7; --bdr-soft:#CDBEA6;
 
-  --tx-hi:#0F2233; --tx:#263D52; --tx-2:#4D6479; --tx-3:#6F8599; --tx-4:#9AACBD;
+  --tx-hi:#2A2118; --tx:#3F352A; --tx-2:#65584A; --tx-3:#8A7C6B; --tx-4:#B3A796;
 
-  --accent:#4A86C6; --accent-strong:#3A74B3; --on-accent:#0E2135;
+  --accent:#4A82BD; --accent-strong:#3A70AA; --on-accent:#0E2135;
 
   --nav-active:#CC6A56;
   --btn-new:#4CB97C;
   --on-btn-new:#0E2135;
 
-  --info-tx:#2E679E; --info-bg:#DCE9F6; --info-bdr:#A9C6E4;
+  --info-tx:#2E679E; --info-bg:#E3EAF0; --info-bdr:#B5C7D8;
 
-  --ok:#2F9A5F;   --ok-bg:#DDF1E5;   --ok-tx:#1F6E43;
-  --warn:#B8892E; --warn-bg:#F6EBD2; --warn-tx:#7D5A16;
-  --bad:#C9604A;  --bad-bg:#F8E1DB;  --bad-tx:#9A3C2A;
-  --review:#3D8E95; --review-bg:#DCEFF0; --review-tx:#24666C; --review-bdr:#9CCBCF;
+  --ok:#3E8F4E;   --ok-bg:#E2EFDD;   --ok-tx:#2B6B37;
+  --warn:#B08128; --warn-bg:#F5E8CC; --warn-tx:#7A5714;
+  --bad:#C25A44;  --bad-bg:#F7DDD3;  --bad-tx:#93391F;
+  --review:#3D8E8A; --review-bg:#DDEDEA; --review-tx:#25645F; --review-bdr:#A6CDC8;
 
-  --hover: rgba(15,34,51,.06);
+  --hover: rgba(60,45,25,.06);
 
-  --overlay: rgba(15,34,51,.35);
-  --bad-rgb: 201,96,74;
-  --menu-shadow: 0 8px 24px rgba(15,34,51,.18);
-  --term-panel: var(--term);
+  --overlay: rgba(42,33,24,.35);
+  --bad-rgb: 194,90,68;
+  --menu-shadow: 0 8px 24px rgba(42,33,24,.18);
+
+  --add-bg:rgba(76,150,90,.14); --add-mark:#3F8F52; --add-tx:#2E5E36;
+  --del-bg:rgba(190,85,65,.14); --del-mark:#B4513E; --del-tx:#7A2F22;
+  --hunk-tx:#3A6A9E; --hunk-bg:rgba(74,130,189,.10); --ctx-tx:#6F6458;
+
+  --pane-head:#F2D8C6;
+  --action-bg:#F2D8C6; --action-bdr:#E0B79C;
 }

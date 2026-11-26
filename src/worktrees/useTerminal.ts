@@ -12,6 +12,8 @@ import { ptyPane, type PtyPane } from "./ptyPane";
 import { shouldInsertNewline, NEWLINE_ESCAPE, cursorMoveSequence } from "./keys";
 import { shouldFit } from "./fit";
 import { useSettings } from "../settings/store";
+import type { Preferences } from "../settings/types";
+import { themeFor, DAY_THEME } from "../theme/ThemeProvider";
 
 export interface UseTerminalArgs {
   worktreeId: string;
@@ -53,6 +55,32 @@ const TERM_THEME = {
   brightWhite: "#e7ebf2",  // bright text
 };
 
+const DAY_TERM_THEME = {
+  background: "#00000000",
+  foreground: "#3d352c",
+  cursor: "#2a231c",
+  cursorAccent: "#FBF7EF",
+  selectionBackground: "rgba(176,129,40,0.22)",
+  black: "#3d352c",
+  red: "#b5412f",
+  green: "#3f7d3a",
+  yellow: "#8a6417",
+  blue: "#2f62a3",
+  magenta: "#8a4aa6",
+  cyan: "#2c7b80",
+  white: "#6f6458",
+  brightBlack: "#8c8072",
+  brightRed: "#c4523e",
+  brightGreen: "#4d8f47",
+  brightYellow: "#9c7420",
+  brightBlue: "#3b74b8",
+  brightMagenta: "#9a59b6",
+  brightCyan: "#358b90",
+  brightWhite: "#2a231c",
+};
+
+const termThemeFor = (pref: Preferences["theme"]) => (themeFor(pref) === DAY_THEME ? DAY_TERM_THEME : TERM_THEME);
+
 const openLink = (_event: MouseEvent, uri: string) => { void openUrl(uri); };
 
 // Mount an xterm into a div and keep it attached to the (worktree, role) PTY for the component's lifetime.
@@ -71,6 +99,7 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured, ru
   const onRanRef = useRef(onRan);
   onRanRef.current = onRan;
   const fontScale = useSettings((s) => s.fontScale);
+  const themePref = useSettings((s) => s.cockpit.preferences.theme);
 
   useEffect(() => {
     const pane = ptyPane(worktreeId, role);
@@ -84,7 +113,7 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured, ru
       scrollback: 10000, // Claude sessions blow past xterm's 1000-line default
       fontSize: termFontSize(useSettings.getState().fontScale),
       fontFamily: '"JetBrains Mono", ui-monospace, monospace',
-      theme: TERM_THEME,
+      theme: termThemeFor(useSettings.getState().cockpit.preferences.theme),
       linkHandler: { activate: openLink },
     });
     termRef.current = term;
@@ -186,6 +215,10 @@ export function useTerminal({ worktreeId, role, cwd, autostartCmd, onEnsured, ru
     term.options.fontSize = termFontSize(fontScale);
     fit.fit();
   }, [fontScale]);
+
+  useEffect(() => {
+    if (termRef.current) termRef.current.options.theme = termThemeFor(themePref);
+  }, [themePref]);
 
   // Kill then re-ensure at the terminal's CURRENT size. `cmd` decides what comes back:
   // restart re-runs the role's autostart; close respawns a BARE shell (a dead pane with no

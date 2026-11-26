@@ -1019,6 +1019,7 @@ Scratch and notepad panes keep a fixed title.
 ✅ **Day/night mode (2026-11-26).** A sun/moon button in the header flips the chrome between Night (Deep
 Slate, unchanged) and Day (`src/theme/day.css`, the same token contract in light slate). The choice persists
 in the existing `preferences.theme` field: `light` = Day, `dark` and the old default `system` = Night.
-Terminals, the diff hunks and the notepad editor stay dark in both modes; Day makes the terminal panel
-opaque so a half-transparent dark pane does not turn grey over the light ground. Theme-agnostic tokens
+Day is warm beige all the way through: terminals get a light xterm palette (`DAY_TERM_THEME`, swapped live
+on toggle), and `--term`, the diff colours, pane headers (`--pane-head`) and the Run/Add buttons (`--action-*`,
+light terracotta) are tokens that Day overrides. Night keeps the old always-dark values. Theme-agnostic tokens
 (fonts, radii, terminal and diff colours, panel mixes) moved from `deepSlate.css` to `tokens.css` first.

@@ -48,7 +48,7 @@
    (constant regardless of chrome theme, so hex here is deliberate, not a missed token). */
 .wt-diff__hunks { background: var(--term); overflow-x: auto; font-family: var(--mono); font-size: var(--fs-xs); line-height: 1.6; padding: var(--space-2) 0; }
 .wt-diff__line { white-space: pre; padding: 1px 12px; }
-.wt-diff__line--hunk { color: #8fb6e0; background: rgba(143, 182, 224, 0.08); }
+.wt-diff__line--hunk { color: var(--hunk-tx); background: var(--hunk-bg); }
 .wt-diff__line--add { color: var(--add-tx); background: var(--add-bg); }
 .wt-diff__line--del { color: var(--del-tx); background: var(--del-bg); }
-.wt-diff__line--ctx { color: #9aa3b2; }
+.wt-diff__line--ctx { color: var(--ctx-tx); }

@@ -25,7 +25,7 @@
 .wt-pane__header {
   display: flex; align-items: center; gap: var(--space-2);
   padding: var(--space-1) var(--space-2);
-  background: var(--surface-panel); color: var(--tx-2);
+  background: var(--pane-head); color: var(--tx-2);
   font-size: var(--fs-xs); user-select: none; border-bottom: 1px solid var(--divider);
 }
 .wt-pane__title { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
